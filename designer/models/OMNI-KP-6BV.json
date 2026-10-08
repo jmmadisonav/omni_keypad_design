@@ -1,6 +1,7 @@
 {
   "id": "OMNI-KP-6BV",
   "name": "6BV",
+  "aliases": ["OMNI-KP-T6BV"],
   "columns": 2,
   "rows": 3,
   "dial": true,

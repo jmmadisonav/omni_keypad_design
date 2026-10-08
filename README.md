@@ -135,15 +135,22 @@ up one number, so update any app that uses their paths.
 
 The designer supports these OMNI keypads:
 
-| Model | Buttons | Dial and LED ring |
-|---|---|---|
-| OMNI-KP-6B | 6, in 2 columns and 3 rows | No |
-| OMNI-KP-6BV | 6, in 2 columns and 3 rows | Yes |
-| OMNI-KP-8BV | 8, in 4 columns and 2 rows | Yes |
+| Model | Tabletop version | Buttons | Dial and LED ring |
+|---|---|---|---|
+| OMNI-KP-6B | OMNI-KP-T6B | 6, in 2 columns and 3 rows | No |
+| OMNI-KP-6BV | OMNI-KP-T6BV | 6, in 2 columns and 3 rows | Yes |
+| OMNI-KP-8BV | OMNI-KP-T8BV | 8, in 4 columns and 2 rows | Yes |
+
+The designer doesn't support the OMNI-KP-V yet.
 
 Each project is for one model. To choose it, click **New** and pick the
 model. **Load** uses the model the keypad reports. You can't change a
 project's model later. The model appears next to the project name.
+
+A tabletop keypad is the same model as its wall unit. A project for the
+OMNI-KP-8BV loads from and deploys to an OMNI-KP-T8BV, and the other way
+around. Loading from a tabletop keypad makes a project for its wall-unit
+model.
 
 If a project's model file is missing, the designer shows an error. You can
 still edit the project, but you can't deploy it until you put the model file
@@ -157,8 +164,10 @@ yet.
 nothing is uploaded.
 
 Each model is a file in `designer/models/`. If a real keypad's design differs
-from a model's template, change the template in that file. The designer
-checks the files when it starts, and names any file that's wrong.
+from a model's template, change the template in that file. A model file's
+`aliases` list the other model IDs a keypad can report for the same hardware,
+such as its tabletop version. The designer checks the files when it starts,
+and names any file that's wrong.
 
 ## Projects
 

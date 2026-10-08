@@ -4,6 +4,10 @@ Each model is a file in designer/models/: its name, button grid, whether it
 has a dial and LED ring, faceplate shape, whether it's been tested on real
 hardware, the size of its button images, and a one-page keypad.json that new
 projects start from.
+
+A model file can also list aliases: other model ids a keypad reports for
+the same hardware. The tabletop OMNI-KP-T8BV is an OMNI-KP-8BV in another
+housing, so an 8BV project loads from and deploys to either.
 """
 
 from __future__ import annotations
@@ -30,25 +34,48 @@ class Model:
     tested: bool
     image_size: int          # Button images are image_size x image_size pixels.
     template: dict
+    aliases: tuple[str, ...] = ()   # Other ids for the same hardware, such as OMNI-KP-T8BV.
 
     @property
     def buttons(self) -> int:
         return self.columns * self.rows
 
     def summary(self) -> dict:
-        return {k: v for k, v in asdict(self).items() if k != "template"}
+        return {k: list(v) if k == "aliases" else v for k, v in asdict(self).items() if k != "template"}
 
 
 def load_models(folder: str | Path = MODELS_DIR) -> dict[str, Model]:
     """Load and check every model file, ordered by button count, then dial."""
     models = [_load(path) for path in sorted(Path(folder).glob("*.json"))]
+    owner = {m.id: m.id for m in models}          # Each id and alias -> its model file.
+    for model in models:
+        for alias in model.aliases:
+            if alias in owner:
+                raise ValueError(f"the model files {owner[alias]}.json and {model.id}.json "
+                                 f"both claim {alias}")
+            owner[alias] = model.id
     return {m.id: m for m in sorted(models, key=lambda m: (m.buttons, m.dial))}
+
+
+def model_for(models: dict[str, Model], reported: str) -> str | None:
+    """Return the id of the model a keypad that reports `reported` is, or None.
+
+    A tabletop keypad reports its own id, such as OMNI-KP-T8BV, and is the
+    model that lists it as an alias.
+    """
+    if reported in models:
+        return reported
+    return next((m.id for m in models.values() if reported in m.aliases), None)
 
 
 def _load(path: Path) -> Model:
     try:
         data = json.loads(path.read_text(encoding="utf-8"))
-        model = Model(**{field: data[field] for field in Model.__dataclass_fields__})
+        fields = {field: data[field] for field in Model.__dataclass_fields__ if field != "aliases"}
+        aliases = data.get("aliases", [])
+        if not isinstance(aliases, list) or not all(isinstance(a, str) and a for a in aliases):
+            raise ValueError("aliases must be a list of model ids")
+        model = Model(**fields, aliases=tuple(aliases))
         _check(model, path)
         return model
     except (KeyError, TypeError, ValueError) as error:
