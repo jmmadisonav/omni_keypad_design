@@ -1,12 +1,10 @@
 __pycache__/
 .venv/
-backup_*.cpio
-backup_*/
-descriptor_*.json
-docs/superpowers/
-docs/OMNI_keypad_load2.pcapng
+
+# What the designer saves when you run it from source.
 designer/backups/
 designer/projects/
+designer/library/
 
 # Desktop app: Node dependencies, build products, and release artifacts.
 /node_modules
