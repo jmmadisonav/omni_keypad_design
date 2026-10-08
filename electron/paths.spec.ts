@@ -1,7 +1,7 @@
 // electron/paths.spec.ts
 import * as path from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { APP_NAME, designerDataDir, designerLocation, userDataDir } from './paths';
+import { APP_NAME, designerDataDir, designerLocation, fallbackDataDir, userDataDir } from './paths';
 
 describe('data folders', () => {
   it('are named after the app', () => {
@@ -13,6 +13,12 @@ describe('data folders', () => {
     expect(designerDataDir('C:\\Docs', { OMNI_KEYPAD_DATA_DIR: 'D:\\Try' })).toBe('D:\\Try');
     // With its own profile, and so its own single-instance lock.
     expect(userDataDir('C:\\AppData', { OMNI_KEYPAD_DATA_DIR: 'D:\\Try' })).toBe(path.join('D:\\Try', 'app-profile'));
+    // A folder you name is the only one used.
+    expect(fallbackDataDir('C:\\AppData', { OMNI_KEYPAD_DATA_DIR: 'D:\\Try' })).toBeNull();
+  });
+
+  it('fall back to AppData when Windows refuses Documents', () => {
+    expect(fallbackDataDir('C:\\AppData', {})).toBe(path.join('C:\\AppData', APP_NAME, 'Data'));
   });
 });
 

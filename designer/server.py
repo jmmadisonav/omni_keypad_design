@@ -399,25 +399,65 @@ def _exit_when_stdin_closes() -> None:
     os._exit(0)
 
 
+def open_stores(data: Path) -> tuple[ProjectStore, KeypadOps, Library]:
+    """Open the project, backup, and library folders in `data`.
+
+    Raises OSError if Windows won't let the designer write there. Making the
+    folders isn't proof: when they already exist, Controlled folder access
+    still refuses every new file in them, so a test file is written too.
+    """
+    projects = ProjectStore(data / "projects")
+    ops, library = KeypadOps(data / "backups"), Library(data / "library")
+    check = data / ".write-check"
+    check.write_bytes(b"")
+    check.unlink()
+    return projects, ops, library
+
+
+def open_data(data: Path, fallback: Path | None) -> tuple[Path, tuple[ProjectStore, KeypadOps, Library]]:
+    """Open the stores in `data`, or in `fallback` if Windows refuses `data`.
+
+    Windows Security's Controlled folder access blocks programs that aren't
+    on its list from writing to Documents, and it blocks python.exe on its
+    own, whatever it allows the desktop app. The app passes its AppData
+    folder as the fallback, which Controlled folder access doesn't protect.
+    Returns the folder used, and the stores.
+    """
+    try:
+        return data, open_stores(data)
+    except OSError as error:
+        if fallback is None:
+            raise OSError(f"The designer couldn't create its folders in {data}: {error}") from None
+        refused = error
+    print(f"Couldn't write to {data} ({refused}); using {fallback} instead.", file=sys.stderr, flush=True)
+    try:
+        return fallback, open_stores(fallback)
+    except OSError as error:
+        raise OSError(f"The designer couldn't create its folders in {data} ({refused}) "
+                      f"or in {fallback} ({error})") from None
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--port", type=int, default=8044)
     parser.add_argument("--no-browser", action="store_true", help="don't open a browser")
     parser.add_argument("--data-dir", type=Path, default=HERE,
                         help="where to keep projects, backups, and the library (default: designer/)")
+    parser.add_argument("--fallback-data-dir", type=Path,
+                        help="where to keep them instead if Windows won't let the designer write to --data-dir")
     parser.add_argument("--any-port", action="store_true",
                         help="if --port is in use, listen on a free port instead")
     parser.add_argument("--exit-with-parent", action="store_true",
                         help="stop when standard input closes, as when the app that started it exits")
     args = parser.parse_args()
-    data = args.data_dir
     try:
-        projects = ProjectStore(data / "projects")
-        ops, library = KeypadOps(data / "backups"), Library(data / "library")
+        data, (projects, ops, library) = open_data(args.data_dir, args.fallback_data_dir)
     except ValueError as error:
         sys.exit(f"The designer couldn't start: {error}")
     except OSError as error:
-        sys.exit(f"The designer couldn't create its folders in {data}: {error}")
+        sys.exit(str(error))
+    # The desktop app reads this line to learn which folder is in use.
+    print(f"Data folder: {data}", flush=True)
     try:
         server = make_server(args.port, ops, library, GraphicsZip(), projects)
     except OSError as error:

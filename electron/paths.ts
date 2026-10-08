@@ -27,6 +27,19 @@ export function designerDataDir(documentsDir: string, env: NodeJS.ProcessEnv = p
   return env.OMNI_KEYPAD_DATA_DIR || path.join(documentsDir, APP_NAME);
 }
 
+/**
+ * Where projects, backups, and the library go when Windows won't let the
+ * designer write to Documents, or null when OMNI_KEYPAD_DATA_DIR names the
+ * folder outright. Windows Security's Controlled folder access blocks
+ * programs that aren't on its list from writing to Documents, and IT
+ * policy can stop people from adding the designer to that list. It doesn't
+ * protect AppData.
+ */
+export function fallbackDataDir(appDataDir: string, env: NodeJS.ProcessEnv = process.env): string | null {
+  if (env.OMNI_KEYPAD_DATA_DIR) { return null; }
+  return path.join(appDataDir, APP_NAME, 'Data');
+}
+
 export interface DesignerLocation {
   /** The Python interpreter that runs the designer's server. */
   python: string;
