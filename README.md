@@ -163,10 +163,6 @@ Each project is a folder in `designer/projects/`:
 To open a project, choose it in **Open**. To keep a copy under another name,
 click **Save as**. To delete a project, delete its folder.
 
-Because a project folder is a complete design, you can also deploy it from
-the command line, for example
-`python 03_upload_design.py upload designer/projects/Lobby`.
-
 ## Reuse designs with the library
 
 To keep a button's layers so you can change them later, click **Save to
@@ -289,13 +285,12 @@ Publishing needs the [GitHub CLI](https://cli.github.com/), signed in with
 ## Code shared with the example code
 
 The designer started in the [OMNI Keypad example code](https://github.com/jmmadisonav/OMNI-Keypad-example-code) repo, and uses
-three of its modules, copied into this repo:
+two of its modules, copied into this repo:
 
 | File | What the designer uses it for |
 |---|---|
 | `hcontrol.py` | The HControl client: talking to keypads, and finding them on the network |
 | `keypad_design.py` | Reading and writing keypad designs (`project.cpio`) |
-| `03_upload_design.py` | Uploading a design and waiting for the keypad to restart with it |
 
 The copies change independently. When you fix a bug in one of these files,
 check whether the other repo needs the same fix.

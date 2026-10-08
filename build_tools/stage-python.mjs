@@ -30,7 +30,6 @@ export function embedZipUrl(version = PYTHON_VERSION) {
 export const DESIGNER_SOURCES = [
   'hcontrol.py',
   'keypad_design.py',
-  '03_upload_design.py',
   'designer',
   'docs/Keypad Graphics.zip',
 ];

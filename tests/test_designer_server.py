@@ -51,7 +51,7 @@ class ServerTests(unittest.TestCase):
         self.addCleanup(self.server.server_close)
         self.addCleanup(self.server.shutdown)
         self.base = f"http://127.0.0.1:{self.server.server_address[1]}"
-        patcher = mock.patch.object(keypad_ops.designs, "wait_for_design")
+        patcher = mock.patch.object(keypad_ops, "wait_for_design")
         self.wait = patcher.start()
         self.addCleanup(patcher.stop)
 
@@ -242,7 +242,7 @@ class ServerTests(unittest.TestCase):
 
     def test_failed_upload_is_502_with_backup(self):
         project = self.from_keypad()
-        with mock.patch.object(keypad_ops.designs, "upload", side_effect=ConnectionResetError("reset")):
+        with mock.patch.object(keypad_ops, "upload", side_effect=ConnectionResetError("reset")):
             status, body = self.json_request("POST", f"/api/projects/{urllib.parse.quote(project['name'])}/deploy",
                                              {"host": "127.0.0.1"})
         self.assertEqual(status, 502)
