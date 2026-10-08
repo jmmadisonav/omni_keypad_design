@@ -48,6 +48,13 @@ or F5 reloads, Ctrl+Plus, Ctrl+Minus, and Ctrl+0 zoom, F11 toggles full
 screen, and F12 or Ctrl+Shift+I opens the developer tools. To build the app,
 see [Build the desktop app](#build-the-desktop-app).
 
+If Windows doesn't let the app save to Documents, for example because Windows
+Security's Controlled folder access is on, the app keeps your projects in
+`%APPDATA%\OMNI Keypad Designer\Data` instead and tells you once. **Folder**
+opens whichever folder is in use. If you later let the app and its `python.exe`
+through Controlled folder access, it goes back to Documents, and you can move
+anything you saved in the meantime across.
+
 ## Design and deploy buttons
 
 1. The designer opens your most recent project, or a new project called

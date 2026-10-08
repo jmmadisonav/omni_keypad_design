@@ -20,10 +20,18 @@ class LaunchTests(unittest.TestCase):
                                 stdin=subprocess.PIPE, stdout=subprocess.PIPE,
                                 stderr=subprocess.PIPE, text=True)
         self.addCleanup(lambda: proc.poll() is None and proc.kill())
-        line = proc.stdout.readline()
+        self.lines = [proc.stdout.readline() for _ in range(2)]   # Data folder, then address.
+        line = "".join(self.lines)
         match = re.search(r"http://127\.0\.0\.1:(\d+)/", line)
         self.assertIsNotNone(match, line + proc.stderr.read() if proc.poll() is not None else line)
         return proc, int(match[1])
+
+    def refused_folder(self):
+        """A folder Windows can't create, as Controlled folder access refuses
+        one in Documents: it would be inside an ordinary file."""
+        blocker = Path(tempfile.mkdtemp()) / "Documents"
+        blocker.write_text("")
+        return blocker / "OMNI Keypad Designer"
 
     def test_data_dir_holds_projects_backups_and_library(self):
         data = Path(tempfile.mkdtemp())
@@ -38,6 +46,31 @@ class LaunchTests(unittest.TestCase):
         self.assertTrue((data / "library").is_dir())
         proc.stdin.close()                       # The app closing.
         self.assertEqual(proc.wait(timeout=10), 0)
+
+    def test_reports_the_data_folder(self):
+        data = Path(tempfile.mkdtemp())
+        proc, _ = self.start("--port", "0", "--data-dir", str(data), "--exit-with-parent")
+        self.assertEqual(self.lines[0].strip(), f"Data folder: {data}")
+        proc.stdin.close()
+        proc.wait(timeout=10)
+
+    def test_falls_back_when_windows_refuses_the_data_folder(self):
+        fallback = Path(tempfile.mkdtemp()) / "Data"
+        proc, _ = self.start("--port", "0", "--data-dir", str(self.refused_folder()),
+                             "--fallback-data-dir", str(fallback), "--exit-with-parent")
+        self.assertEqual(self.lines[0].strip(), f"Data folder: {fallback}")
+        self.assertTrue((fallback / "projects").is_dir())
+        proc.stdin.close()
+        proc.wait(timeout=10)
+
+    def test_says_which_folders_it_tried_when_both_are_refused(self):
+        refused = self.refused_folder()
+        result = subprocess.run([sys.executable, str(SERVER), "--no-browser", "--port", "0",
+                                 "--data-dir", str(refused), "--fallback-data-dir", str(refused)],
+                                capture_output=True, text=True, timeout=30)
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("couldn't create its folders", result.stderr)
+        self.assertIn(" or in ", result.stderr)
 
     def test_any_port_moves_off_a_port_in_use(self):
         # Another designer: Python's HTTP server sets SO_REUSEADDR, which on

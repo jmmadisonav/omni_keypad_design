@@ -18,6 +18,12 @@ export function parseServerUrl(line: string): string | null {
   return /http:\/\/127\.0\.0\.1:\d+\//.exec(line)?.[0] ?? null;
 }
 
+/** The folder in the server's "Data folder: ..." line, or null. It comes
+ * before the address, and names the fallback folder if the server used it. */
+export function parseDataDir(output: string): string | null {
+  return /^Data folder: (.+?)\r?$/m.exec(output)?.[1] ?? null;
+}
+
 /**
  * The server's command line, after the interpreter.
  *
@@ -25,19 +31,25 @@ export function parseServerUrl(line: string): string | null {
  * machine; server.py puts its own folder on the path. `--any-port` moves to a
  * free port when another program has 8044. `--exit-with-parent` stops the
  * server when its standard input closes, which happens whenever the app exits,
- * even if it crashes.
+ * even if it crashes. `--fallback-data-dir` is where the server keeps its data
+ * if Windows refuses `dataDir`. The server decides, not the app, because
+ * Controlled folder access judges python.exe separately from the app.
  */
-export function serverArgs(root: string, dataDir: string): string[] {
+export function serverArgs(root: string, dataDir: string, fallbackDir: string | null = null): string[] {
   return [
     '-I', path.join(root, 'designer', 'server.py'),
     '--no-browser', '--port', String(PREFERRED_PORT), '--any-port',
-    '--data-dir', dataDir, '--exit-with-parent',
+    '--data-dir', dataDir,
+    ...(fallbackDir ? ['--fallback-data-dir', fallbackDir] : []),
+    '--exit-with-parent',
   ];
 }
 
 export interface RunningServer {
   url: string;
   child: ChildProcess;
+  /** The folder the server keeps its data in, or null if it didn't say. */
+  dataDir: string | null;
 }
 
 /** The last few lines of what the server wrote to stderr, for an error message. */
@@ -73,7 +85,7 @@ export function startServer(python: string, args: string[], timeoutMs = START_TI
       if (url && !settled) {
         settled = true;
         clearTimeout(timer);
-        resolve({ url, child });
+        resolve({ url, child, dataDir: parseDataDir(stdout) });
       }
     });
     child.stderr.on('data', (chunk: string) => { stderr += chunk; });

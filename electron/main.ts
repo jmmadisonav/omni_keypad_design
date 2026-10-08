@@ -6,14 +6,14 @@
 // get from `python designer/server.py`.
 import { app, BrowserWindow, dialog, ipcMain, Menu, shell } from 'electron';
 import type { ChildProcess } from 'node:child_process';
-import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { AppDialogs } from './app-dialog';
+import { dataFolderNotice, lastDataDirFile, readLastDataDir, writeLastDataDir } from './data-folder';
 import { LicenseClient } from './license/license';
 import { runLicensing } from './license/license-ui';
 import { registryLicenseStore } from './license/registry';
 import { setPromptFontDir } from './license/serial-prompt';
-import { APP_NAME, designerDataDir, designerLocation, userDataDir } from './paths';
+import { APP_NAME, designerDataDir, designerLocation, fallbackDataDir, userDataDir } from './paths';
 import { serverArgs, startServer } from './server-process';
 import { shortcutFor } from './shortcuts';
 
@@ -41,7 +41,11 @@ if (!isPrimaryInstance) {
 /** `dist-electron/electron` -> the repo root, when run from source. */
 const REPO_ROOT = path.join(__dirname, '..', '..');
 
-const dataDir = designerDataDir(app.getPath('documents'));
+/** Documents, unless Windows refuses it; then the server uses the fallback in
+ * AppData, and `dataDir` becomes whichever one it reports. */
+const primaryDataDir = designerDataDir(app.getPath('documents'));
+const fallbackDir = fallbackDataDir(app.getPath('appData'));
+let dataDir = primaryDataDir;
 
 function sendToWindow(win: BrowserWindow | null, channel: string, ...args: unknown[]): void {
   if (!win || win.isDestroyed() || win.webContents.isDestroyed()) { return; }
@@ -152,13 +156,25 @@ function startLicensing(win: BrowserWindow): Promise<void> {
     .catch(error => console.error('Licensing failed:', error));
 }
 
+/** Tells you if your projects moved to or from the fallback folder since the
+ * last start -- see electron/data-folder.ts. */
+async function noteDataFolder(): Promise<void> {
+  const file = lastDataDirFile(app.getPath('userData'));
+  const notice = dataFolderNotice(readLastDataDir(file), dataDir, { primary: primaryDataDir, fallback: fallbackDir });
+  writeLastDataDir(file, dataDir);
+  if (notice) { await appDialogs.show(notice); }
+}
+
 async function start(): Promise<void> {
   const where = designerLocation(app.isPackaged, process.resourcesPath, REPO_ROOT);
   setPromptFontDir(path.join(where.root, 'designer', 'vendor', 'fonts'));
   try {
-    fs.mkdirSync(dataDir, { recursive: true });
-    const running = await startServer(where.python, serverArgs(where.root, dataDir));
+    // The server makes the folders, not the app. Node's recursive mkdir
+    // never returns on a folder Controlled folder access protects: Windows
+    // refuses with ENOENT, which Node reads as a missing parent and retries.
+    const running = await startServer(where.python, serverArgs(where.root, primaryDataDir, fallbackDir));
     server = running.child;
+    dataDir = running.dataDir ?? primaryDataDir;
     server.on('exit', code => {
       server = null;
       if (code !== 0 && mainWindow && !quitting) {
@@ -170,7 +186,8 @@ async function start(): Promise<void> {
     const win = mainWindow;
     // Wait for the page, so a licensing dialog sits over a drawn window. Only
     // the first load: View > Reload mustn't license the app again.
-    win.webContents.once('did-finish-load', () => void startLicensing(win));
+    // A folder notice comes first, so the two dialogs don't stack.
+    win.webContents.once('did-finish-load', () => void noteDataFolder().then(() => startLicensing(win)));
   } catch (error) {
     dialog.showErrorBox(
       `${APP_NAME} couldn't start`,
