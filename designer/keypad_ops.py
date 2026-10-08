@@ -2,8 +2,8 @@
 
 Every deploy downloads the keypad's design first and saves it as a backup.
 A keypad with no design doesn't answer that download, so the deploy goes
-ahead without a backup. Uploads use 03_upload_design.upload() and
-wait_for_design().
+ahead without a backup. Uploading a design makes the keypad redeploy, so
+every upload then waits until the keypad runs the new design.
 """
 
 from __future__ import annotations
@@ -13,9 +13,9 @@ import binascii
 import copy
 import datetime
 import hashlib
-import importlib
 import re
 import threading
+import time
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -24,7 +24,34 @@ from keypad_design import DESIGN_PATH, IMAGE_SIZE, MAX_PAGES, Design, png_size
 
 from designer.models import DEFAULT_MODEL
 
-designs = importlib.import_module("03_upload_design")
+
+
+def upload(kp: HControlClient, data: bytes) -> None:
+    """Upload a packed design. The keypad then redeploys and drops the connection."""
+    print(f"Uploading {len(data):,} bytes...")
+    kp.put_file(DESIGN_PATH, data)
+
+
+def wait_for_design(host: str, port: int, fingerprint: str, timeout: float = 90) -> None:
+    """Reconnect until the keypad reports the new design's fingerprint.
+
+    Redeploying resets button states, the LED ring, and the current page,
+    so apps must set their feedback again after they reconnect.
+    """
+    print("Waiting for the keypad to restart with the new design...")
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        try:
+            with HControlClient(host, port, timeout=3) as kp:
+                if kp.get("/configuration/device/fingerprint", fmt="string") == fingerprint:
+                    page = kp.get("/settings/currentpage", fmt="string")
+                    print(f"The keypad is running the new design (current page: {page}).")
+                    return
+        except (OSError, HControlError):
+            pass          # Still restarting: refused, reset, timed out, or not ready.
+        time.sleep(2)
+    raise TimeoutError("the keypad didn't report the new design's fingerprint in time")
+
 
 _BACKUP_NAME = re.compile(r"(backup|loaded|manual)_(\d{8}_\d{6})(_\d+)?\.cpio")
 # What made each kind of backup: a deploy, Load from keypad, or Back up keypad now.
@@ -341,13 +368,12 @@ class KeypadOps:
     def _upload(self, host: str, data: bytes, fingerprint: str) -> None:
         """Upload a packed design and wait until the keypad runs it.
 
-        This skips 03_upload_design.deploy() because that always downloads a
-        backup first, which fails on a keypad with no design. The callers
-        keep their own backups.
+        This doesn't back up the keypad's design. The callers keep their own
+        backups.
         """
         with HControlClient(host, self.port, timeout=self.timeout) as kp:
-            designs.upload(kp, data)
-        designs.wait_for_design(host, self.port, fingerprint)
+            upload(kp, data)
+        wait_for_design(host, self.port, fingerprint)
 
     def _save(self, data: bytes, prefix: str) -> Path:
         stamp = f"{datetime.datetime.now():%Y%m%d_%H%M%S}"

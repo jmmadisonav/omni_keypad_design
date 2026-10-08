@@ -13,7 +13,7 @@ from designer.keypad_ops import (BusyError, ButtonImages, ConflictError, DeployF
                                  KeypadOps, apply_buttons, file_base)
 from keypad_design import DESIGN_PATH, Design
 from tests.fake_keypad import FakeKeypad
-from tests.helpers import FIXTURES, make_png
+from tests.helpers import FIXTURES, KeypadTestCase, make_png
 
 
 def b64(data: bytes) -> str:
@@ -170,7 +170,7 @@ class KeypadOpsTests(unittest.TestCase):
         self.keypad.files[DESIGN_PATH] = self.data
         self.backups = Path(tempfile.mkdtemp())
         self.ops = KeypadOps(self.backups, port=self.keypad.port, timeout=2)
-        patcher = mock.patch.object(keypad_ops.designs, "wait_for_design")
+        patcher = mock.patch.object(keypad_ops, "wait_for_design")
         self.wait = patcher.start()
         self.addCleanup(patcher.stop)
 
@@ -256,7 +256,7 @@ class KeypadOpsTests(unittest.TestCase):
 
     def test_failed_upload_reports_the_backup(self):
         # A connection reset mid-upload can leave the keypad without a design.
-        with mock.patch.object(keypad_ops.designs, "upload",
+        with mock.patch.object(keypad_ops, "upload",
                                side_effect=ConnectionResetError("reset by peer")):
             with self.assertRaises(DeployFailed) as caught:
                 self.ops.deploy_project("127.0.0.1", self.project(), original().fingerprint)
@@ -363,6 +363,32 @@ class KeypadOpsTests(unittest.TestCase):
         result = self.ops.deploy_project("127.0.0.1", self.project(), original().fingerprint,
                                          model="OMNI-KP-6BV")
         self.assertTrue(result["backup"].startswith("backup_"))
+
+
+class UploadTests(KeypadTestCase):
+    def test_upload_sends_design(self):
+        data = Design.from_cpio((FIXTURES / "original_design.cpio").read_bytes()).to_cpio()
+        keypad_ops.upload(self.kp, data)
+        self.assertEqual(self.keypad.files[DESIGN_PATH], data)
+
+    def test_wait_for_design_returns_when_fingerprint_matches(self):
+        self.keypad.params["/configuration/device/fingerprint"]["value"] = "a" * 32
+        keypad_ops.wait_for_design("127.0.0.1", self.keypad.port, "a" * 32, timeout=3)
+        self.assertIn("running the new design", self.output.getvalue())
+
+    def test_wait_for_design_times_out_if_keypad_never_switches(self):
+        with self.assertRaises(TimeoutError):
+            keypad_ops.wait_for_design("127.0.0.1", self.keypad.port, "f" * 32, timeout=1)
+
+    def test_wait_for_design_retries_while_keypad_is_down(self):
+        with self.assertRaises(TimeoutError):
+            keypad_ops.wait_for_design("127.0.0.1", 1, "f" * 32, timeout=1)   # Port 1: refused.
+
+    def test_wait_for_design_retries_after_error_replies(self):
+        # While it restarts, the keypad can answer with an error instead of a value.
+        del self.keypad.params["/configuration/device/fingerprint"]
+        with self.assertRaises(TimeoutError):
+            keypad_ops.wait_for_design("127.0.0.1", self.keypad.port, "f" * 32, timeout=1)
 
 
 if __name__ == "__main__":
