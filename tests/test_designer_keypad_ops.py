@@ -292,6 +292,13 @@ class KeypadOpsTests(unittest.TestCase):
                          ("OMNI-KP-8BV", "OMNI-KP-6BV"))
         self.assertEqual(self.keypad.files[DESIGN_PATH], self.data)
 
+    def test_restore_to_an_alias(self):
+        (self.backups / "backup_20260101_000000.cpio").write_bytes(self.data)
+        self.keypad.params["/configuration/device/model"]["value"] = "OMNI-KP-T8BV"
+        self.ops.restore("127.0.0.1", "backup_20260101_000000.cpio", model="OMNI-KP-8BV",
+                         aliases=("OMNI-KP-T8BV",))
+        self.assertEqual(self.keypad.files[DESIGN_PATH], self.data)
+
     def test_restore_without_model_skips_the_check(self):
         result = self.ops.deploy_project("127.0.0.1", self.project(), original().fingerprint)
         self.keypad.params["/configuration/device/model"]["value"] = "OMNI-KP-6BV"
@@ -357,6 +364,12 @@ class KeypadOpsTests(unittest.TestCase):
         with self.assertRaises(ModelMismatch):
             self.ops.deploy_project("127.0.0.1", self.project(), "", model="OMNI-KP-8BV")
         self.assertLess(time.monotonic() - started, 2)      # No 5-second download wait.
+
+    def test_deploy_project_to_an_alias(self):
+        self.keypad.params["/configuration/device/model"]["value"] = "OMNI-KP-T8BV"
+        result = self.ops.deploy_project("127.0.0.1", self.project(), original().fingerprint,
+                                         model="OMNI-KP-8BV", aliases=("OMNI-KP-T8BV",))
+        self.assertTrue(result["backup"].startswith("backup_"))
 
     def test_deploy_project_with_matching_model(self):
         self.keypad.params["/configuration/device/model"]["value"] = "OMNI-KP-6BV"

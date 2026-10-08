@@ -4,7 +4,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from designer.models import DEFAULT_MODEL, MODELS_DIR, load_models
+from designer.models import DEFAULT_MODEL, MODELS_DIR, load_models, model_for
 
 DIAL_KEYS = ("ledring", "dial", "dial_button")
 
@@ -42,6 +42,18 @@ class ShippedModelTests(unittest.TestCase):
                          {"OMNI-KP-6B": 150, "OMNI-KP-6BV": 150, "OMNI-KP-8BV": 188})
         self.assertEqual(self.models["OMNI-KP-6B"].summary()["image_size"], 150)
 
+    def test_tabletop_models_are_aliases(self):
+        self.assertEqual({m: list(self.models[m].aliases) for m in self.models},
+                         {"OMNI-KP-6B": ["OMNI-KP-T6B"], "OMNI-KP-6BV": ["OMNI-KP-T6BV"],
+                          "OMNI-KP-8BV": ["OMNI-KP-T8BV"]})
+        self.assertEqual(self.models["OMNI-KP-8BV"].summary()["aliases"], ["OMNI-KP-T8BV"])
+
+    def test_model_for_what_a_keypad_reports(self):
+        self.assertEqual(model_for(self.models, "OMNI-KP-8BV"), "OMNI-KP-8BV")
+        self.assertEqual(model_for(self.models, "OMNI-KP-T8BV"), "OMNI-KP-8BV")
+        self.assertEqual(model_for(self.models, "OMNI-KP-T6B"), "OMNI-KP-6B")
+        self.assertIsNone(model_for(self.models, "OMNI-KP-V"))
+
     def test_summary_has_no_template(self):
         summary = self.models["OMNI-KP-6BV"].summary()
         self.assertNotIn("template", summary)
@@ -67,12 +79,19 @@ class BadModelTests(unittest.TestCase):
             "faceplate": {**self.data, "faceplate": "round"},
             "image size": {**self.data, "image_size": 0},
             "image size type": {**self.data, "image_size": "150"},
+            "aliases type": {**self.data, "aliases": "OMNI-KP-T6BV"},
+            "alias is another model": {**self.data, "aliases": ["OMNI-KP-8BV"]},
+            "alias is another alias": {**self.data, "aliases": ["OMNI-KP-T8BV"]},
         }
         for case, data in cases.items():
             with self.subTest(case=case):
                 self.write(data)
                 with self.assertRaisesRegex(ValueError, "OMNI-KP-6BV.json"):
                     load_models(self.folder)
+
+    def test_aliases_are_optional(self):
+        self.write({k: v for k, v in self.data.items() if k != "aliases"})
+        self.assertEqual(load_models(self.folder)["OMNI-KP-6BV"].aliases, ())
 
     def test_invalid_json_is_refused_with_its_name(self):
         self.path.write_text("{ nope", encoding="utf-8")

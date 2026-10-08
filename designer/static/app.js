@@ -906,6 +906,12 @@ function setBusy(busy) {
   updateHeader();
 }
 
+// "OMNI-KP-8BV / T8BV": the tabletop version is the same keypad, so a
+// project for one loads from and deploys to the other.
+function modelLabel(m) {
+  return [m.id, ...(m.aliases || []).map((a) => a.replace(/^OMNI-KP-/, ""))].join(" / ");
+}
+
 function modelDescription(m) {
   const shape = m.faceplate === "portrait" ? "portrait" : "square";
   const dial = m.dial ? (m.faceplate === "portrait" ? "dial and LED ring below" : "dial and LED ring") : "no dial";
@@ -986,7 +992,7 @@ async function newProject() {
     models.innerHTML = `<span class="label">Keypad model</span>` + Object.values(state.models).map((m) => `
       <button type="button" class="model-option${m.id === chosen ? " current" : ""}" data-model="${m.id}">
         <span class="radio"></span><span class="model-glyph${m.faceplate === "portrait" ? " portrait" : ""}"></span>
-        <span class="option-text"><span class="option-name">${m.id} <span class="sub">${m.tested ? "" : "(untested)"}</span></span>
+        <span class="option-text"><span class="option-name">${modelLabel(m)} <span class="sub">${m.tested ? "" : "(untested)"}</span></span>
           <span class="option-desc">${modelDescription(m)}</span></span></button>`).join("");
   };
   models.addEventListener("click", (event) => {

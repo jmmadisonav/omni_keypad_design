@@ -16,6 +16,7 @@ import hashlib
 import re
 import threading
 import time
+from collections.abc import Collection
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -259,19 +260,19 @@ class KeypadOps:
             raise TimeoutError(f"the keypad at {host} stopped responding") from None
 
     def deploy_project(self, host: str, design: Design, base_fingerprint: str,
-                       force: bool = False, model: str = DEFAULT_MODEL) -> dict:
+                       force: bool = False, model: str = DEFAULT_MODEL,
+                       aliases: Collection[str] = ()) -> dict:
         """Upload a whole project design to the keypad.
 
         Backs up the keypad's design first if it has one. A keypad with no
         design, for example after a factory reset, doesn't answer the
         download, so the upload goes ahead without a backup. If the keypad's
         design isn't the one the project last matched, refuse unless force.
-        Refuse a keypad of another model, even with force.
+        Refuse a keypad of another model, even with force. A keypad that
+        reports one of aliases, such as a tabletop version, is the same model.
         """
         with self._exclusive():
-            actual = self.keypad_model(host)      # Before anything slow or risky.
-            if actual != model:
-                raise ModelMismatch(model, actual)
+            self._check_model(host, model, aliases)   # Before anything slow or risky.
             try:
                 current = self._download(host)    # ConnectionError if unreachable.
             except TimeoutError:
@@ -311,17 +312,17 @@ class KeypadOps:
             raise FileNotFoundError(f"there's no backup called {backup}")
         return path.read_bytes()
 
-    def restore(self, host: str, backup: str, model: str | None = None) -> dict:
+    def restore(self, host: str, backup: str, model: str | None = None,
+                aliases: Collection[str] = ()) -> dict:
         """Upload a backup to the keypad.
 
-        If you pass model, refuse a keypad of another model.
+        If you pass model, refuse a keypad of another model, unless it
+        reports one of aliases.
         """
         data = self.backup_data(backup)
         with self._exclusive():
             if model is not None:
-                actual = self.keypad_model(host)
-                if actual != model:
-                    raise ModelMismatch(model, actual)
+                self._check_model(host, model, aliases)
             fingerprint = Design.from_cpio(data).fingerprint
             self._upload(host, data, fingerprint)
             return {"fingerprint": fingerprint}
@@ -355,6 +356,12 @@ class KeypadOps:
             raise TimeoutError(
                 f"the keypad at {host} didn't send its design. It might have no design "
                 "loaded, for example after a factory reset.") from None
+
+    def _check_model(self, host: str, model: str, aliases: Collection[str]) -> None:
+        """Raise ModelMismatch unless the keypad is model, or one of aliases."""
+        actual = self.keypad_model(host)
+        if actual != model and actual not in aliases:
+            raise ModelMismatch(model, actual)
 
     def _answers(self, host: str) -> bool:
         """Return True if the keypad answers a quick request on a new connection."""

@@ -36,7 +36,7 @@ from designer.keypad_ops import (BusyError, ButtonImages, ConflictError,  # noqa
                                  DeployFailed, DeployTimeout, KeypadOps, Layout,
                                  ModelMismatch)
 from designer.library import Library  # noqa: E402
-from designer.models import DEFAULT_MODEL  # noqa: E402
+from designer.models import DEFAULT_MODEL, model_for  # noqa: E402
 from designer.projects import ProjectStore, project_name_for  # noqa: E402
 from keypad_design import Design  # noqa: E402
 
@@ -195,9 +195,10 @@ class _Handler(BaseHTTPRequestHandler):
             host = self._host_from(body)
             name = _field(body, "backup", str)
             data = self.ops.backup_data(name)
+            model = _backup_model(self.projects, data)
             try:
-                return self._json(self.ops.restore(host, name,
-                                                   model=_backup_model(self.projects, data)))
+                return self._json(self.ops.restore(host, name, model=model,
+                                                   aliases=_aliases(self.projects, model)))
             except ModelMismatch as error:
                 raise HttpError(409, f"This backup is for "
                                      f"{_article(_model_name(self.projects, error.expected))}, "
@@ -218,9 +219,10 @@ class _Handler(BaseHTTPRequestHandler):
         if route == ("POST", "projects", "from-keypad"):
             body = self._body()
             host = self._host_from(body)
-            model = self.ops.keypad_model(host)
-            if model not in self.projects.models:
-                raise ValueError(f"The keypad at {host} is {_article(model)}. "
+            reported = self.ops.keypad_model(host)
+            model = model_for(self.projects.models, reported)
+            if model is None:
+                raise ValueError(f"The keypad at {host} is {_article(reported)}. "
                                  f"The designer supports the {_supported(self.projects)}.")
             data = self.ops.download(host)
             name = self.projects.unique_name(project_name_for(host))
@@ -253,7 +255,8 @@ class _Handler(BaseHTTPRequestHandler):
                 try:
                     result = self.ops.deploy_project(
                         host, design, self.projects.base_fingerprint(name),
-                        force=bool(body.get("force")), model=model)
+                        force=bool(body.get("force")), model=model,
+                        aliases=_aliases(self.projects, model))
                 except ModelMismatch as error:
                     raise HttpError(409, f"This project is for "
                                          f"{_article(_model_name(self.projects, error.expected))}, "
@@ -353,8 +356,19 @@ def _article(name: str) -> str:
 
 
 def _model_name(projects: ProjectStore, model: str) -> str:
+    """Return "8BV" for OMNI-KP-8BV and "T8BV" for its alias OMNI-KP-T8BV."""
     known = projects.models.get(model)
-    return known.name if known else model
+    if known:
+        return known.name
+    if model_for(projects.models, model):
+        return model.removeprefix("OMNI-KP-")
+    return model
+
+
+def _aliases(projects: ProjectStore, model: str | None) -> tuple[str, ...]:
+    """The other ids a keypad of this model can report, such as its tabletop version."""
+    known = projects.models.get(model) if model else None
+    return known.aliases if known else ()
 
 
 def _backup_model(projects: ProjectStore, data: bytes) -> str | None:
@@ -375,7 +389,8 @@ def _image_sizes(projects: ProjectStore, model: str) -> set[tuple[int, int]]:
 
 
 def _supported(projects: ProjectStore) -> str:
-    names = [m.name for m in projects.models.values()]
+    models = projects.models.values()
+    names = [m.name for m in models] + [_model_name(projects, a) for m in models for a in m.aliases]
     return ", ".join(names[:-1]) + f", and {names[-1]}" if len(names) > 1 else names[0]
 
 
