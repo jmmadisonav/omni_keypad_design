@@ -18,6 +18,9 @@ The layers are:
 
 The designer runs on your computer and doesn't need internet access.
 
+The source code is on GitHub at
+[jmmadisonav/omni_keypad_design](https://github.com/jmmadisonav/omni_keypad_design).
+
 ## Before you begin
 
 You need Python 3.10 or later, and a keypad that runs firmware 1.1.x on your
