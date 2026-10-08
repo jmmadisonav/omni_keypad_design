@@ -1,7 +1,8 @@
-# Button designer
+# OMNI Keypad Designer
 
-The button designer is a local web page where you design button images for
-an OMNI keypad and deploy them to it. Each button gets an OFF and an ON image,
+OMNI Keypad Designer is where you design button images for an OMNI keypad and
+deploy them to it. It runs as a local web page, or as a Windows desktop app
+with its own installer. Each button gets an OFF and an ON image,
 built from layers. The images are 188x188 pixels on the 8BV and 150x150 on the
 6B and 6BV; the designer renders them at the project's size, so you lay out
 layers the same way on every model.
@@ -21,7 +22,7 @@ The designer runs on your computer and doesn't need internet access.
 
 You need Python 3.10 or later, and a keypad that runs firmware 1.1.x on your
 network. Deploying uploads the whole design, so it uses the same experimental
-method as Part 3 in the main README.
+method as Part 3 of the [OMNI Keypad example code](https://github.com/jmmadisonav/OMNI-Keypad-example-code) README.
 
 ## Start the designer
 
@@ -155,7 +156,7 @@ Each project is a folder in `designer/projects/`:
 
 | File | Contains |
 |---|---|
-| `keypad.json` | The design, in the same format as the repo's `design/` folder |
+| `keypad.json` | The design, in the same format as the example code's [`design/`](https://github.com/jmmadisonav/OMNI-Keypad-example-code/tree/main/design) folder |
 | `images/` | The button images the design uses |
 | `designer.json` | Each button's layers, which keypad design the project last matched, and when it was last deployed |
 
@@ -284,6 +285,20 @@ npm run release:publish -- <version>
 
 Publishing needs the [GitHub CLI](https://cli.github.com/), signed in with
 `gh auth login`.
+
+## Code shared with the example code
+
+The designer started in the [OMNI Keypad example code](https://github.com/jmmadisonav/OMNI-Keypad-example-code) repo, and uses
+three of its modules, copied into this repo:
+
+| File | What the designer uses it for |
+|---|---|
+| `hcontrol.py` | The HControl client: talking to keypads, and finding them on the network |
+| `keypad_design.py` | Reading and writing keypad designs (`project.cpio`) |
+| `03_upload_design.py` | Uploading a design and waiting for the keypad to restart with it |
+
+The copies change independently. When you fix a bug in one of these files,
+check whether the other repo needs the same fix.
 
 ## Run the tests
 
