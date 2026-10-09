@@ -18,6 +18,11 @@ files:
 
 asar: true
 
+# The MIT licence, next to the executable.
+extraFiles:
+  - from: LICENSE
+    to: LICENSE.txt
+
 # Built by build_tools/stage-python.mjs, which the `package` and `installer`
 # scripts run first. electron/paths.ts finds them under resources/.
 extraResources:
@@ -47,6 +52,8 @@ nsis:
   perMachine: false
   allowElevation: true
   allowToChangeInstallationDirectory: true
+  # Shown as a page the user accepts before installing.
+  license: LICENSE
   # The same GUID as project_config.json's APP_ID, so this app keeps one
   # identity whatever builds its installer.
   guid: 85FE3E55-AF9A-460C-A720-4CCBF9AE5631
