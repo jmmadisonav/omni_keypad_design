@@ -4,6 +4,7 @@
 import { getJson, sendJson, assetUrl } from "./api.js";
 import {
   gridFor, buttonKey, recipeFromImages, isBlank, fileStem, buttonNameError, nameFromImage, imageSizeFor,
+  statesOf,
 } from "./model.js";
 import { renderRecipe, toBase64, loadIcons } from "./render.js";
 import { createEditor, icon } from "./editor.js";
@@ -22,7 +23,7 @@ const NAME_RULE = "Letters, digits, spaces, dashes and underscores.";
 const state = {
   catalog: null,
   models: {},            // id -> { id, name, columns, rows, dial, faceplate, tested }
-  project: null,         // { name, model, config, images, recipes, baseFingerprint, lastDeployed }
+  project: null,         // { name, model, config, images, recipes, baseFingerprint, lastDeployed, showAlt }
   projects: [],          // [{ name, model, saved }], newest first
   layout: null,          // Pages and page switching; see pages.js.
   layoutChanges: 0,      // Page and page-link changes not saved yet.
@@ -31,9 +32,9 @@ const state = {
   selected: null,        // { pageId, button }
   recipes: new Map(),    // buttonKey(pageId, button) -> saved layers
   edits: new Map(),      // buttonKey(pageId, button) -> unsaved layers
-  previews: new Map(),   // buttonKey(pageId, button) -> { off: dataURL, on: dataURL }
+  previews: new Map(),   // buttonKey(pageId, button) -> { off, on, alt? }: data URLs
   linkChanged: new Set(),// buttonKey(pageId, button) whose page link changed
-  showOn: false,
+  view: "off",           // The state shown on the keypad: "off", "on" or "alt".
   tab: "button",
   renaming: null,        // { pageId, value, error }
   library: [],           // [{ name, thumbnail }]
@@ -122,7 +123,7 @@ function recipeFor(pageId, button) {
   const on = designImage(pageId, button, "onImage");
   const name = nameFromImage(imageNames(pageId, button, "offImage")[0] || "");
   if (!off && !on) return { version: 1, name, layers: [] };
-  return recipeFromImages(off, on, name, { kind: "keypad" });
+  return recipeFromImages(off, on, name, { kind: "keypad" }, designImage(pageId, button, "altImage"));
 }
 
 function buttonName(pageId, button) {
@@ -135,10 +136,11 @@ function isKeyBlank(pageId, button) {
   return recipe ? isBlank(recipe) : !designImage(pageId, button, "offImage");
 }
 
-function faceImage(pageId, button, on = state.showOn) {
+// A button's image for a state. A button with no ALT state has no ALT image.
+function faceImage(pageId, button, view = state.view) {
   const preview = state.previews.get(keyOf(pageId, button));
-  if (preview) return preview[on ? "on" : "off"];
-  return designImage(pageId, button, on ? "onImage" : "offImage");
+  if (preview) return preview[view] || "";
+  return designImage(pageId, button, `${view}Image`);
 }
 
 const isChanged = (key) => state.edits.has(key) || state.linkChanged.has(key);
@@ -153,9 +155,9 @@ async function setEdit(pageId, button, recipe) {
   updateHeader();
   renderKeypad();
   renderSelectionHead();
-  const { off, on } = await renderRecipe(recipe, state.catalog, imageSize());
+  const canvases = await renderRecipe(recipe, state.catalog, imageSize());
   if (state.edits.get(key) !== recipe) return;            // A newer edit arrived.
-  state.previews.set(key, { off: off.toDataURL("image/png"), on: on.toDataURL("image/png") });
+  state.previews.set(key, Object.fromEntries(Object.entries(canvases).map(([s, c]) => [s, c.toDataURL("image/png")])));
   renderKeypad();
   renderSelectionHead();
 }
@@ -270,9 +272,9 @@ function renderKeypad() {
     cell.className = "key";
     cell.draggable = true;
     cell.setAttribute("aria-label", `${pageName(state.layout, pageId)} button ${button}`);
-    cell.classList.toggle("blank", isKeyBlank(pageId, button));
-    cell.classList.toggle("selected", state.selected?.pageId === pageId && state.selected?.button === button);
     const src = faceImage(pageId, button);
+    cell.classList.toggle("blank", isKeyBlank(pageId, button) || !src);
+    cell.classList.toggle("selected", state.selected?.pageId === pageId && state.selected?.button === button);
     if (src && !isKeyBlank(pageId, button)) {
       const img = document.createElement("img");
       img.alt = "";
@@ -316,15 +318,37 @@ function renderKeypad() {
     });
     keypad.append(cell);
   }
-  $("show-off").classList.toggle("current", !state.showOn);
-  $("show-on").classList.toggle("current", state.showOn);
+  for (const view of ["off", "on", "alt"]) $(`show-${view}`).classList.toggle("current", state.view === view);
 }
 
-function setShowOn(on) {
-  state.showOn = on;
-  editor.setShowOn(on);
+function setView(view) {
+  state.view = view;
+  editor.setView(view);
   renderKeypad();
   renderSelectionHead();
+}
+
+// Show or hide the ALT state for this project. It's saved straight away,
+// and it doesn't change any button: buttons with ALT images keep them.
+async function setShowAlt(show) {
+  try {
+    const { showAlt } = await sendJson("POST", `${projectUrl(state.project.name)}/settings`, { showAlt: show });
+    state.project.showAlt = showAlt;
+  } catch (error) {
+    return setStatus(`Couldn't change the ALT setting: ${error.message}`, true);
+  }
+  renderShowAlt();
+  if (!show && state.view === "alt") setView("off");
+  setStatus(show ? "Showing the ALT state. To give a button an ALT image, select it and click + ALT."
+    : "Hid the ALT state. Buttons that have ALT images still deploy them.");
+}
+
+function renderShowAlt() {
+  const show = Boolean(state.project?.showAlt);
+  $("show-alt").hidden = !show;
+  $("toggle-alt").textContent = show ? "Hide ALT" : "Show ALT";
+  $("toggle-alt").title = show ? "Hide the ALT state for this project" : "Design the ALT state, the keypad's third button state";
+  editor.setAltVisible(show);
 }
 
 async function swapKeys(a, b) {
@@ -550,7 +574,8 @@ function renderNameHint(name) {
   const stem = fileStem(name, pageNumber(state.layout, sel.pageId), sel.button);
   $("button-name").classList.toggle("invalid", Boolean(error));
   $("name-hint").classList.toggle("error", Boolean(error));
-  $("name-hint").textContent = error || `Files on keypad: ${stem}_OFF.png, ${stem}_ON.png`;
+  const files = statesOf(recipeFor(sel.pageId, sel.button)).map((s) => `${stem}_${s.toUpperCase()}.png`);
+  $("name-hint").textContent = error || `Files on keypad: ${files.join(", ")}`;
 }
 
 function renderSelection() {
@@ -935,6 +960,8 @@ function showProject(project) {
   clearHistory();
   editor.setImageSize(imageSize());
   editor.setRecipe(null);
+  renderShowAlt();
+  if (!project.showAlt && state.view === "alt") setView("off");
   $("project-name").textContent = project.name;
   $("project-name").title = project.name;
   renderTabs();
@@ -1037,9 +1064,9 @@ async function saveRequest() {
     const [pageId, button] = key.split("-");
     const page = pageNumber(state.layout, pageId);
     if (!page) continue;                                // Its page was deleted.
-    const { off, on } = await renderRecipe(recipe, state.catalog, imageSize());
+    const { off, on, alt } = await renderRecipe(recipe, state.catalog, imageSize());
     buttons.push({ page, button: Number(button), name: recipe.name || "",
-                   off: toBase64(off), on: toBase64(on) });
+                   off: toBase64(off), on: toBase64(on), ...(alt ? { alt: toBase64(alt) } : {}) });
   }
   const request = { buttons, recipes: recipesRequest(state.layout, new Map([...state.recipes, ...state.edits])) };
   if (state.layoutChanges) request.layout = layoutRequest(state.layout);
@@ -1583,8 +1610,10 @@ function wire() {
   $("load").addEventListener("click", loadFromKeypad);
   $("backups").addEventListener("click", () => openBackups());
   $("deploy").addEventListener("click", openDeploy);
-  $("show-off").addEventListener("click", () => setShowOn(false));
-  $("show-on").addEventListener("click", () => setShowOn(true));
+  $("show-off").addEventListener("click", () => setView("off"));
+  $("show-on").addEventListener("click", () => setView("on"));
+  $("show-alt").addEventListener("click", () => setView("alt"));
+  $("toggle-alt").addEventListener("click", () => state.project && setShowAlt(!state.project.showAlt));
   $("tab-button").addEventListener("click", () => setTab("button"));
   $("tab-library").addEventListener("click", () => setTab("library"));
   $("button-name").addEventListener("input", onNameInput);
@@ -1631,7 +1660,7 @@ async function start() {
     state.models = Object.fromEntries(models.map((m) => [m.id, m]));
     editor = createEditor({
       root: $("editor"), catalog, iconTags, onChange: onEdit,
-      onPreview: setShowOn, onChooseLibrary: () => setTab("library"), onStatus: setStatus,
+      onPreview: setView, onChooseLibrary: () => setTab("library"), onStatus: setStatus,
     });
     await refreshLibrary();
   } catch (error) {

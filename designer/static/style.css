@@ -52,6 +52,7 @@ select.field { padding: 0 8px; }
 .field.invalid { border-color: var(--red); }
 .stack { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
 .pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.trio { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
 .row-between { display: flex; justify-content: space-between; align-items: center; }
 
 .ghost { height: 34px; padding: 0 10px; border: 0; background: transparent; font-size: 12px;
@@ -241,6 +242,11 @@ body.busy .lockable { opacity: .4; pointer-events: none; }
 
 /* Editor */
 .canvases { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; padding: 16px 20px 0; }
+.canvases.three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.no-alt { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center;
+          gap: 8px; background: var(--white); border: 1px dashed var(--muted); font-size: 12px; color: var(--grey);
+          text-align: center; }
+.remove-alt { align-self: flex-start; }
 .canvas-card { display: flex; flex-direction: column; gap: 6px; }
 .canvas-head { display: flex; justify-content: space-between; align-items: center; font-size: 11px;
                font-weight: 700; letter-spacing: .08em; }
@@ -277,6 +283,12 @@ body.busy .lockable { opacity: .4; pointer-events: none; }
 .swatch img:first-child { object-position: left; }
 .swatch img:last-child { object-position: right; }
 .swatch.current { outline: 2px solid var(--red); }
+/* ALT artwork: each half of a swatch is its own choice. */
+.swatch.split button { width: 50%; height: 100%; padding: 0; border: 0; background: none; outline-offset: -2px; }
+.swatch.split button.current { outline: 2px solid var(--red); }
+.swatch.split img { width: 100%; height: 100%; object-fit: cover; }
+.swatch.split button:first-child img { object-position: left; }
+.swatch.split button:last-child img { object-position: right; }
 .icon-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(38px, 1fr)); gap: 4px; }
 .icon-grid.scroll { max-height: 176px; overflow: auto; }
 .icon-choice { display: grid; place-items: center; aspect-ratio: 1; padding: 0; border: 1px solid var(--light);
@@ -291,6 +303,25 @@ body.busy .lockable { opacity: .4; pointer-events: none; }
 .colour-field input[type="color"] { width: 34px; height: 100%; padding: 2px; border: 0;
                                     border-right: 1px solid var(--light); background: var(--white); }
 .colour-field .hex { flex: 1; min-width: 0; padding: 0 8px; border: 0; font: 13px var(--mono); outline: none; }
+/* Text lines and colours: a row label, then OFF and ON, and ALT when shown. */
+.text-grid { display: grid; grid-template-columns: 52px minmax(0, 1fr) minmax(0, 1fr); gap: 8px; align-items: center; }
+.text-grid.three { grid-template-columns: 52px repeat(3, minmax(0, 1fr)); }
+.tg-head { display: flex; align-items: center; gap: 6px; padding: 0; border: 0; background: none; color: var(--muted);
+           font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; text-align: left;
+           transition: color 200ms; }
+.tg-head::before { content: ""; width: 8px; height: 8px; background: var(--control); transition: background 200ms; }
+.tg-head.current { color: var(--slate); }
+.tg-head.current[data-head="off"]::before { background: var(--slate); }
+.tg-head.current[data-head="on"]::before { background: var(--red); }
+.tg-head.current[data-head="alt"]::before { background: var(--grey); }
+.own-line { position: relative; display: flex; min-width: 0; }
+.own-line .field { border-style: dashed; }
+.own-line.different .field { border-style: solid; border-color: var(--slate); padding-right: 30px; }
+.relink { position: absolute; top: 1px; right: 1px; bottom: 1px; display: none; place-items: center; width: 26px;
+          padding: 0; border: 0; background: var(--white); color: var(--grey); transition: color 200ms; }
+.relink:hover { color: var(--slate); }
+.own-line.different .relink { display: grid; }
+.text-grid .colour-field { min-width: 0; }
 .info { padding: 10px 12px; background: var(--code-bg); font-size: 13px; color: var(--grey); line-height: 1.5; }
 .image-row { display: flex; align-items: center; gap: 10px; }
 .image-thumb { flex: none; width: 44px; height: 44px; background: #000; }

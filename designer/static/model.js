@@ -1,5 +1,7 @@
 // Recipes and layers: plain data, no DOM. A recipe is
-// { version: 1, name, layers: [...] }, drawn bottom to top.
+// { version: 1, name, layers: [...] }, drawn bottom to top. A recipe with
+// alt: true also has an ALT image; each layer's ALT settings follow OFF
+// unless the layer has its own.
 
 export const SIZE = 188;
 export const CENTRE = SIZE / 2;
@@ -18,6 +20,24 @@ export function imageSizeFor(model, buttonCount) {
   return buttonCount <= 6 ? 150 : SIZE;
 }
 export const FONTS = ["Titillium Web", "Inter", "Roboto", "Oswald"];
+export const STATES = ["off", "on", "alt"];
+
+// The images a button has: OFF and ON, plus ALT when it has an ALT state.
+export function statesOf(recipe) {
+  return recipe?.alt ? STATES : ["off", "on"];
+}
+
+// An icon or text colour, or a shape tint, for a state. ALT uses OFF's unless it has its own.
+export function colourFor(colours, state) {
+  return colours[state] ?? colours.off;
+}
+
+// The shape artwork a state shows: the colour's OFF or ON file. ALT shows
+// the OFF artwork unless the layer picks its own (altArt).
+export function shapeArt(layer, state) {
+  if (state === "alt") return layer.altArt ?? { colour: layer.colour, art: "off" };
+  return { colour: layer.colour, art: state };
+}
 
 const OFF_GREY = "#9AA0A6";
 const ON_WHITE = "#FFFFFF";
@@ -77,10 +97,12 @@ export function shapeFiles(catalog, set, colour) {
 
 // source says where finished artwork came from: { kind: "keypad" } for a
 // button loaded from a keypad, or { kind: "library", name } for ready-made art.
-export function recipeFromImages(off, on, name = "", source = undefined) {
+// With an alt image, the button has an ALT state.
+export function recipeFromImages(off, on, name = "", source = undefined, alt = "") {
   const layer = { type: "image", off, on, size: SIZE, x: CENTRE, y: CENTRE, visible: true };
   if (source) layer.source = source;
-  return { ...newRecipe(name), layers: [layer] };
+  if (alt) layer.alt = alt;
+  return { ...newRecipe(name), ...(alt ? { alt: true } : {}), layers: [layer] };
 }
 
 // A Squared shape, an icon, and a label: the Quick button shortcut.
@@ -126,11 +148,31 @@ export function tintPixels(data, base, hex) {
   return data;
 }
 
+// A text layer's lines for a state, at most two. onLines and altLines hold one
+// entry per line: null (or missing) uses the OFF line, and a string, even "",
+// replaces it. A blank second line is dropped, so one line stays centred.
+export function textLines(layer, state) {
+  const own = state === "off" ? null : layer[`${state}Lines`];
+  const lines = [0, 1].map((i) => own?.[i] ?? layer.lines[i] ?? "");
+  return lines[1] ? lines : [lines[0]];
+}
+
+// The layer change that sets ON or ALT line index to value (null to use the
+// OFF line again). The lines are dropped when both follow OFF.
+export function setOwnLine(layer, state, index, value) {
+  const key = `${state}Lines`;
+  const lines = [0, 1].map((i) => (i === index ? value : layer[key]?.[i] ?? null));
+  return { [key]: lines.some((line) => line !== null) ? lines : undefined };
+}
+
 export function layerSummary(layer) {
   switch (layer.type) {
     case "shape": return `${layer.set} · ${layer.tint ? "Custom" : layer.colour}`;
     case "icon": return layer.icon;
-    case "text": return `"${layer.lines.filter(Boolean).join(" / ")}"`;
+    case "text": {
+      const [off, on, alt] = STATES.map((state) => `"${textLines(layer, state).filter(Boolean).join(" / ")}"`);
+      return (off === on ? off : `${off} → ${on}`) + (alt === off ? "" : ` · ALT ${alt}`);
+    }
     case "image":
       if (!layer.off && !layer.on) return "No image";
       if (layer.source?.kind === "keypad") return "Loaded from keypad";

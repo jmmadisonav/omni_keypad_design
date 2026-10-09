@@ -97,17 +97,24 @@ class ButtonImages:
     name: str
     off: bytes
     on: bytes
+    alt: bytes | None = None      # Only buttons designed with an ALT state have one.
 
     @classmethod
     def from_json(cls, item: dict, sizes: set[tuple[int, int]] = frozenset({IMAGE_SIZE})) -> ButtonImages:
-        """Decode one button's images, which must be one of sizes (the model's)."""
+        """Decode one button's images, which must be one of sizes (the model's).
+
+        OFF and ON are required. ALT is optional: without it, the button has no ALT image.
+        """
         try:
             page, button = int(item["page"]), int(item["button"])
         except (KeyError, TypeError, ValueError):
             raise ValueError("each button needs whole-number \"page\" and \"button\" "
                              "fields") from None
         images = {}
-        for state in ("off", "on"):
+        for state in ("off", "on", "alt"):
+            if state == "alt" and not item.get("alt"):
+                images["alt"] = None
+                continue
             try:
                 data = base64.b64decode(item.get(state) or "", validate=True)
                 size = png_size(data)
@@ -119,7 +126,8 @@ class ButtonImages:
                 raise ValueError(f"page {page} button {button}: the {state.upper()} image is "
                                  f"{size[0]}x{size[1]}; buttons need {need}")
             images[state] = data
-        return cls(page, button, str(item.get("name") or ""), images["off"], images["on"])
+        return cls(page, button, str(item.get("name") or ""), images["off"], images["on"],
+                   images["alt"])
 
 
 @dataclass
@@ -211,17 +219,23 @@ def file_base(name: str, page: int, button: int) -> str:
 def apply_buttons(design: Design, buttons: list[ButtonImages]) -> None:
     """Point each button at its new images, and drop images nothing uses.
 
+    A button without an ALT image gets an empty altImage, so a button that no
+    longer has an ALT state loses its old one.
+
     The changed buttons' old images are released first, so a recipe you
     deploy again keeps its file name. A name already used by a different
     image gets a short hash suffix instead of replacing that image.
     """
     targets = [design.button(b.page, b.button) for b in buttons]     # IndexError if missing.
     for target in targets:
-        target["offImage"], target["onImage"] = [], []
+        target["offImage"], target["onImage"], target["altImage"] = [], [], []
     design.prune_images()
     for item, target in zip(buttons, targets):
         base = file_base(item.name, item.page, item.button)
-        for key, state, data in (("offImage", "OFF", item.off), ("onImage", "ON", item.on)):
+        for key, state, data in (("offImage", "OFF", item.off), ("onImage", "ON", item.on),
+                                 ("altImage", "ALT", item.alt)):
+            if data is None:
+                continue
             name = f"{base}_{state}.png"
             if design.images.get(name, data) != data:
                 name = f"{base}_{state}_{hashlib.sha1(data).hexdigest()[:6]}.png"

@@ -88,6 +88,27 @@ To swap two buttons, drag one onto the other. The artwork, the button name, and
 the page link move. The control settings, such as the HControl path, stay with
 each slot.
 
+### The ALT state
+
+Each button has a third state, ALT, next to OFF and ON. Your code sets it
+over HControl with `"value":"Alt"` on the button's `state` path. Most designs
+don't use it, so the designer hides it until you turn it on for a project.
+
+To design a button's ALT image, do the following:
+
+1. Click **Show ALT** under the keypad view. The project remembers this, and
+   an **ALT** option appears next to **OFF** and **ON**.
+1. Select a button, and click **+ ALT** on its ALT canvas. The ALT image
+   starts as a copy of OFF.
+1. Change it in the ALT fields: text lines and colours, icon colours, an ALT
+   image for Image layers, and, for shapes, any swatch's OFF or ON artwork.
+   An ALT field you leave empty uses the OFF setting.
+
+A button gets an ALT image on the keypad only after you click **+ ALT** for
+it. To take a button's ALT image off the keypad, click **Remove ALT** and
+save. **Hide ALT** only hides the controls: buttons that have ALT images keep
+them. **Load** keeps the ALT images a keypad already has.
+
 ### Backups
 
 Every deploy saves the design that was running as

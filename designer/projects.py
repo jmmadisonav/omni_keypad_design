@@ -89,6 +89,7 @@ class ProjectStore:
             "baseFingerprint": meta["baseFingerprint"],
             "model": meta["model"],
             "lastDeployed": meta["lastDeployed"],
+            "showAlt": meta["showAlt"],
         }
 
     def design(self, name: str) -> Design:
@@ -140,6 +141,15 @@ class ProjectStore:
             design = Design.from_cpio(data)
             design.prune_images()
             self._write(name, design, _empty_meta(base_fingerprint, model))
+            return self.open(name)
+
+    def set_show_alt(self, name: str, show: bool) -> dict:
+        """Show or hide the ALT state while editing this project."""
+        with self._lock:
+            meta = self._meta(name)
+            meta["showAlt"] = bool(show)
+            (self._path(name) / _META).write_text(json.dumps(meta, indent=2) + "\n",
+                                                  encoding="utf-8")
             return self.open(name)
 
     def set_base(self, name: str, fingerprint: str, deployed: str | None = None) -> None:
@@ -202,7 +212,7 @@ class ProjectStore:
 
 def _empty_meta(base_fingerprint: str, model: str = DEFAULT_MODEL) -> dict:
     return {"version": 1, "model": model, "baseFingerprint": base_fingerprint, "recipes": {},
-            "lastDeployed": ""}
+            "lastDeployed": "", "showAlt": False}
 
 
 def _clean_recipes(recipes: dict, design: Design) -> dict:

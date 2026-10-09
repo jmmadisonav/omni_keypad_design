@@ -128,6 +128,13 @@ class ServerTests(unittest.TestCase):
         status, body = self.json_request("PUT", "/api/projects/Desk", {"buttons": [small], "recipes": {}})
         self.assertEqual(status, 200, body)
 
+    def test_settings_turn_show_alt_on_and_off(self):
+        self.json_request("POST", "/api/projects", {"name": "Lobby"})
+        status, project = self.json_request("POST", "/api/projects/Lobby/settings", {"showAlt": True})
+        self.assertEqual((status, project["showAlt"]), (200, True), project)
+        self.assertTrue(self.json_request("GET", "/api/projects/Lobby")[1]["showAlt"])
+        self.assertEqual(self.json_request("POST", "/api/projects/Lobby/settings", {"showAlt": "yes"})[0], 400)
+
     def test_taken_project_name_is_409(self):
         self.json_request("POST", "/api/projects", {"name": "Lobby"})
         self.json_request("POST", "/api/projects", {"name": "Hall"})
