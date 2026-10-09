@@ -75,13 +75,22 @@
     <section id="drawer" class="drawer" aria-label="HControl">
       <div id="drawer-resize" class="drawer-resize" title="Drag to resize" aria-hidden="true"></div>
       <div class="drawer-bar">
-        <button id="drawer-toggle" type="button" class="drawer-tab" aria-expanded="true" aria-controls="drawer-body">
-          <span id="drawer-chevron"></span>HControl</button>
-        <span id="drawer-path" class="drawer-path"></span>
+        <div class="drawer-tabs" role="tablist">
+          <button id="drawer-toggle" type="button" role="tab" class="drawer-tab current" aria-selected="true"
+            aria-expanded="true" aria-controls="drawer-body"><span class="chev"></span>HControl</button>
+          <button id="debug-tab" type="button" role="tab" class="drawer-tab" aria-selected="false"
+            aria-expanded="true" aria-controls="debug-body"><span class="chev"></span>Debug<span id="debug-dot" class="debug-dot" title="Connected" hidden></span></button>
+        </div>
+        <span id="drawer-path" class="drawer-path hc-only"></span>
+        <span id="debug-status" class="debug-status debug-only" role="status">Not connected</span>
         <span class="grow"></span>
-        <span id="drawer-warn" class="drawer-warn" hidden><span class="chip-check">Check</span>Unsaved page changes. Page numbers may change when you save and deploy.</span>
-        <button id="copy-all" type="button" class="drawer-btn" title="Copy every line you send and receive">Copy all</button>      </div>
-      <div id="drawer-body" class="drawer-body">
+        <span id="drawer-warn" class="drawer-warn hc-only" hidden><span class="chip-check">Check</span>Unsaved page changes. Page numbers may change when you save and deploy.</span>
+        <button id="copy-all" type="button" class="drawer-btn hc-only" title="Copy every line you send and receive">Copy all</button>
+        <button id="debug-connect" type="button" class="drawer-btn debug-only" title="Connect to the keypad in the header, and toggle buttons and the LED ring as you use it">Connect</button>
+        <button id="debug-clear" type="button" class="drawer-btn debug-only" title="Clear the log on screen">Clear</button>
+        <button id="debug-copy" type="button" class="drawer-btn debug-only" title="Copy the log" disabled>Copy all</button>
+      </div>
+      <div id="drawer-body" class="drawer-body hc-only">
         <div class="drawer-pane code-pane">
           <div class="pane-title">Strings <span class="pane-sub">→ send · ← expect</span></div>
           <div id="hc-code" class="hc-code" role="list"></div>
@@ -90,6 +99,10 @@
           <div class="pane-title">Notes</div>
           <div id="hc-notes" class="hc-notes"></div>
         </div>
+      </div>
+      <div id="debug-body" class="debug-body debug-only">
+        <div class="pane-title">Log <span class="pane-sub">→ sent · ← received</span></div>
+        <div id="debug-log" class="hc-code debug-log" role="log"></div>
       </div>
     </section>
    </div>

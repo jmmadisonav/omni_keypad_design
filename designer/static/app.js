@@ -13,6 +13,7 @@ import {
   pageNumber, pageName, layoutRequest, recipesFromSaved, recipesRequest, swapDestinations,
 } from "./pages.js";
 import { buttonGroups, pageControlGroups, HCONTROL_NOTES } from "./hcontrol.js";
+import { arrowFor, copyText, statusText, createLog, followAfterScroll } from "./debug.js";
 
 const $ = (id) => document.getElementById(id);
 const projectUrl = (name) => `/api/projects/${encodeURIComponent(name)}`;
@@ -699,9 +700,29 @@ function renderNotes() {
 
 function setDrawerOpen(open) {
   $("drawer").classList.toggle("collapsed", !open);
-  $("drawer-toggle").setAttribute("aria-expanded", open);
-  $("drawer-chevron").innerHTML = icon(open ? "chevron-down" : "chevron-up", 14);
+  for (const tab of document.querySelectorAll(".drawer-tab")) tab.setAttribute("aria-expanded", open);
+  for (const chev of document.querySelectorAll(".drawer-tab .chev")) chev.innerHTML = icon(open ? "chevron-down" : "chevron-up", 14);
   remember("designer.drawer", open ? "open" : "closed");
+  followDebugLog();
+}
+
+// tab is "hcontrol" or "debug".
+function setDrawerTab(tab) {
+  $("drawer").dataset.tab = tab;
+  for (const [id, name] of [["drawer-toggle", "hcontrol"], ["debug-tab", "debug"]]) {
+    $(id).classList.toggle("current", tab === name);
+    $(id).setAttribute("aria-selected", tab === name);
+  }
+  remember("designer.drawerTab", tab);
+  followDebugLog();
+}
+
+// Clicking the open tab hides or shows the drawer; clicking the other one switches to it.
+function onDrawerTab(tab) {
+  const collapsed = $("drawer").classList.contains("collapsed");
+  if ($("drawer").dataset.tab === tab) return setDrawerOpen(collapsed);
+  setDrawerTab(tab);
+  setDrawerOpen(true);
 }
 
 function setDrawerHeight(height) {
@@ -716,7 +737,10 @@ function wireDrawer() {
   setDrawerOpen(recall("designer.drawer") !== "closed");
   const saved = Number(recall("designer.drawerHeight"));
   if (saved) setDrawerHeight(saved);
-  $("drawer-toggle").addEventListener("click", () => setDrawerOpen($("drawer").classList.contains("collapsed")));  $("hc-code").addEventListener("click", onCopy);
+  setDrawerTab(recall("designer.drawerTab") === "debug" ? "debug" : "hcontrol");
+  $("drawer-toggle").addEventListener("click", () => onDrawerTab("hcontrol"));
+  $("debug-tab").addEventListener("click", () => onDrawerTab("debug"));
+  $("hc-code").addEventListener("click", onCopy);
   $("copy-all").addEventListener("click", async () => {
     try {
       await navigator.clipboard.writeText(drawerLines.join("\n"));
@@ -753,6 +777,108 @@ async function onCopy(event) {
   button.innerHTML = icon("check", 13);
   button.style.visibility = "visible";
   setTimeout(() => { button.innerHTML = icon("copy", 13); button.style.visibility = ""; }, 1400);
+}
+
+// -- Debug tab --------------------------------------------------------------------------
+
+const debugLog = createLog();
+let debugStatus = { connected: false };
+let debugConnecting = "";          // The address of a connect in progress.
+let debugFollow = true;            // Whether the log scrolls to each new row.
+
+// Scroll to the newest row, unless you've scrolled up. Call it when the log is shown,
+// because a hidden log can't scroll.
+function followDebugLog() {
+  if (debugFollow) $("debug-log").scrollTop = $("debug-log").scrollHeight;
+}
+
+function renderDebugStatus() {
+  $("debug-status").textContent = statusText(debugStatus, debugConnecting);
+  $("debug-connect").textContent = debugStatus.connected ? "Disconnect" : "Connect";
+  $("debug-connect").disabled = Boolean(debugConnecting);
+  $("debug-dot").hidden = !debugStatus.connected;
+  $("debug-copy").disabled = !debugLog.entries.length;
+}
+
+function debugRow(entry) {
+  const row = document.createElement("div");
+  row.className = `code-row dbg-${entry.kind}`;
+  row.setAttribute("role", "listitem");
+  // highlight() needs a JSON body; lines such as "@exec" have none.
+  const wire = entry.kind === "send" || entry.kind === "receive";
+  const text = wire && entry.text.includes(" ") ? highlight(entry.text) : escapeHtml(entry.text);
+  row.innerHTML = `<span class="ln">${escapeHtml(entry.time)}</span>
+    <span class="dir${entry.kind === "send" ? " send" : ""}">${arrowFor(entry.kind)}</span>
+    <span class="src">${text}</span>`;
+  return row;
+}
+
+function onDebugEntry(entry) {
+  if (!debugLog.accept(entry)) return;
+  if (entry.kind === "status") {
+    debugStatus = JSON.parse(entry.text);
+    return renderDebugStatus();
+  }
+  const box = $("debug-log");
+  const dropped = debugLog.add(entry);
+  for (let i = 0; i < dropped; i++) box.firstElementChild?.remove();
+  box.append(debugRow(entry));
+  followDebugLog();
+  $("debug-copy").disabled = false;
+}
+
+// The stream stays open while the page is; EventSource reconnects by itself.
+function openDebugEvents() {
+  const events = new EventSource("/api/debug/events");
+  events.addEventListener("hello", (event) => {
+    const hello = JSON.parse(event.data);
+    if (debugLog.start(hello.boot)) $("debug-log").replaceChildren();
+    debugStatus = hello.status;
+    renderDebugStatus();
+  });
+  events.addEventListener("message", (event) => onDebugEntry(JSON.parse(event.data)));
+}
+
+async function onDebugConnect() {
+  if (debugStatus.connected) {
+    try {
+      debugStatus = await sendJson("POST", "/api/debug/disconnect");
+    } catch (error) {
+      setStatus(error.message, true);
+    }
+    return renderDebugStatus();
+  }
+  if (needHost()) return;
+  debugConnecting = host();
+  renderDebugStatus();
+  try {
+    debugStatus = await sendJson("POST", "/api/debug/connect", { host: debugConnecting });
+    setStatus(`Debugging ${debugConnecting}. Press buttons or turn the dial on the keypad.`);
+  } catch (error) {
+    setStatus(error.message, true);
+  }
+  debugConnecting = "";
+  renderDebugStatus();
+}
+
+function wireDebug() {
+  $("debug-connect").addEventListener("click", onDebugConnect);
+  $("debug-log").addEventListener("scroll", (e) => { debugFollow = followAfterScroll(e.target, debugFollow); });
+  $("debug-clear").addEventListener("click", () => {
+    debugLog.clear();
+    $("debug-log").replaceChildren();
+    renderDebugStatus();
+  });
+  $("debug-copy").addEventListener("click", async () => {
+    try {
+      await navigator.clipboard.writeText(copyText(debugLog.entries));
+      setStatus(`Copied ${debugLog.entries.length} lines. -> marks lines you send, <- lines you receive.`);
+    } catch {
+      setStatus("Couldn't copy to the clipboard. Select the text and copy it instead.", true);
+    }
+  });
+  renderDebugStatus();
+  openDebugEvents();
 }
 
 // -- LIBRARY tab ------------------------------------------------------------------------
@@ -1619,6 +1745,7 @@ function wire() {
   $("button-name").addEventListener("input", onNameInput);
   $("goto").addEventListener("change", onGoToChange);
   wireDrawer();
+  wireDebug();
   $("save-recipe").addEventListener("click", saveRecipe);
   $("clear-layers").addEventListener("click", clearLayers);
   $("lib-query").addEventListener("input", () => { state.libQuery = $("lib-query").value; renderLibrary(); });

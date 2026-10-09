@@ -230,11 +230,30 @@ explains the protocol rules.
 - To copy one line, point to it and click the copy button.
 - To copy every line, click **Copy all**. Each line starts with `->` for a
   line you send or `<-` for one you receive.
-- To resize the drawer, drag its top edge. To hide or show it, click
-  **HControl**.
+- To resize the drawer, drag its top edge. To hide or show it, click the
+  selected tab.
 
 If you've added or deleted pages since you last saved, the drawer warns you
 that the page numbers can change when you save and deploy.
+
+### Try a design on the keypad
+
+The **Debug** tab in the drawer connects to the keypad and answers it the
+way a simple control system would, so you can check a deployed design by
+hand. It doesn't need a project open.
+
+1. Enter the keypad's IP address in the header, or click **Find**.
+2. Click the **Debug** tab, and then click **Connect**.
+3. Press buttons and turn the dial on the keypad.
+
+While you're connected, pressing a button switches it between OFF and ON,
+and turning the dial sets the LED ring on the same page to the dial's level.
+The log shows every line sent (`→`) and received (`←`), plus notes such as
+`Page 1 dial: 40`. A green dot on the **Debug** tab shows that you're
+connected.
+
+Only controls that aren't bound to an OMNI device are available. Deploying a
+design closes the connection. To start again, click **Connect**.
 
 ## Build the desktop app
 

@@ -351,6 +351,13 @@ label.btn-outline { cursor: pointer; }
               border-top: 2px solid var(--red); background: #1e1e1e; color: #ffffff; font-size: 11px;
               font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
 .drawer.collapsed .drawer-tab { border-top-color: transparent; background: transparent; color: #cccccc; }
+.drawer-tabs { display: flex; height: 100%; }
+.drawer-tab:not(.current) { border-top-color: transparent; background: transparent; color: #cccccc; }
+.drawer-tab .chev { display: none; }
+.drawer-tab.current .chev { display: inline-flex; }
+.debug-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--green); }
+.drawer[data-tab="debug"] .hc-only, .drawer:not([data-tab="debug"]) .debug-only { display: none; }
+.debug-status { min-width: 0; font: 12px var(--mono); color: #9cdcfe; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .drawer-path { min-width: 0; font: 12px var(--mono); color: #9cdcfe; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .drawer-warn { display: flex; align-items: center; gap: 8px; min-width: 0; color: #e5c07b; white-space: nowrap;
                overflow: hidden; text-overflow: ellipsis; }
@@ -358,6 +365,11 @@ label.btn-outline { cursor: pointer; }
               font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }
 .drawer-btn:hover { background: #37373d; color: #ffffff; }.drawer-body { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) clamp(240px, 34%, 440px); }
 .drawer.collapsed .drawer-body, .drawer.collapsed .drawer-btn, .drawer.collapsed .drawer-warn { display: none; }
+.drawer.collapsed .debug-body, .drawer.collapsed .debug-status { display: none; }
+.debug-body { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.debug-log .ln { width: 112px; }
+.dbg-note .src { color: #6a9955; }
+.dbg-error .src { color: #f48771; }
 .drawer-pane { min-height: 0; display: flex; flex-direction: column; }
 .notes-pane { background: #252526; border-left: 1px solid #3c3c3c; }
 .pane-title { flex: none; padding: 8px 14px 6px; color: #bbbbbb; font-size: 11px; font-weight: 700;
