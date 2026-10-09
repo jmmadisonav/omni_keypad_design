@@ -16,6 +16,7 @@ import binascii
 import datetime
 import json
 import os
+import queue
 import socket
 import sys
 import threading
@@ -32,6 +33,7 @@ if str(ROOT) not in sys.path:
 
 from hcontrol import HControlError, discover as hcontrol_discover  # noqa: E402
 from designer.assets import GraphicsZip  # noqa: E402
+from designer.debug import DebugSession  # noqa: E402
 from designer.keypad_ops import (BusyError, ButtonImages, ConflictError,  # noqa: E402
                                  DeployFailed, DeployTimeout, KeypadOps, Layout,
                                  ModelMismatch)
@@ -64,6 +66,7 @@ def make_server(port: int, ops: KeypadOps, library: Library, graphics: GraphicsZ
     Handler.ops, Handler.library, Handler.graphics, Handler.projects, Handler.discover = (
         ops, library, graphics, projects, staticmethod(discover))
     Handler.backup_models = {}
+    Handler.debug = DebugSession(port=ops.port, timeout=ops.timeout)
     server = _Server(("127.0.0.1", port), Handler)
     server.daemon_threads = True
     return server
@@ -94,6 +97,8 @@ class _Handler(BaseHTTPRequestHandler):
     graphics: GraphicsZip
     projects: ProjectStore
     backup_models: dict[str, str | None]    # Backup file name -> model. Backups don't change.
+    debug: DebugSession
+    KEEPALIVE = 15.0                        # Seconds of quiet before the event stream sends a comment.
 
     def do_GET(self):
         self._handle("GET")
@@ -205,6 +210,12 @@ class _Handler(BaseHTTPRequestHandler):
                                      f"but the keypad at {host} is "
                                      f"{_article(_model_name(self.projects, error.actual))}.",
                                 model=True) from None
+        if route == ("POST", "debug", "connect"):
+            return self._json(self.debug.connect(self._host_from(self._body())))
+        if route == ("POST", "debug", "disconnect"):
+            return self._json(self.debug.disconnect())
+        if route == ("GET", "debug", "events"):
+            return self._events()
         if route == ("GET", "models"):
             return self._json([m.summary() for m in self.projects.models.values()])
         if route == ("GET", "projects"):
@@ -351,6 +362,33 @@ class _Handler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(data)
 
+    def _events(self) -> None:
+        """Stream the debug log as server-sent events until the page closes."""
+        listener = self.debug.listen()
+        self.close_connection = True
+        try:
+            self.send_response(200)
+            self.send_header("Content-Type", "text/event-stream")
+            self.send_header("Cache-Control", "no-cache")
+            self.end_headers()
+            hello = {"boot": self.debug.boot, "status": self.debug.status()}
+            self._send_event(f"event: hello\ndata: {json.dumps(hello)}\n\n")
+            while not listener.dropped:
+                try:
+                    entry = listener.queue.get(timeout=self.KEEPALIVE)
+                except queue.Empty:
+                    self._send_event(": keepalive\n\n")
+                    continue
+                self._send_event(f"data: {json.dumps(entry)}\n\n")
+        except OSError:
+            pass                                # The page closed the stream.
+        finally:
+            self.debug.unlisten(listener)
+
+    def _send_event(self, text: str) -> None:
+        self.wfile.write(text.encode("utf-8"))
+        self.wfile.flush()
+
 
 def _article(name: str) -> str:
     """Return "an 8BV" or "a 6BV"."""
@@ -492,6 +530,7 @@ def main() -> None:
     except KeyboardInterrupt:
         pass
     finally:
+        server.RequestHandlerClass.debug.disconnect()
         server.server_close()
 
 
