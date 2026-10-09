@@ -4,6 +4,7 @@ import time
 import unittest
 
 from hcontrol import HControlClient, HControlError, decode, encode
+from tests.fake_keypad import FakeKeypad
 from tests.helpers import KeypadTestCase, wait_until
 
 
@@ -230,6 +231,37 @@ class FileTransferTests(KeypadTestCase):
         self.keypad.files["x"] = b"hello"
         self.kp.get_file("x")
         self.assertEqual(self.kp.get("/settings/brightness"), 50)
+
+
+class LineHookTests(unittest.TestCase):
+    def setUp(self):
+        self.keypad = FakeKeypad().__enter__()
+        self.addCleanup(self.keypad.__exit__, None, None, None)
+        self.lines = []
+        self.kp = HControlClient("127.0.0.1", self.keypad.port, timeout=1.0,
+                                 on_line=lambda direction, text: self.lines.append((direction, text)))
+        self.addCleanup(self.kp.close)
+
+    def test_request_and_reply_are_reported(self):
+        self.kp.get("/settings/brightness")
+        self.assertEqual(self.lines, [
+            ("send", 'get {"path":"/settings/brightness"}'),
+            ("receive", '@get {"path":"/settings/brightness","value":50}')])
+
+    def test_publish_is_reported_before_its_acknowledgement(self):
+        self.kp.subscribe("/page1/button1/action", lambda path, value: None, fmt="string")
+        self.lines.clear()
+        self.keypad.press("/page1/button1/action", "PUSH")
+        self.assertTrue(wait_until(lambda: len(self.lines) == 2))
+        line = 'publish {"path":"/page1/button1/action","format":"string","value":"PUSH"}'
+        self.assertEqual(self.lines, [("receive", line), ("send", "@" + line)])
+
+    def test_failing_hook_does_not_break_the_connection(self):
+        def broken(direction, text):
+            raise RuntimeError("broken hook")
+        with HControlClient("127.0.0.1", self.keypad.port, timeout=1.0, on_line=broken) as kp:
+            with self.assertLogs("hcontrol", "ERROR"):
+                self.assertEqual(kp.get("/settings/brightness"), 50)
 
 
 if __name__ == "__main__":

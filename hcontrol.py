@@ -65,6 +65,9 @@ class HControlClient:
     receives everything the keypad sends and acknowledges publish messages
     straight away. A dispatcher thread calls your subscription callbacks, so a
     callback can safely call get() or set().
+
+    Pass on_line to see every line on the wire: the client calls
+    on_line("send", text) or on_line("receive", text), without the line feed.
     """
 
     def __init__(
@@ -73,9 +76,11 @@ class HControlClient:
         port: int = DEFAULT_PORT,
         timeout: float = 5.0,
         on_disconnect: Callable[[], None] | None = None,
+        on_line: Callable[[str, str], None] | None = None,
     ):
         self.timeout = timeout
         self._on_disconnect = on_disconnect
+        self._on_line = on_line
         self._sock = socket.create_connection((host, port), timeout=timeout)
         self._sock.settimeout(None)
         self._send_lock = threading.Lock()
@@ -242,8 +247,11 @@ class HControlClient:
         self._send_line(encode(command, params))
 
     def _send_line(self, line: bytes) -> None:
-        log.debug("-> %s", line.decode("utf-8").rstrip())
+        text = line.decode("utf-8").rstrip()
+        log.debug("-> %s", text)
         with self._send_lock:
+            # Report first, so a fast reply can't appear before its request.
+            self._report("send", text)
             self._sock.sendall(line)
 
     def _wait_for(self, expected: str, path: str | None = None) -> dict:
@@ -294,6 +302,7 @@ class HControlClient:
                     log.exception("on_disconnect callback failed")
 
     def _handle_line(self, line: str) -> None:
+        self._report("receive", line)
         log.debug("<- %s", line)
         try:
             command, params = decode(line)
@@ -323,6 +332,14 @@ class HControlClient:
                     callback(path, params.get("value"))
                 except Exception:
                     log.exception("callback for %s failed", path)
+
+    def _report(self, direction: str, text: str) -> None:
+        if self._on_line is None:
+            return
+        try:
+            self._on_line(direction, text)
+        except Exception:
+            log.exception("on_line callback failed")
 
 
 def _params(path: str, fmt: str | None) -> dict:
