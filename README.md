@@ -250,6 +250,8 @@ installed copy, set
 
 ### What the installer does
 
+- Shows the MIT licence (`LICENSE`) and asks you to accept it before it
+  installs anything. A copy is installed next to the app as `LICENSE.txt`.
 - Asks whether to install for everyone on the computer (needs admin) or just
   the current user, and lets you change the install folder.
 - Adds a Start menu shortcut, **OMNI Keypad Designer**. There's no desktop
