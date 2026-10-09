@@ -68,6 +68,21 @@
             <button id="show-alt" type="button" hidden>ALT</button>
           </div>
           <button id="toggle-alt" type="button" class="link-quiet">Show ALT</button>
+          <div id="housing" class="seg seg-look" role="group" aria-label="Housing" title="How the keypad is housed. Saved with the project.">
+            <button type="button" data-housing="wall" class="current">Wall</button>
+            <button type="button" data-housing="tabletop">Tabletop</button>
+          </div>
+          <div id="finish" class="seg seg-look" role="group" aria-label="Finish" title="The keypad's finish. Only changes the preview.">
+            <button type="button" data-finish="black" class="current">Black</button>
+            <button type="button" data-finish="white">White</button>
+          </div>
+          <label class="lines-field" title="The colour of the lines between buttons on the keypad">
+            <span class="label">Lines</span>
+            <span class="colour-field">
+              <input id="separator-picker" type="color" value="#000000" aria-label="Line colour">
+              <input id="separator-hex" class="hex" value="#000000" maxlength="7" spellcheck="false" aria-label="Line colour, hex">
+            </span>
+          </label>
           <div class="legend"><span class="unsaved-mark" aria-hidden="true"></span>Unsaved changes. Drag buttons to swap artwork and page links. Ctrl+Z undoes.</div>        </div>
       </div>
     </section>

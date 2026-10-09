@@ -156,11 +156,13 @@ up one number, so update any app that uses their paths.
 
 The designer supports these OMNI keypads:
 
-| Model | Tabletop version | Buttons | Dial and LED ring |
-|---|---|---|---|
-| OMNI-KP-6B | OMNI-KP-T6B | 6, in 2 columns and 3 rows | No |
-| OMNI-KP-6BV | OMNI-KP-T6BV | 6, in 2 columns and 3 rows | Yes |
-| OMNI-KP-8BV | OMNI-KP-T8BV | 8, in 4 columns and 2 rows | Yes |
+| Model | Tabletop version | Buttons on the wall unit | Buttons on the tabletop | Dial and LED ring |
+|---|---|---|---|---|
+| OMNI-KP-6B | OMNI-KP-T6B | 2 columns, 3 rows | 3 columns, 2 rows | No |
+| OMNI-KP-6BV | OMNI-KP-T6BV | 2 columns, 3 rows | 3 columns, 2 rows | Yes |
+| OMNI-KP-8BV | OMNI-KP-T8BV | 4 columns, 2 rows | 4 columns, 2 rows | Yes |
+
+Buttons are numbered along the top row first, then the next row.
 
 The designer doesn't support the OMNI-KP-V yet.
 
@@ -171,7 +173,23 @@ project's model later. The model appears next to the project name.
 A tabletop keypad is the same model as its wall unit. A project for the
 OMNI-KP-8BV loads from and deploys to an OMNI-KP-T8BV, and the other way
 around. Loading from a tabletop keypad makes a project for its wall-unit
-model.
+model, with the tabletop housing.
+
+### Housing, finish, and lines
+
+Under the keypad view, three controls set how the keypad looks:
+
+- **Wall | Tabletop** sets the housing. The tabletop T6B and T6BV turn the
+  screen sideways, so their buttons are 3 across. Choose it in **New**, or
+  change it any time.
+- **Black | White** sets the finish, such as OMNI-KP-T8BV-BL or -WH. It only
+  changes the preview.
+- **Lines** sets the colour of the lines between buttons on the keypad. It's
+  part of the design: it's saved with the project, deployed, and undone with
+  Ctrl+Z. New projects use black. A project loaded from a keypad keeps the
+  keypad's colour.
+
+The housing and finish are saved with the project straight away.
 
 If a project's model file is missing, the designer shows an error. You can
 still edit the project, but you can't deploy it until you put the model file
