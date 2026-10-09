@@ -226,7 +226,9 @@ class _Handler(BaseHTTPRequestHandler):
             if not isinstance(model, str):
                 raise ValueError("model must be a keypad model id, such as OMNI-KP-8BV")
             return self._json(self.projects.new(_field(body, "name", str).strip(), model,
-                                                unique=bool(body.get("unique"))))
+                                                unique=bool(body.get("unique")),
+                                                housing=body.get("housing", "wall"),
+                                                finish=body.get("finish", "black")))
         if route == ("POST", "projects", "from-keypad"):
             body = self._body()
             host = self._host_from(body)
@@ -237,8 +239,10 @@ class _Handler(BaseHTTPRequestHandler):
                                  f"The designer supports the {_supported(self.projects)}.")
             data = self.ops.download(host)
             name = self.projects.unique_name(project_name_for(host))
+            # A keypad that reports an alias, such as OMNI-KP-T8BV, is the tabletop housing.
             return self._json(self.projects.import_design(
-                name, data, Design.from_cpio(data).fingerprint, model))
+                name, data, Design.from_cpio(data).fingerprint, model,
+                housing="wall" if reported == model else "tabletop"))
         if len(route) == 3 and route[1] == "projects":
             name = route[2]
             if method == "GET":
@@ -249,15 +253,18 @@ class _Handler(BaseHTTPRequestHandler):
                 buttons = [ButtonImages.from_json(item, sizes) for item in _field(body, "buttons", list)]
                 layout = (Layout.from_json(_field(body, "layout", dict))
                           if body.get("layout") is not None else None)
+                separator = body.get("separatorColor")
+                if separator is not None and not isinstance(separator, str):
+                    raise ValueError("separatorColor must be a colour such as #000000")
                 return self._json(self.projects.save(name, buttons, layout,
-                                                     _field(body, "recipes", dict)))
+                                                     _field(body, "recipes", dict), separator))
         if len(route) == 4 and route[1] == "projects" and method == "POST":
             name, action = route[2], route[3]
             body = self._body()
             if action == "copy":
                 return self._json(self.projects.copy(name, _field(body, "to", str).strip()))
             if action == "settings":
-                return self._json(self.projects.set_show_alt(name, _field(body, "showAlt", bool)))
+                return self._json(self.projects.set_settings(name, body))
             if action == "deploy":
                 host = self._host_from(body)
                 design = self.projects.design(name)

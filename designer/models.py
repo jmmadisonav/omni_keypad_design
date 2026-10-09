@@ -7,7 +7,9 @@ projects start from.
 
 A model file can also list aliases: other model ids a keypad reports for
 the same hardware. The tabletop OMNI-KP-T8BV is an OMNI-KP-8BV in another
-housing, so an 8BV project loads from and deploys to either.
+housing, so an 8BV project loads from and deploys to either. The tabletop
+field gives the tabletop housing's button grid, which can differ: the T6B and
+T6BV turn the screen sideways, so their 6 buttons are 3 columns by 2 rows.
 """
 
 from __future__ import annotations
@@ -35,6 +37,7 @@ class Model:
     image_size: int          # Button images are image_size x image_size pixels.
     template: dict
     aliases: tuple[str, ...] = ()   # Other ids for the same hardware, such as OMNI-KP-T8BV.
+    tabletop: dict | None = None    # {"columns", "rows"} in the tabletop housing.
 
     @property
     def buttons(self) -> int:
@@ -71,11 +74,13 @@ def model_for(models: dict[str, Model], reported: str) -> str | None:
 def _load(path: Path) -> Model:
     try:
         data = json.loads(path.read_text(encoding="utf-8"))
-        fields = {field: data[field] for field in Model.__dataclass_fields__ if field != "aliases"}
+        fields = {field: data[field] for field in Model.__dataclass_fields__
+                  if field not in ("aliases", "tabletop")}
         aliases = data.get("aliases", [])
         if not isinstance(aliases, list) or not all(isinstance(a, str) and a for a in aliases):
             raise ValueError("aliases must be a list of model ids")
-        model = Model(**fields, aliases=tuple(aliases))
+        tabletop = data.get("tabletop", {"columns": fields["columns"], "rows": fields["rows"]})
+        model = Model(**fields, aliases=tuple(aliases), tabletop=tabletop)
         _check(model, path)
         return model
     except (KeyError, TypeError, ValueError) as error:
@@ -88,6 +93,13 @@ def _check(model: Model, path: Path) -> None:
     if not (isinstance(model.columns, int) and isinstance(model.rows, int)
             and model.columns > 0 and model.rows > 0):
         raise ValueError("columns and rows must be whole numbers")
+    grid = model.tabletop
+    if not (isinstance(grid, dict) and set(grid) == {"columns", "rows"}
+            and all(type(grid[k]) is int and grid[k] > 0 for k in grid)):
+        raise ValueError("tabletop must be {\"columns\": n, \"rows\": n}")
+    if grid["columns"] * grid["rows"] != model.buttons:
+        raise ValueError(f"the tabletop grid is {grid['columns']} x {grid['rows']}, "
+                         f"but the model has {model.buttons} buttons")
     if type(model.image_size) is not int or model.image_size <= 0:
         raise ValueError("image_size must be a whole number of pixels")
     if model.faceplate not in _FACEPLATES:

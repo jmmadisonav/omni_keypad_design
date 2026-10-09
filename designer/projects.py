@@ -24,6 +24,9 @@ from keypad_design import Design
 
 _META = "designer.json"
 _RECIPE_KEY = re.compile(r"([1-9]\d*)-([1-9]\d*)")
+_COLOUR = re.compile(r"#[0-9A-Fa-f]{6}")
+HOUSINGS = ("wall", "tabletop")        # How the keypad view draws the project.
+FINISHES = ("black", "white")
 
 
 def project_name_for(host: str, today: datetime.date | None = None) -> str:
@@ -61,19 +64,21 @@ class ProjectStore:
             number += 1
         return name
 
-    def new(self, name: str, model: str = DEFAULT_MODEL, unique: bool = False) -> dict:
+    def new(self, name: str, model: str = DEFAULT_MODEL, unique: bool = False,
+            housing: str = "wall", finish: str = "black") -> dict:
         """Create a project for a keypad model. With unique, pick a free name."""
         if model not in self.models:
             raise ValueError(f"{model!r} isn't a keypad model the designer supports")
+        view = _check_settings({"housing": housing, "finish": finish})
         with self._lock:
-            return self._new(self.unique_name(name) if unique else name, model)
+            return self._new(self.unique_name(name) if unique else name, model, view)
 
-    def _new(self, name: str, model: str) -> dict:
+    def _new(self, name: str, model: str, view: dict) -> dict:
         self._new_path(name)
         config = copy.deepcopy(self.models[model].template)
         config["fingerprint"] = ""
         config["lastdeployedtimestamp"] = ""
-        self._write(name, Design(config), _empty_meta("", model))
+        self._write(name, Design(config), {**_empty_meta("", model), **view})
         return self.open(name)
 
     def open(self, name: str) -> dict:
@@ -90,6 +95,8 @@ class ProjectStore:
             "model": meta["model"],
             "lastDeployed": meta["lastDeployed"],
             "showAlt": meta["showAlt"],
+            "housing": meta["housing"],
+            "finish": meta["finish"],
         }
 
     def design(self, name: str) -> Design:
@@ -107,14 +114,20 @@ class ProjectStore:
         return self._meta(name)["model"]
 
     def save(self, name: str, buttons: list[ButtonImages], layout: Layout | None,
-             recipes: dict) -> dict:
+             recipes: dict, separator: str | None = None) -> dict:
+        """Save changes. separator, when given, is the #RRGGBB colour of the
+        lines between buttons on the keypad."""
+        if separator is not None and not _COLOUR.fullmatch(separator):
+            raise ValueError(f"the separator colour must be #RRGGBB, not {separator!r}")
         with self._lock:
-            return self._save(name, buttons, layout, recipes)
+            return self._save(name, buttons, layout, recipes, separator)
 
     def _save(self, name: str, buttons: list[ButtonImages], layout: Layout | None,
-              recipes: dict) -> dict:
+              recipes: dict, separator: str | None) -> dict:
         design = self.design(name)
         meta = self._meta(name)
+        if separator is not None:
+            design.config.setdefault("display", {})["panel_separator_color"] = separator.upper()
         if layout is not None:
             apply_layout(design, layout)          # Image page numbers use the new layout.
         try:
@@ -135,19 +148,29 @@ class ProjectStore:
             return self.open(to)
 
     def import_design(self, name: str, data: bytes, base_fingerprint: str,
-                      model: str = DEFAULT_MODEL) -> dict:
+                      model: str = DEFAULT_MODEL, housing: str = "wall") -> dict:
+        view = _check_settings({"housing": housing})
         with self._lock:
             self._new_path(name)
             design = Design.from_cpio(data)
             design.prune_images()
-            self._write(name, design, _empty_meta(base_fingerprint, model))
+            self._write(name, design, {**_empty_meta(base_fingerprint, model), **view})
             return self.open(name)
 
     def set_show_alt(self, name: str, show: bool) -> dict:
         """Show or hide the ALT state while editing this project."""
+        return self.set_settings(name, {"showAlt": bool(show)})
+
+    def set_settings(self, name: str, changes: dict) -> dict:
+        """Change how the designer shows this project: showAlt, housing, finish.
+
+        These are saved at once and aren't part of the keypad design.
+        """
+        changes = _check_settings(changes)
+        if not changes:
+            raise ValueError("send at least one of showAlt, housing, or finish")
         with self._lock:
-            meta = self._meta(name)
-            meta["showAlt"] = bool(show)
+            meta = {**self._meta(name), **changes}
             (self._path(name) / _META).write_text(json.dumps(meta, indent=2) + "\n",
                                                   encoding="utf-8")
             return self.open(name)
@@ -212,7 +235,20 @@ class ProjectStore:
 
 def _empty_meta(base_fingerprint: str, model: str = DEFAULT_MODEL) -> dict:
     return {"version": 1, "model": model, "baseFingerprint": base_fingerprint, "recipes": {},
-            "lastDeployed": "", "showAlt": False}
+            "lastDeployed": "", "showAlt": False, "housing": "wall", "finish": "black"}
+
+
+def _check_settings(changes: dict) -> dict:
+    """Return the view settings in changes, or raise ValueError for a bad one."""
+    allowed = {"showAlt": (True, False), "housing": HOUSINGS, "finish": FINISHES}
+    for key, value in changes.items():
+        if key not in allowed:
+            raise ValueError(f"{key!r} isn't a project setting")
+        if key == "showAlt" and not isinstance(value, bool):
+            raise ValueError("showAlt must be true or false")
+        if value not in allowed[key]:
+            raise ValueError(f"{key} must be one of {', '.join(map(str, allowed[key]))}")
+    return dict(changes)
 
 
 def _clean_recipes(recipes: dict, design: Design) -> dict:
