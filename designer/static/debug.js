@@ -20,6 +20,13 @@ export function statusText(status, connecting = "") {
   return `Connected to ${status.model} at ${status.host} · firmware ${status.version}`;
 }
 
+// Whether the log keeps following new rows after a scroll: only when you're at
+// the bottom. A hidden log has no size, so it keeps what it was doing.
+export function followAfterScroll(box, following) {
+  if (!box.clientHeight) return following;
+  return box.scrollHeight - box.scrollTop - box.clientHeight < 24;
+}
+
 // The rows to show. accept() filters out entries a reconnecting stream
 // replays; start() resets when the server has restarted.
 export function createLog(limit = MAX_ROWS) {

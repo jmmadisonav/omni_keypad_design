@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { MAX_ROWS, arrowFor, copyText, statusText, createLog } from "./debug.js";
+import { MAX_ROWS, arrowFor, copyText, statusText, createLog, followAfterScroll } from "./debug.js";
 
 const entry = (seq, kind = "note", text = `entry ${seq}`) => ({ seq, time: "14:03:22.517", kind, text });
 
@@ -73,4 +73,15 @@ test("clear empties the rows but remembers what it has seen", () => {
   log.clear();
   assert.deepEqual(log.entries, []);
   assert.equal(log.accept(entry(1)), false);
+});
+
+test("followAfterScroll follows only when scrolled to the bottom", () => {
+  assert.equal(followAfterScroll({ scrollHeight: 1000, scrollTop: 800, clientHeight: 200 }, false), true);
+  assert.equal(followAfterScroll({ scrollHeight: 1000, scrollTop: 790, clientHeight: 200 }, false), true);
+  assert.equal(followAfterScroll({ scrollHeight: 1000, scrollTop: 500, clientHeight: 200 }, true), false);
+});
+
+test("followAfterScroll keeps following while the log is hidden", () => {
+  assert.equal(followAfterScroll({ scrollHeight: 0, scrollTop: 0, clientHeight: 0 }, true), true);
+  assert.equal(followAfterScroll({ scrollHeight: 0, scrollTop: 0, clientHeight: 0 }, false), false);
 });
