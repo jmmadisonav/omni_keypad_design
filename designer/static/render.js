@@ -1,6 +1,6 @@
-// Draws a recipe onto a 188x188 canvas for the OFF or ON state.
+// Draws a recipe onto a 188x188 canvas for the OFF, ON or ALT state.
 
-import { SIZE, shapeFiles, tintPixels, tintSource } from "./model.js";
+import { SIZE, shapeFiles, textLines, tintPixels, tintSource, colourFor, shapeArt, statesOf } from "./model.js";
 import { assetUrl } from "./api.js";
 
 const images = new Map();       // src -> Promise<HTMLImageElement>
@@ -71,19 +71,21 @@ async function drawLayer(ctx, layer, state, catalog) {
   switch (layer.type) {
     case "shape": {
       const grey = tintSource(catalog, layer.set);
-      const tint = layer.tint?.[state];
+      const tint = layer.tint && colourFor(layer.tint, state);
       if (grey && /^#[0-9a-f]{6}$/i.test(tint || "")) {
-        ctx.drawImage(await tintedShape(assetUrl(grey[state]), tint), 0, 0, SIZE, SIZE);
+        // ALT recolours the OFF artwork.
+        ctx.drawImage(await tintedShape(assetUrl(grey[state === "on" ? "on" : "off"]), tint), 0, 0, SIZE, SIZE);
         return;
       }
-      const files = shapeFiles(catalog, layer.set, layer.colour);
+      const { colour, art } = shapeArt(layer, state);
+      const files = shapeFiles(catalog, layer.set, colour);
       if (!files) return;
-      ctx.drawImage(await loadImage(assetUrl(files[state])), 0, 0, SIZE, SIZE);
+      ctx.drawImage(await loadImage(assetUrl(files[art])), 0, 0, SIZE, SIZE);
       return;
     }
     case "icon": {
       await loadIcons();
-      const src = iconSource(layer.icon, layer.size, layer.colour[state], layer.stroke);
+      const src = iconSource(layer.icon, layer.size, colourFor(layer.colour, state), layer.stroke);
       if (!src) return;
       ctx.drawImage(await loadImage(src), layer.x - layer.size / 2, layer.y - layer.size / 2,
                     layer.size, layer.size);
@@ -93,10 +95,10 @@ async function drawLayer(ctx, layer, state, catalog) {
       const font = `${layer.weight} ${layer.size}px "${layer.font}"`;
       await document.fonts.load(font);
       ctx.font = font;
-      ctx.fillStyle = layer.colour[state];
+      ctx.fillStyle = colourFor(layer.colour, state);
       ctx.textAlign = layer.align;
       ctx.textBaseline = "middle";
-      const lines = layer.lines.filter((l, i) => i < 2);
+      const lines = textLines(layer, state);
       const step = layer.size * 1.15;
       lines.forEach((line, i) => {
         ctx.fillText(line, layer.x, layer.y + (i - (lines.length - 1) / 2) * step);
@@ -141,10 +143,11 @@ function blankCanvas(size = SIZE) {
 // Layers are laid out on a 188-unit canvas whatever the model, so recipes
 // work on every keypad. size is the image the keypad shows: 188 on the 8BV,
 // 150 on the 6B and 6BV. Drawing scaled, rather than resizing a 188 image,
-// keeps a 150-pixel keypad image at its own resolution.
+// keeps a 150-pixel keypad image at its own resolution. The result has an
+// alt canvas only when the button has an ALT state.
 export async function renderRecipe(recipe, catalog, size = SIZE) {
   const result = {};
-  for (const state of ["off", "on"]) {
+  for (const state of statesOf(recipe)) {
     result[state] = blankCanvas(size);
     const ctx = result[state].getContext("2d");
     ctx.scale(size / SIZE, size / SIZE);

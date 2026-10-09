@@ -55,6 +55,14 @@ class ProjectStoreTests(unittest.TestCase):
         self.assertEqual(sorted(p.name for p in (self.folder / "Lobby" / "images").iterdir()),
                          ["Mute_OFF.png", "Mute_ON.png"])
 
+    def test_show_alt_is_off_until_set_and_survives_a_save(self):
+        self.assertFalse(self.store.new("Lobby")["showAlt"])
+        self.store.set_show_alt("Lobby", True)
+        self.assertTrue(self.store.open("Lobby")["showAlt"])
+        self.store.save("Lobby", [], None, {})
+        self.assertTrue(self.store.open("Lobby")["showAlt"])
+        self.assertTrue(self.store.copy("Lobby", "Lobby 2")["showAlt"])
+
     def test_save_after_deleting_a_page_renumbers_recipes_and_removes_files(self):
         self.store.new("Lobby")
         self.store.save("Lobby", [ButtonImages(2, 1, "Mute", make_png(seed=1), make_png(seed=2))],

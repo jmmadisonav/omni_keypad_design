@@ -181,3 +181,66 @@ test("imageSizeFor uses the model's size, or guesses from the button count", asy
   assert.equal(imageSizeFor(undefined, 6), 150);
   assert.equal(imageSizeFor(undefined, 8), SIZE);
 });
+
+test("textLines uses each OFF line for ON unless that ON line has its own text", async () => {
+  const { textLines } = await import("./model.js");
+  const same = { type: "text", lines: ["Mute"] };
+  assert.deepEqual(textLines(same, "off"), ["Mute"]);
+  assert.deepEqual(textLines(same, "on"), ["Mute"]);
+  const split = { type: "text", lines: ["Mute"], onLines: ["Unmute", "Mic"] };
+  assert.deepEqual(textLines(split, "off"), ["Mute"]);
+  assert.deepEqual(textLines(split, "on"), ["Unmute", "Mic"]);
+  // null keeps the OFF line, so only line 1 changes here.
+  assert.deepEqual(textLines({ type: "text", lines: ["Mic", "Muted"], onLines: ["Live", null] }, "on"), ["Live", "Muted"]);
+  // An empty string blanks the line on ON only.
+  assert.deepEqual(textLines({ type: "text", lines: ["Mic", "Muted"], onLines: [null, ""] }, "on"), ["Mic"]);
+  assert.deepEqual(textLines({ type: "text", lines: ["Mic"], onLines: ["", null] }, "on"), [""]);
+  assert.deepEqual(textLines({ type: "text", lines: ["A", "B", "C"] }, "off"), ["A", "B"]);
+  assert.deepEqual(textLines({ type: "text", lines: ["Mute"], onLines: [] }, "on"), ["Mute"]);
+});
+
+test("setOwnLine overrides one ON or ALT line, and drops the lines when both follow OFF", async () => {
+  const { setOwnLine } = await import("./model.js");
+  assert.deepEqual(setOwnLine({ lines: ["Mute"] }, "on", 0, "Unmute"), { onLines: ["Unmute", null] });
+  assert.deepEqual(setOwnLine({ lines: ["Mute"], onLines: ["Unmute", null] }, "on", 1, ""), { onLines: ["Unmute", ""] });
+  assert.deepEqual(setOwnLine({ lines: ["Mute"], onLines: ["Unmute", ""] }, "on", 0, null), { onLines: [null, ""] });
+  assert.deepEqual(setOwnLine({ lines: ["Mute"], onLines: ["Unmute", null] }, "on", 0, null), { onLines: undefined });
+  assert.deepEqual(setOwnLine({ lines: ["Mute"], onLines: ["Unmute", null] }, "alt", 0, "Wait"), { altLines: ["Wait", null] });
+});
+
+test("ALT follows OFF unless a layer has its own ALT text, colour, artwork or image", async () => {
+  const { textLines, colourFor, shapeArt } = await import("./model.js");
+  const text = { type: "text", lines: ["Mic"], onLines: ["Live", null], colour: { off: "#111111", on: "#222222" } };
+  assert.deepEqual(textLines(text, "alt"), ["Mic"]);
+  assert.deepEqual(textLines({ ...text, altLines: ["Wait", "Muted"] }, "alt"), ["Wait", "Muted"]);
+  assert.equal(colourFor(text.colour, "alt"), "#111111");
+  assert.equal(colourFor({ ...text.colour, alt: "#333333" }, "alt"), "#333333");
+  assert.equal(colourFor(text.colour, "on"), "#222222");
+  const shape = { type: "shape", set: "Squared", colour: "Blue" };
+  assert.deepEqual(shapeArt(shape, "off"), { colour: "Blue", art: "off" });
+  assert.deepEqual(shapeArt(shape, "on"), { colour: "Blue", art: "on" });
+  assert.deepEqual(shapeArt(shape, "alt"), { colour: "Blue", art: "off" });
+  assert.deepEqual(shapeArt({ ...shape, altArt: { colour: "Red", art: "on" } }, "alt"), { colour: "Red", art: "on" });
+});
+
+test("statesOf adds ALT only for buttons with an ALT state", async () => {
+  const { statesOf } = await import("./model.js");
+  assert.deepEqual(statesOf({ layers: [] }), ["off", "on"]);
+  assert.deepEqual(statesOf({ alt: true, layers: [] }), ["off", "on", "alt"]);
+});
+
+test("recipeFromImages keeps a keypad button's ALT image", async () => {
+  const { recipeFromImages } = await import("./model.js");
+  assert.equal(recipeFromImages("a", "b", "X").alt, undefined);
+  const recipe = recipeFromImages("a", "b", "X", { kind: "keypad" }, "c");
+  assert.equal(recipe.alt, true);
+  assert.equal(recipe.layers[0].alt, "c");
+});
+
+test("layerSummary shows both texts when ON differs", async () => {
+  const { layerSummary } = await import("./model.js");
+  assert.equal(layerSummary({ type: "text", lines: ["Mute"], onLines: ["Unmute"] }), "\"Mute\" → \"Unmute\"");
+  assert.equal(layerSummary({ type: "text", lines: ["Mute"], onLines: ["Mute"] }), "\"Mute\"");
+  assert.equal(layerSummary({ type: "text", lines: ["Test", "Off"], onLines: [null, "On"] }), "\"Test / Off\" → \"Test / On\"");
+  assert.equal(layerSummary({ type: "text", lines: ["Mic"], altLines: ["Wait"] }), "\"Mic\" · ALT \"Wait\"");
+});

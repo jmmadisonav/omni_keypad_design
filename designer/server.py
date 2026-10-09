@@ -245,6 +245,8 @@ class _Handler(BaseHTTPRequestHandler):
             body = self._body()
             if action == "copy":
                 return self._json(self.projects.copy(name, _field(body, "to", str).strip()))
+            if action == "settings":
+                return self._json(self.projects.set_show_alt(name, _field(body, "showAlt", bool)))
             if action == "deploy":
                 host = self._host_from(body)
                 design = self.projects.design(name)

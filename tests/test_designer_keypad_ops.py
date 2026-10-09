@@ -43,6 +43,13 @@ class ButtonImagesTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, r"the OFF image is 150x150; buttons need 188x188"):
             ButtonImages.from_json(item)
 
+    def test_from_json_reads_an_optional_alt_image(self):
+        item = {"page": 1, "button": 1, "name": "", "off": b64(make_png(seed=1)), "on": b64(make_png(seed=2))}
+        self.assertIsNone(ButtonImages.from_json(item).alt)
+        self.assertEqual(ButtonImages.from_json({**item, "alt": b64(make_png(seed=3))}).alt, make_png(seed=3))
+        with self.assertRaisesRegex(ValueError, r"the ALT image is 200x188"):
+            ButtonImages.from_json({**item, "alt": b64(make_png(200, 188))})
+
     def test_from_json_rejects_non_png_and_bad_base64(self):
         for value in (b64(b"hello"), "***"):
             with self.subTest(value=value), self.assertRaises(ValueError):
@@ -90,6 +97,15 @@ class NamingTests(unittest.TestCase):
         apply_buttons(design, [ButtonImages(1, 1, "HDMI 1", make_png(seed=5), make_png(seed=6))])
         self.assertEqual(design.button(1, 1)["offImage"], ["HDMI_1_OFF.png"])
         self.assertEqual(design.images["HDMI_1_OFF.png"], make_png(seed=5))
+
+    def test_apply_sets_the_alt_image_or_clears_it(self):
+        design = original()
+        apply_buttons(design, [ButtonImages(1, 1, "Mic", make_png(seed=1), make_png(seed=2), make_png(seed=3))])
+        self.assertEqual(design.button(1, 1)["altImage"], ["Mic_ALT.png"])
+        self.assertEqual(design.images["Mic_ALT.png"], make_png(seed=3))
+        apply_buttons(design, [ButtonImages(1, 1, "Mic", make_png(seed=1), make_png(seed=2))])
+        self.assertEqual(design.button(1, 1)["altImage"], [])
+        self.assertNotIn("Mic_ALT.png", design.images)
 
     def test_apply_rejects_missing_button(self):
         with self.assertRaises(IndexError):

@@ -1,9 +1,11 @@
-// The layer editor in the BUTTON tab: the OFF and ON canvases, Add layer and
-// Quick button, the layer list, and the selected layer's settings.
+// The layer editor in the BUTTON tab: the OFF, ON and ALT canvases, Add layer
+// and Quick button, the layer list, and the selected layer's settings. ALT
+// appears only when the project shows it, and its settings only once the
+// button has an ALT state.
 
 import {
   SIZE, MAX_IMPORT, FONTS, defaultLayer, addLayer, updateLayer, removeLayer,
-  moveLayer, searchIcons, fitWithin, quickRecipe, layerSummary, clampPosition, tintSource,
+  moveLayer, searchIcons, fitWithin, quickRecipe, layerSummary, clampPosition, tintSource, textLines, setOwnLine, STATES, colourFor, shapeArt,
 } from "./model.js";
 import { paintInto, loadIcons } from "./render.js";
 import { assetUrl } from "./api.js";
@@ -35,7 +37,8 @@ const isHex = (value) => /^#[0-9a-f]{6}$/i.test(value);
 export function createEditor({ root, catalog, iconTags, onChange, onPreview, onChooseLibrary, onStatus }) {
   let recipe = null;
   let selected = -1;
-  let showOn = false;
+  let view = "off";                  // The state previewed on the keypad.
+  let altVisible = false;            // The project shows the ALT state.
   let iconQuery = "";
   const quick = { open: false, label: "", icon: "house", colour: "", query: "" };
   const imageSizes = new Map();      // src -> { width, height }, for the selection box.
@@ -44,17 +47,21 @@ export function createEditor({ root, catalog, iconTags, onChange, onPreview, onC
 
   root.innerHTML = `
     <div class="canvases">
-      ${["off", "on"].map((state) => `
-        <div class="canvas-card">
+      ${STATES.map((state) => `
+        <div class="canvas-card" data-card="${state}">
           <div class="canvas-head"><span>${state.toUpperCase()}</span>
             <button type="button" class="link-quiet" data-preview="${state}"></button></div>
           <div class="canvas-wrap" data-state="${state}">
             <canvas class="editor-canvas" width="${SIZE}" height="${SIZE}" aria-label="${state.toUpperCase()} image"></canvas>
             <div class="layer-box" hidden></div>
+            ${state === "alt" ? `<div class="no-alt"><span>No ALT image</span>
+              <button type="button" class="btn-outline small" data-alt="add">+ ALT</button></div>` : ""}
           </div>
+          ${state === "alt" ? `<button type="button" class="link-quiet remove-alt" data-alt="remove"
+            title="The button has no ALT image on the keypad. Its ALT settings are kept.">Remove ALT</button>` : ""}
         </div>`).join("")}
     </div>
-    <p class="help pad-x"><span data-image-size>188 × 188</span> px on the keypad. Drag on either canvas to move the selected layer.</p>
+    <p class="help pad-x"><span data-image-size>188 × 188</span> px on the keypad. Drag on any canvas to move the selected layer.</p>
     <div class="block">
       <div class="row-between"><span class="label">Add layer</span>
         <button type="button" class="link-red" data-quick></button></div>
@@ -74,30 +81,32 @@ export function createEditor({ root, catalog, iconTags, onChange, onPreview, onC
     </div>
     <form class="settings" autocomplete="off" hidden></form>`;
 
-  const canvases = {
-    off: root.querySelector('[data-state="off"] canvas'),
-    on: root.querySelector('[data-state="on"] canvas'),
-  };
+  const canvases = Object.fromEntries(STATES.map((state) =>
+    [state, root.querySelector(`.canvas-wrap[data-state="${state}"] canvas`)]));
   const list = root.querySelector(".layer-list");
   const form = root.querySelector(".settings");
   const quickPanel = root.querySelector(".quick");
   const blankNote = root.querySelector(".blank-note");
 
+  // The states being edited: ALT only when the project shows it and the button has it.
+  const hasAlt = () => altVisible && Boolean(recipe?.alt);
+  const editStates = () => (hasAlt() ? STATES : ["off", "on"]);
+
   // -- Painting and the selection box ----------------------------------------------
 
   function paint() {
-    for (const state of ["off", "on"]) {
+    for (const state of STATES) {
       if (recipe) paintInto(canvases[state], recipe, state, catalog);
       else canvases[state].getContext("2d").clearRect(0, 0, SIZE, SIZE);
     }
     drawBox();
   }
 
-  function textBounds(layer) {
+  function textBounds(layer, state) {
     const ctx = canvases.off.getContext("2d");
     ctx.save();
     ctx.font = `${layer.weight} ${layer.size}px "${layer.font}"`;
-    const lines = layer.lines.filter((l, i) => i < 2);
+    const lines = textLines(layer, state);
     const width = Math.max(1, ...lines.map((l) => ctx.measureText(l).width));
     ctx.restore();
     const height = Math.max(1, lines.length) * layer.size * 1.15;
@@ -120,16 +129,17 @@ export function createEditor({ root, catalog, iconTags, onChange, onPreview, onC
     return [layer.x - (width * scale) / 2, layer.y - (height * scale) / 2, width * scale, height * scale];
   }
 
-  function bounds(layer) {
+  function bounds(layer, state) {
     if (!layer || !layer.visible || layer.type === "shape") return null;
     if (layer.type === "icon") return [layer.x - layer.size / 2, layer.y - layer.size / 2, layer.size, layer.size];
-    if (layer.type === "text") return textBounds(layer);
+    if (layer.type === "text") return textBounds(layer, state);
     return imageBounds(layer);
   }
 
   function drawBox() {
-    const box = bounds(recipe?.layers[selected]);
     for (const wrap of root.querySelectorAll(".canvas-wrap")) {
+      const state = wrap.dataset.state;
+      const box = state === "alt" && !recipe?.alt ? null : bounds(recipe?.layers[selected], state);
       const el = wrap.querySelector(".layer-box");
       el.hidden = !box;
       wrap.classList.toggle("movable", Boolean(box));
@@ -138,11 +148,11 @@ export function createEditor({ root, catalog, iconTags, onChange, onPreview, onC
   }
 
   function renderPreviewLinks() {
-    for (const state of ["off", "on"]) {
-      const current = showOn === (state === "on");
+    for (const state of STATES) {
+      const current = view === state;
       root.querySelector(`[data-preview="${state}"]`).textContent = current ? "On keypad" : "Show on keypad";
       root.querySelector(`[data-preview="${state}"]`).classList.toggle("current", current);
-      root.querySelector(`[data-state="${state}"]`).classList.toggle("current", current);
+      root.querySelector(`.canvas-wrap[data-state="${state}"]`).classList.toggle("current", current);
     }
   }
 
@@ -153,7 +163,16 @@ export function createEditor({ root, catalog, iconTags, onChange, onPreview, onC
     paint();
     renderList();
     if (settings) renderSettings();
+    renderAlt();
     onChange(recipe);
+  }
+
+  // Shows the ALT canvas when the project shows ALT, with + ALT until the button has an ALT state.
+  function renderAlt() {
+    root.querySelector(".canvases").classList.toggle("three", altVisible);
+    root.querySelector('[data-card="alt"]').hidden = !altVisible;
+    root.querySelector(".no-alt").hidden = !recipe || Boolean(recipe.alt);
+    root.querySelector(".remove-alt").hidden = !recipe?.alt;
   }
 
   const setLayer = (changes, options) => change(updateLayer(recipe, selected, changes), options);
@@ -291,14 +310,69 @@ export function createEditor({ root, catalog, iconTags, onChange, onPreview, onC
       </div>`;
   }
 
-  // OFF and ON colour pickers for layer[prop]: colour for icons and text, tint for shapes.
+  // A colour picker and hex field for layer[prop][state]: colour for icons and text, tint for shapes.
+  function colourField(layer, prop, state) {
+    return `<div class="colour-field">
+      <input type="color" name="colour.${state}" data-state="${state}" value="${isHex(colourFor(layer[prop], state)) ? colourFor(layer[prop], state) : "#ffffff"}" aria-label="${state.toUpperCase()} colour">
+      <input class="hex" name="hex.${state}" data-state="${state}" value="${escapeHtml(colourFor(layer[prop], state))}" spellcheck="false" aria-label="${state.toUpperCase()} colour hex">
+    </div>`;
+  }
+
   function colourFields(layer, prop = "colour") {
-    return `<div class="pair">${["off", "on"].map((state) => `
-      <div class="stack">${label(`${state.toUpperCase()} colour`)}
-        <div class="colour-field">
-          <input type="color" name="colour.${state}" value="${isHex(layer[prop][state]) ? layer[prop][state] : "#ffffff"}" aria-label="${state.toUpperCase()} colour">
-          <input class="hex" name="hex.${state}" value="${escapeHtml(layer[prop][state])}" spellcheck="false" aria-label="${state.toUpperCase()} colour hex">
-        </div></div>`).join("")}</div>`;
+    return `<div class="${hasAlt() ? "trio" : "pair"}">${editStates().map((state) => `
+      <div class="stack">${label(`${state.toUpperCase()} colour`)}${colourField(layer, prop, state)}</div>`).join("")}</div>`;
+  }
+
+  // The shape artwork ALT shows: either half of any swatch, or OFF's artwork by default.
+  function altArtField(layer) {
+    const { colour, art } = shapeArt(layer, "alt");
+    const halves = Object.entries(catalog.shapes[layer.set] || {}).map(([name, files]) =>
+      `<div class="swatch split">${["off", "on"].map((half) => {
+        const current = colour === name && art === half;
+        return `<button type="button" class="${current ? "current" : ""}" data-alt-art="${escapeHtml(name)}:${half}"
+          title="${escapeHtml(name)} ${half.toUpperCase()}" aria-label="${escapeHtml(name)} ${half.toUpperCase()} artwork"><img alt="" src="${assetUrl(files[half])}"></button>`;
+      }).join("")}</div>`).join("");
+    return `<div class="stack">${label(`ALT artwork · ${escapeHtml(colour)} ${art.toUpperCase()}`,
+        layer.altArt ? `<button type="button" class="link-quiet" data-alt-art="">Same as OFF</button>` : "")}
+      <div class="swatch-grid">${halves}</div>
+      <span class="help">Click the OFF or ON half of a swatch to use that artwork for ALT.</span></div>`;
+  }
+
+  // A text layer's lines and colours as an OFF / ON grid. An ON line with no
+  // text of its own is empty and shows the OFF line as its placeholder.
+  function textGrid(layer) {
+    const states = editStates();
+    const own = states.slice(1);                           // ON, and ALT when shown.
+    const head = (state) => `<button type="button" class="tg-head" data-head="${state}">${state.toUpperCase()}</button>`;
+    const rows = [0, 1].map((i) => `${label(`Line ${i + 1}`)}
+      <input class="field" name="line${i}" data-state="off" placeholder="Blank" value="${escapeHtml(layer.lines[i] || "")}" aria-label="OFF line ${i + 1}">
+      ${own.map((state) => `<div class="own-line" data-own-line="${state}:${i}">
+        <input class="field" name="${state}Line${i}" data-state="${state}" value="${escapeHtml(layer[`${state}Lines`]?.[i] ?? "")}" aria-label="${state.toUpperCase()} line ${i + 1}">
+        <button type="button" class="relink" data-relink="${state}:${i}" title="Use the OFF text" aria-label="Use the OFF text">${icon("link", 13)}</button>
+      </div>`).join("")}`).join("");
+    const names = own.map((s) => s.toUpperCase()).join(" and ");
+    return `<div class="stack">
+      <div class="text-grid${states.length === 3 ? " three" : ""}"><span></span>${states.map(head).join("")}${rows}
+        ${label("Colour")}${states.map((state) => colourField(layer, "colour", state)).join("")}</div>
+      <p class="help">${names} fields left empty use the OFF text, shown in grey. Type to change it for ${names}; the link button switches back.</p></div>`;
+  }
+
+  // Marks the previewed state's heading, and whether each ON or ALT line has its own text.
+  function syncTextGrid() {
+    const layer = recipe?.layers[selected];
+    const grid = form.querySelector(".text-grid");
+    if (!grid || layer?.type !== "text") return;
+    for (const head of grid.querySelectorAll("[data-head]")) {
+      head.classList.toggle("current", head.dataset.head === view);
+    }
+    for (const wrap of grid.querySelectorAll("[data-own-line]")) {
+      const [state, i] = wrap.dataset.ownLine.split(":");
+      const own = layer[`${state}Lines`]?.[i] ?? null;
+      const input = wrap.querySelector("input");
+      wrap.classList.toggle("different", own !== null);
+      input.placeholder = own !== null ? "Blank" : layer.lines[i] || "Blank";
+      input.title = own !== null ? "Different from OFF" : "Same as OFF";
+    }
   }
 
   function imageRows(layer) {
@@ -306,15 +380,15 @@ export function createEditor({ root, catalog, iconTags, onChange, onPreview, onC
       ? "Loaded from the keypad. This button wasn't made in the designer, so its existing OFF and ON artwork is kept as one Image layer."
       : layer.source?.kind === "library"
         ? `Ready-made artwork from Keypad Graphics: ${escapeHtml(layer.source.name)}_OFF.png and _ON.png.` : "";
-    return (info ? `<div class="info">${info}</div>` : "") + ["off", "on"].map((state) => {
+    return (info ? `<div class="info">${info}</div>` : "") + editStates().map((state) => {
       const src = layer[state];
       const desc = src ? (layer.source ? `Existing ${state.toUpperCase()} artwork` : escapeHtml(layer[`${state}File`] || "Uploaded image"))
-        : state === "on" ? "Optional. Uses the OFF image." : "PNG or SVG";
+        : state !== "off" ? "Optional. Uses the OFF image." : "PNG or SVG";
       return `<div class="image-row">
         <div class="image-thumb">${src ? `<img alt="" src="${src}">` : ""}</div>
         <div class="image-text"><span class="label-sm">${state.toUpperCase()} image</span><span class="sub">${desc}</span></div>
         <label class="btn-outline small">${src ? "Replace" : "Upload"}<input type="file" accept="image/png,image/svg+xml" data-target="${state}" hidden></label>
-        ${src && (state === "on" || !layer.source) ? `<button type="button" class="icon-btn boxed" data-remove="${state}" title="Remove" aria-label="Remove the ${state.toUpperCase()} image">×</button>` : ""}
+        ${src && (state !== "off" || !layer.source) ? `<button type="button" class="icon-btn boxed" data-remove="${state}" title="Remove" aria-label="Remove the ${state.toUpperCase()} image">×</button>` : ""}
       </div>`;
     }).join("");
   }
@@ -334,7 +408,7 @@ export function createEditor({ root, catalog, iconTags, onChange, onPreview, onC
         <div class="stack">${label(`Colour · ${custom ? "Custom" : escapeHtml(layer.colour)}`)}
           <div class="swatch-grid">${Object.keys(catalog.shapes[layer.set] || {}).map((c) => swatch(layer.set, c, !custom && c === layer.colour)).join("")}${customSwatch}</div>
           <span class="help">Each swatch shows OFF and ON artwork.${canTint ? " To pick your own OFF and ON colours, click +." : ""}</span></div>
-        ${custom ? colourFields(layer, "tint") : ""}`;
+        ${custom ? colourFields(layer, "tint") : hasAlt() ? altArtField(layer) : ""}`;
     } else if (layer.type === "icon") {
       body = `<div class="stack">${label(`Icon · ${escapeHtml(layer.icon)}`)}
           <input class="field" type="search" name="iconSearch" placeholder="Search by name or tag" value="${escapeHtml(iconQuery)}" aria-label="Search icons">
@@ -344,20 +418,18 @@ export function createEditor({ root, catalog, iconTags, onChange, onPreview, onC
           <input type="range" name="stroke" min="0.5" max="4" step="0.25" value="${layer.stroke}"></label>
         ${sizeField(layer)}${colourFields(layer)}`;
     } else if (layer.type === "text") {
-      body = `<div class="pair">
-          <label class="stack">${label("Line 1")}<input class="field" name="line1" value="${escapeHtml(layer.lines[0] || "")}"></label>
-          <label class="stack">${label("Line 2")}<input class="field" name="line2" placeholder="Optional" value="${escapeHtml(layer.lines[1] || "")}"></label>
-        </div>
+      body = `${textGrid(layer)}
         <label class="stack">${label("Font")}<select class="field" name="font">${FONTS.map((f) =>
           `<option${f === layer.font ? " selected" : ""}>${f}</option>`).join("")}</select></label>
         <div class="pair">${segmented("weight", [[400, "Regular"], [700, "Bold"]], layer.weight)}
           ${segmented("align", Object.entries(ALIGN_ICONS).map(([a, glyph]) => [a, cap(a === "center" ? "centre" : a), glyph]), layer.align)}</div>
-        ${sizeField(layer)}${colourFields(layer)}`;
+        ${sizeField(layer)}`;
     } else if (layer.type === "image") {
       body = imageRows(layer) + sizeField(layer);
     }
     form.innerHTML = `<h3 class="title-sm">${cap(layer.type)} settings<span class="dot">.</span></h3>${body}`;
     if (layer.type === "icon") renderIconGrid();
+    syncTextGrid();
   }
 
   function renderIconGrid() {
@@ -390,10 +462,18 @@ export function createEditor({ root, catalog, iconTags, onChange, onPreview, onC
       return setLayer({ stroke: Number(input.value) });
     }
     if (input.name === "x" || input.name === "y") return setLayer({ [input.name]: clampPosition(Number(input.value)) });
-    if (input.name === "line1" || input.name === "line2") {
-      const lines = [layer.lines[0] || "", layer.lines[1] || ""];
-      lines[input.name === "line1" ? 0 : 1] = input.value;
-      return setLayer({ lines: lines[1] ? lines : [lines[0]] });
+    const line = input.name.match(/^(line|onLine|altLine)([01])$/);
+    if (line) {
+      const i = Number(line[2]);
+      if (line[1] !== "line") {
+        // Typing gives the ON or ALT line its own text, even if it's then cleared.
+        setLayer(setOwnLine(layer, line[1].slice(0, -4), i, input.value));
+      } else {
+        const lines = [layer.lines[0] || "", layer.lines[1] || ""];
+        lines[i] = input.value;
+        setLayer({ lines: lines[1] ? lines : [lines[0]] });
+      }
+      return syncTextGrid();
     }
     if (input.name === "font") return setLayer({ font: input.value });
     const [kind, state] = input.name.split(".");
@@ -409,6 +489,12 @@ export function createEditor({ root, catalog, iconTags, onChange, onPreview, onC
           `linear-gradient(90deg, ${tint.off} 50%, ${tint.on} 50%)`;
       }
     }
+  });
+
+  // Editing a field in the text grid previews its state on the keypad.
+  form.addEventListener("focusin", (event) => {
+    const state = event.target.closest(".text-grid") && event.target.dataset.state;
+    if (state && state !== view) onPreview(state);
   });
 
   form.addEventListener("click", (event) => {
@@ -431,6 +517,14 @@ export function createEditor({ root, catalog, iconTags, onChange, onPreview, onC
       setLayer({ weight: Number(button.dataset.value) }, { settings: true });
     } else if (button.dataset.seg === "align") {
       setLayer({ align: button.dataset.value }, { settings: true });
+    } else if (button.dataset.relink) {
+      const [state, i] = button.dataset.relink.split(":");
+      setLayer(setOwnLine(layer, state, Number(i), null), { settings: true });
+    } else if (button.dataset.head) {
+      onPreview(button.dataset.head);
+    } else if (button.dataset.altArt !== undefined) {
+      const [colour, art] = button.dataset.altArt.split(":");
+      setLayer({ altArt: colour ? { colour, art } : undefined }, { settings: true });
     } else if (button.dataset.remove) {
       const state = button.dataset.remove;
       setLayer({ [state]: "", [`${state}File`]: "" }, { settings: true });
@@ -489,7 +583,14 @@ export function createEditor({ root, catalog, iconTags, onChange, onPreview, onC
       if (quick.open && !quick.label) quick.label = recipe.name.replace(/_/g, " ");
       renderQuick();
     } else if (button.dataset.preview) {
-      onPreview(button.dataset.preview === "on");
+      onPreview(button.dataset.preview);
+    } else if (button.dataset.alt) {
+      // Removing ALT keeps each layer's ALT settings, so adding it back restores them.
+      const add = button.dataset.alt === "add";
+      change({ ...recipe, alt: add || undefined }, { settings: true });
+      onStatus(add ? "Added an ALT image. It starts as a copy of OFF; change it in the ALT fields."
+        : "Removed the ALT image. When you save, this button has no ALT image on the keypad.");
+      if (add) onPreview("alt");
     } else if (button.hasAttribute("data-library")) {
       onChooseLibrary();
     }
@@ -501,7 +602,7 @@ export function createEditor({ root, catalog, iconTags, onChange, onPreview, onC
   for (const wrap of root.querySelectorAll(".canvas-wrap")) {
     wrap.addEventListener("pointerdown", (event) => {
       const layer = recipe?.layers[selected];
-      if (!layer || !bounds(layer)) return;
+      if (!layer || !bounds(layer) || (wrap.dataset.state === "alt" && !recipe.alt)) return;
       wrap.setPointerCapture(event.pointerId);
       drag = { startX: event.clientX, startY: event.clientY, x: layer.x, y: layer.y,
                scale: SIZE / wrap.getBoundingClientRect().width };
@@ -541,6 +642,7 @@ export function createEditor({ root, catalog, iconTags, onChange, onPreview, onC
       paint();
       renderList();
       renderSettings();
+      renderAlt();
     },
     // Change the button's name without touching its layers.
     rename(name) {
@@ -552,9 +654,17 @@ export function createEditor({ root, catalog, iconTags, onChange, onPreview, onC
     setImageSize(size) {
       root.querySelector("[data-image-size]").textContent = `${size} × ${size}`;
     },
-    setShowOn(on) {
-      showOn = on;
+    // The state previewed on the keypad: "off", "on" or "alt".
+    setView(state) {
+      view = state;
       renderPreviewLinks();
+      syncTextGrid();
+    },
+    // Whether the project shows the ALT state.
+    setAltVisible(visible) {
+      altVisible = visible;
+      renderAlt();
+      renderSettings();
     },
   };
 }
