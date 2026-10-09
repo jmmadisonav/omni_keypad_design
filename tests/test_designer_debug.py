@@ -163,6 +163,22 @@ class DebugSessionTests(unittest.TestCase):
         self.assertFalse(any(line.startswith('set {"path":"/page1/ledring/level"')
                              for line in self.keypad.received))
 
+    def test_bound_led_ring_is_reported_once_then_skipped(self):
+        self.keypad.params["/page1/ledring/level"]["access"] = "ro"     # Rejects set.
+        self.connect()
+        self.keypad.press("/page1/dial/level", 3)
+        self.wait_for_note("Page 1 dial: 3")
+        self.keypad.press("/page1/dial/level", 4)
+        self.wait_for_note("Page 1 dial: 4")
+        self.assertEqual(
+            [text for text in self.texts("error") if "LED ring" in text],
+            ["Page 1 LED ring isn't available: parameter is read only. "
+             "It might be bound to an OMNI device."])
+        self.assertFalse(any(text.startswith("Couldn't answer") for text in self.texts("error")))
+        sets = [line for line in self.keypad.received
+                if line.startswith('set {"path":"/page1/ledring/level"')]
+        self.assertEqual(len(sets), 1)
+
     def test_dial_button_and_page_changes_are_noted(self):
         self.connect()
         self.keypad.press("/page1/dial_button/action", "PUSH")

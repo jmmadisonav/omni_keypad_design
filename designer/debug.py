@@ -55,6 +55,7 @@ class DebugSession:
         self._generation = 0                # Increases whenever a client is replaced.
         self._host = self._model = self._version = ""
         self._paths: frozenset[str] = frozenset()
+        self._unavailable: set[str] = set()
         self._seq = 0
         self._buffer: collections.deque = collections.deque(maxlen=BUFFER_SIZE)
         self._listeners: list[Listener] = []
@@ -112,6 +113,7 @@ class DebugSession:
         params = {info.path: info for info in walk_descriptor(json.loads(client.get_file(location)))
                   if info.kind == "param"}
         self._paths = frozenset(params)
+        self._unavailable = set()           # LED rings the keypad refused to set.
         count = 0
         for path, info in params.items():
             if not (path.endswith("/action") or path.endswith("/dial/level") or path == CURRENT_PAGE):
@@ -173,10 +175,18 @@ class DebugSession:
         elif match := _DIAL.fullmatch(path):
             page = match[1]
             ring = f"/page{page}/ledring/level"
-            if ring not in self._paths:
+            if ring not in self._paths or ring in self._unavailable:
                 self._log("note", f"Page {page} dial: {value}")
                 return
-            applied = client.set(ring, value)
+            try:
+                applied = client.set(ring, value)
+            except HControlError as error:
+                # Report a ring the keypad refuses once, then stop writing to it.
+                self._unavailable.add(ring)
+                self._log("error", f"Page {page} LED ring isn't available: {error.message}. "
+                                   "It might be bound to an OMNI device.")
+                self._log("note", f"Page {page} dial: {value}")
+                return
             clamped = "" if applied == value else f" (LED ring {applied})"
             self._log("note", f"Page {page} dial: {value}{clamped}")
         elif match := _DIAL_BUTTON.fullmatch(path):
