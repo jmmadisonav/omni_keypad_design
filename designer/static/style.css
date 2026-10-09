@@ -188,8 +188,17 @@ body.busy .lockable { opacity: .4; pointer-events: none; }
 .faceplate.portrait { --face-max: 363px; --ratio: .62; --scr-left: 18%; --scr-top: 7%;
                       --scr-w: 64%; --cols: 2; --dial-left: 35%; --dial-top: 73%; --dial-w: 30%; }
 .faceplate.portrait.no-dial { --scr-top: 19%; }
+/* A tabletop keypad seen from above: the screen at the top, the dial at bottom left. */
+.faceplate.tabletop { --face-max: 520px; --ratio: 1.2; --scr-left: 33%; --scr-top: 9%; --scr-w: 60%;
+                      --dial-left: 10%; --dial-top: 55%; --dial-w: 22%; border-radius: 18px; }
+.faceplate.tabletop.six { --scr-left: 37%; --scr-w: 52%; }
+.faceplate.tabletop.no-dial { --scr-left: 24%; --scr-top: 12%; --scr-w: 52%; }
+.faceplate.white { background: linear-gradient(180deg, #fbfbfb 0%, #f3f4f5 80%, #e6e7e8 100%);
+                   box-shadow: inset 0 0 0 1px #d5d8db, 0 0 0 1px #6f7378, 0 18px 40px -18px rgba(46, 60, 73, .6); }
+/* The gaps between buttons show the keypad's separator colour (--sep). */
 .keypad { position: absolute; left: var(--scr-left); top: var(--scr-top); width: var(--scr-w);
-          display: grid; grid-template-columns: repeat(var(--cols), minmax(0, 1fr)); gap: 6px; }
+          display: grid; grid-template-columns: repeat(var(--cols), minmax(0, 1fr)); gap: 6px;
+          background: var(--sep, #000); }
 .key { position: relative; aspect-ratio: 1 / 1; padding: 0; border: 0; border-radius: 0; background: #0c0e10;
        outline-offset: 2px; }
 .key img { position: absolute; inset: 0; width: 100%; height: 100%; display: block; pointer-events: none; }
@@ -212,6 +221,13 @@ body.busy .lockable { opacity: .4; pointer-events: none; }
 .stage-controls { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 16px; }
 .seg-state button { flex: none; padding: 0 14px; letter-spacing: .06em; }
 .seg-state #show-on.current { background: var(--red); }
+.seg-look button { flex: none; height: 32px; padding: 0 12px; font-size: 11px; font-weight: 700;
+                   letter-spacing: .06em; text-transform: uppercase; }
+.lines-field { display: flex; align-items: center; gap: 8px; }
+.lines-field .label { margin: 0; }
+.lines-field .colour-field { width: 118px; height: 32px; }
+.lines-field .colour-field input[type="color"] { width: 32px; }
+.look-picks { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .legend { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--grey); }
 
 /* -- Sidebar ----------------------------------------------------------------------- */

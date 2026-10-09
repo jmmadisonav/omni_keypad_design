@@ -80,6 +80,18 @@ test("gridFor uses the model, or guesses from the button count", () => {
   assert.deepEqual(gridFor(undefined, 6), { columns: 2, rows: 3 });
 });
 
+test("gridFor uses the tabletop grid for a tabletop project", () => {
+  const sixBV = { columns: 2, rows: 3, tabletop: { columns: 3, rows: 2 } };
+  assert.deepEqual(gridFor(sixBV, 6, "tabletop"), { columns: 3, rows: 2 });
+  assert.deepEqual(gridFor(sixBV, 6, "wall"), { columns: 2, rows: 3 });
+  assert.deepEqual(gridFor(sixBV, 6), { columns: 2, rows: 3 });
+  // A model file with no tabletop grid uses the wall grid.
+  assert.deepEqual(gridFor({ columns: 4, rows: 2 }, 8, "tabletop"), { columns: 4, rows: 2 });
+  // With no model, a 6-button tabletop is 3 x 2.
+  assert.deepEqual(gridFor(undefined, 6, "tabletop"), { columns: 3, rows: 2 });
+  assert.deepEqual(gridFor(undefined, 8, "tabletop"), { columns: 4, rows: 2 });
+});
+
 test("fileStem matches the server's image file names", async () => {
   const { fileStem } = await import("./model.js");
   assert.equal(fileStem("HDMI 1", 1, 3), "HDMI_1");

@@ -8,9 +8,15 @@ export const CENTRE = SIZE / 2;
 export const MAX_IMPORT = SIZE * 2;      // Dropped images are scaled down to this.
 // A keypad's button grid, numbered left to right along the top row first.
 // Without a known model, 6 buttons are 2 across (6B, 6BV) and 8 are 4 across (8BV).
-export function gridFor(model, buttonCount) {
-  if (model) return { columns: model.columns, rows: model.rows };
-  const columns = buttonCount <= 6 ? 2 : 4;
+// housing is "wall" or "tabletop": the tabletop T6B and T6BV turn the screen
+// sideways, so their 6 buttons are 3 columns by 2 rows.
+export function gridFor(model, buttonCount, housing = "wall") {
+  const tabletop = housing === "tabletop";
+  if (model) {
+    const grid = (tabletop && model.tabletop) || model;
+    return { columns: grid.columns, rows: grid.rows };
+  }
+  const columns = buttonCount <= 6 ? (tabletop ? 3 : 2) : 4;
   return { columns, rows: Math.ceil(buttonCount / columns) };
 }
 // The pixel size of a keypad's button images. Without a known model, a

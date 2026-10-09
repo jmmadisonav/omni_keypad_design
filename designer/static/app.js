@@ -20,6 +20,8 @@ const projectUrl = (name) => `/api/projects/${encodeURIComponent(name)}`;
 const DEFAULT_MODEL = "OMNI-KP-8BV";
 const PROJECT_NAME = /^[A-Za-z0-9_-](?:[A-Za-z0-9 _-]{0,62}[A-Za-z0-9_-])?$/;
 const NAME_RULE = "Letters, digits, spaces, dashes and underscores.";
+const HOUSINGS = [["wall", "Wall"], ["tabletop", "Tabletop"]];
+const FINISHES = [["black", "Black"], ["white", "White"]];
 
 const state = {
   catalog: null,
@@ -29,6 +31,7 @@ const state = {
   layout: null,          // Pages and page switching; see pages.js.
   layoutChanges: 0,      // Page and page-link changes not saved yet.
   pagesChanged: false,   // Pages added or deleted since the last save, so numbers may move.
+  separator: { saved: "#000000", value: "#000000" },  // The colour of the lines between buttons.
   pageId: "",            // The page shown in the keypad view.
   selected: null,        // { pageId, button }
   recipes: new Map(),    // buttonKey(pageId, button) -> saved layers
@@ -99,7 +102,7 @@ function sourcePage(pageId) {
 
 function slotCount(pageId) {
   const page = sourcePage(pageId);
-  const grid = gridFor(model(), page.buttons.length);
+  const grid = gridFor(model(), page.buttons.length, state.project.housing);
   return Math.min(page.buttons.length, grid.columns * grid.rows);
 }
 
@@ -176,7 +179,7 @@ function snapshot() {
   return {
     edits: new Map(state.edits), previews: new Map(state.previews), linkChanged: new Set(state.linkChanged),
     layout: state.layout, layoutChanges: state.layoutChanges, pagesChanged: state.pagesChanged,
-    pageId: state.pageId, selected: state.selected,
+    pageId: state.pageId, selected: state.selected, separator: state.separator.value,
   };
 }
 
@@ -199,6 +202,8 @@ function restore(snap) {
     layout: snap.layout, layoutChanges: snap.layoutChanges, pagesChanged: snap.pagesChanged,
     pageId: snap.pageId, selected: snap.selected, renaming: null,
   });
+  state.separator.value = snap.separator;
+  renderSeparator();
   lastChange = { key: null, time: 0 };
   const sel = state.selected;
   if (sel) editor.setRecipe(structuredClone(recipeFor(sel.pageId, sel.button)), { keepLayer: true });
@@ -251,13 +256,18 @@ function onUndoKey(event) {
 function renderFaceplate() {
   const m = model();
   const page = sourcePage(state.pageId);
-  const portrait = m ? m.faceplate === "portrait" : page.buttons.length <= 6;
+  const tabletop = state.project.housing === "tabletop";
+  const portrait = !tabletop && (m ? m.faceplate === "portrait" : page.buttons.length <= 6);
   const dial = m ? m.dial : "dial" in page;
   const face = $("faceplate");
   face.classList.toggle("portrait", portrait);
+  face.classList.toggle("tabletop", tabletop);
+  face.classList.toggle("six", page.buttons.length <= 6);
+  face.classList.toggle("white", state.project.finish === "white");
   face.classList.toggle("no-dial", !dial);
   $("dial").hidden = !dial;
-  face.style.setProperty("--cols", gridFor(m, page.buttons.length).columns);
+  face.style.setProperty("--cols", gridFor(m, page.buttons.length, state.project.housing).columns);
+  face.style.setProperty("--sep", state.separator.value);
 }
 
 function renderKeypad() {
@@ -342,6 +352,53 @@ async function setShowAlt(show) {
   if (!show && state.view === "alt") setView("off");
   setStatus(show ? "Showing the ALT state. To give a button an ALT image, select it and click + ALT."
     : "Hid the ALT state. Buttons that have ALT images still deploy them.");
+}
+
+// Housing (wall or tabletop) and finish (black or white) change how the keypad
+// view draws the project. They're saved straight away and never deployed.
+const LOOK_STATUS = {
+  housing: { wall: "Showing a wall keypad.", tabletop: "Showing a tabletop keypad." },
+  finish: { black: "Showing the black finish.", white: "Showing the white finish. The finish only changes the preview." },
+};
+
+async function setLook(key, value) {
+  if (!state.project || state.project[key] === value) return;
+  try {
+    const project = await sendJson("POST", `${projectUrl(state.project.name)}/settings`, { [key]: value });
+    state.project[key] = project[key];
+  } catch (error) {
+    return setStatus(`Couldn't change the ${key}: ${error.message}`, true);
+  }
+  renderLook();
+  renderKeypad();
+  setStatus(LOOK_STATUS[key][value]);
+}
+
+function renderLook() {
+  for (const key of ["housing", "finish"]) {
+    for (const button of $(key).querySelectorAll("button")) {
+      button.classList.toggle("current", button.dataset[key] === state.project?.[key]);
+    }
+  }
+}
+
+// The separator colour is part of the design: it's saved with the project and deployed.
+const HEX = /^#[0-9a-f]{6}$/i;
+
+function setSeparator(value) {
+  const colour = value.toUpperCase();
+  if (!HEX.test(colour) || colour === state.separator.value) return renderSeparator();
+  record("changing the line colour", "separator");
+  state.separator.value = colour;
+  renderSeparator();
+  renderKeypad();
+  updateHeader();
+}
+
+function renderSeparator() {
+  $("separator-picker").value = state.separator.value.toLowerCase();
+  $("separator-hex").value = state.separator.value;
+  $("faceplate").style.setProperty("--sep", state.separator.value);
 }
 
 function renderShowAlt() {
@@ -1019,8 +1076,10 @@ async function saveRecipe() {
 // -- Header -----------------------------------------------------------------------------
 
 function pendingChanges() {
-  return state.edits.size + state.layoutChanges;
+  return state.edits.size + state.layoutChanges + (separatorChanged() ? 1 : 0);
 }
+
+const separatorChanged = () => state.separator.value !== state.separator.saved;
 
 function updateHeader() {
   const open = Boolean(state.project);
@@ -1066,7 +1125,8 @@ function modelLabel(m) {
 function modelDescription(m) {
   const shape = m.faceplate === "portrait" ? "portrait" : "square";
   const dial = m.dial ? (m.faceplate === "portrait" ? "dial and LED ring below" : "dial and LED ring") : "no dial";
-  return `${m.columns}×${m.rows} buttons, ${shape} faceplate, ${dial}`;
+  const table = m.tabletop && (m.tabletop.columns !== m.columns) ? ` (${m.tabletop.columns}×${m.tabletop.rows} on the tabletop)` : "";
+  return `${m.columns}×${m.rows} buttons${table}, ${shape} faceplate, ${dial}`;
 }
 
 // -- Projects --------------------------------------------------------------------------
@@ -1076,6 +1136,8 @@ function showProject(project) {
   state.layout = layoutFromConfig(project.config);
   state.layoutChanges = 0;
   state.pagesChanged = false;
+  const separator = (project.config.display?.panel_separator_color || "#000000").toUpperCase();
+  state.separator = { saved: separator, value: separator };
   state.pageId = state.layout.pages[0].id;
   state.selected = null;
   state.renaming = null;
@@ -1087,6 +1149,8 @@ function showProject(project) {
   editor.setImageSize(imageSize());
   editor.setRecipe(null);
   renderShowAlt();
+  renderLook();
+  renderSeparator();
   if (!project.showAlt && state.view === "alt") setView("off");
   $("project-name").textContent = project.name;
   $("project-name").title = project.name;
@@ -1148,24 +1212,50 @@ async function newProject() {
         <span class="option-text"><span class="option-name">${modelLabel(m)} <span class="sub">${m.tested ? "" : "(untested)"}</span></span>
           <span class="option-desc">${modelDescription(m)}</span></span></button>`).join("");
   };
+  const view = {
+    housing: recall("designer.housing") === "tabletop" ? "tabletop" : "wall",
+    finish: recall("designer.finish") === "white" ? "white" : "black",
+  };
+  const looks = document.createElement("div");
+  looks.className = "look-picks";
+  const renderLooks = () => {
+    looks.innerHTML = [["housing", "Housing", HOUSINGS], ["finish", "Finish", FINISHES]].map(([key, label, options]) => `
+      <div class="stack"><span class="label">${label}</span><div class="seg" role="group" aria-label="${label}">${
+        options.map(([value, text]) => `<button type="button" data-${key}="${value}"
+          class="${view[key] === value ? "current" : ""}">${text}</button>`).join("")}</div></div>`).join("");
+  };
+  looks.addEventListener("click", (event) => {
+    const pick = event.target.closest("[data-housing], [data-finish]");
+    if (!pick) return;
+    if (pick.dataset.housing) view.housing = pick.dataset.housing;
+    else view.finish = pick.dataset.finish;
+    renderLooks();
+  });
   models.addEventListener("click", (event) => {
     const option = event.target.closest("[data-model]");
     if (option) { chosen = option.dataset.model; renderModels(); }
   });
   renderModels();
+  renderLooks();
+  const extra = document.createElement("div");
+  extra.className = "stack new-extra";
+  extra.append(models, looks);
   const project = await nameModal({
     title: "New project",
-    body: "Choose the keypad model now. It can't be changed after the project is created.",
+    body: "Choose the keypad model now. It can't be changed after the project is created. " +
+      "You can change the housing and finish later.",
     label: "Project name",
     value: freeName("Untitled"),
     hint: () => NAME_RULE,
-    extra: models,
+    extra,
     confirm: "Create",
     validate: projectNameError,
-    submit: (name) => sendJson("POST", "/api/projects", { name, model: chosen }),
+    submit: (name) => sendJson("POST", "/api/projects", { name, model: chosen, ...view }),
   });
   if (!project) return;
   remember("designer.model", chosen);
+  remember("designer.housing", view.housing);
+  remember("designer.finish", view.finish);
   showProject(project);
   setStatus(`Created ${project.name} for ${chosen}. Click a button to design it.`);
 }
@@ -1196,6 +1286,7 @@ async function saveRequest() {
   }
   const request = { buttons, recipes: recipesRequest(state.layout, new Map([...state.recipes, ...state.edits])) };
   if (state.layoutChanges) request.layout = layoutRequest(state.layout);
+  if (separatorChanged()) request.separatorColor = state.separator.value;
   return request;
 }
 
@@ -1740,6 +1831,11 @@ function wire() {
   $("show-on").addEventListener("click", () => setView("on"));
   $("show-alt").addEventListener("click", () => setView("alt"));
   $("toggle-alt").addEventListener("click", () => state.project && setShowAlt(!state.project.showAlt));
+  $("housing").addEventListener("click", (e) => { const b = e.target.closest("[data-housing]"); if (b) setLook("housing", b.dataset.housing); });
+  $("finish").addEventListener("click", (e) => { const b = e.target.closest("[data-finish]"); if (b) setLook("finish", b.dataset.finish); });
+  $("separator-picker").addEventListener("input", (e) => state.project && setSeparator(e.target.value));
+  $("separator-hex").addEventListener("change", (e) => state.project && setSeparator(e.target.value.trim()));
+  $("separator-hex").addEventListener("keydown", (e) => { if (e.key === "Enter") e.target.blur(); });
   $("tab-button").addEventListener("click", () => setTab("button"));
   $("tab-library").addEventListener("click", () => setTab("library"));
   $("button-name").addEventListener("input", onNameInput);
