@@ -6,6 +6,7 @@
   "rows": 2,
   "dial": true,
   "faceplate": "square",
+  "tabletop": {"columns": 4, "rows": 2},
   "tested": true,
   "image_size": 188,
   "template": {
@@ -24,7 +25,7 @@
       "screendimtimeout": 3,
       "dimbrightness": 20,
       "timeout": 30,
-      "panel_separator_color": "#FF6600"
+      "panel_separator_color": "#000000"
     },
     "pages": [
       {

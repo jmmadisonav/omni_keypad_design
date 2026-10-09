@@ -63,6 +63,44 @@ class ProjectStoreTests(unittest.TestCase):
         self.assertTrue(self.store.open("Lobby")["showAlt"])
         self.assertTrue(self.store.copy("Lobby", "Lobby 2")["showAlt"])
 
+    def test_housing_and_finish_default_to_a_black_wall_unit(self):
+        project = self.store.new("Lobby")
+        self.assertEqual((project["housing"], project["finish"]), ("wall", "black"))
+
+    def test_new_project_takes_housing_and_finish(self):
+        project = self.store.new("Desk", "OMNI-KP-6BV", housing="tabletop", finish="white")
+        self.assertEqual((project["housing"], project["finish"]), ("tabletop", "white"))
+
+    def test_settings_change_housing_and_finish_and_survive_save_and_copy(self):
+        self.store.new("Lobby")
+        project = self.store.set_settings("Lobby", {"housing": "tabletop", "finish": "white"})
+        self.assertEqual((project["housing"], project["finish"], project["showAlt"]),
+                         ("tabletop", "white", False))
+        self.store.save("Lobby", [], None, {})
+        copy = self.store.copy("Lobby", "Lobby 2")
+        self.assertEqual((copy["housing"], copy["finish"]), ("tabletop", "white"))
+
+    def test_bad_settings_are_refused(self):
+        self.store.new("Lobby")
+        for changes in ({"housing": "ceiling"}, {"finish": "red"}, {"showAlt": "yes"}, {"colour": "x"}, {}):
+            with self.subTest(changes=changes):
+                with self.assertRaises(ValueError):
+                    self.store.set_settings("Lobby", changes)
+        self.assertEqual(self.store.open("Lobby")["housing"], "wall")
+        with self.assertRaises(ValueError):
+            self.store.new("Desk", housing="ceiling")
+
+    def test_save_sets_the_separator_colour(self):
+        self.store.new("Lobby")
+        self.store.save("Lobby", [], None, {}, separator="#12ab9F")
+        self.assertEqual(self.store.open("Lobby")["config"]["display"]["panel_separator_color"], "#12AB9F")
+        self.store.save("Lobby", [], None, {})                        # None leaves it alone.
+        self.assertEqual(self.store.open("Lobby")["config"]["display"]["panel_separator_color"], "#12AB9F")
+        for bad in ("orange", "#12345", "#1234567", "12AB9F"):
+            with self.subTest(bad=bad):
+                with self.assertRaises(ValueError):
+                    self.store.save("Lobby", [], None, {}, separator=bad)
+
     def test_save_after_deleting_a_page_renumbers_recipes_and_removes_files(self):
         self.store.new("Lobby")
         self.store.save("Lobby", [ButtonImages(2, 1, "Mute", make_png(seed=1), make_png(seed=2))],
@@ -234,6 +272,11 @@ class ProjectStoreTests(unittest.TestCase):
     def test_import_records_the_model(self):
         project = self.store.import_design("Keypad", self.data, "abc", "OMNI-KP-8BV")
         self.assertEqual(project["model"], "OMNI-KP-8BV")
+        self.assertEqual(project["housing"], "wall")
+
+    def test_import_from_a_tabletop_keypad_records_the_housing(self):
+        project = self.store.import_design("Keypad", self.data, "abc", "OMNI-KP-8BV", housing="tabletop")
+        self.assertEqual(project["housing"], "tabletop")
 
     def test_project_without_model_opens_as_8bv(self):
         self.store.new("Old")

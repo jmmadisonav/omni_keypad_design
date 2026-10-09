@@ -54,6 +54,19 @@ class ShippedModelTests(unittest.TestCase):
         self.assertEqual(model_for(self.models, "OMNI-KP-T6B"), "OMNI-KP-6B")
         self.assertIsNone(model_for(self.models, "OMNI-KP-V"))
 
+    def test_tabletop_grids(self):
+        # The tabletop T6B and T6BV turn the screen sideways: 3 columns x 2 rows.
+        self.assertEqual({m: self.models[m].tabletop for m in self.models},
+                         {"OMNI-KP-6B": {"columns": 3, "rows": 2},
+                          "OMNI-KP-6BV": {"columns": 3, "rows": 2},
+                          "OMNI-KP-8BV": {"columns": 4, "rows": 2}})
+        self.assertEqual(self.models["OMNI-KP-6B"].summary()["tabletop"], {"columns": 3, "rows": 2})
+
+    def test_new_projects_have_black_separators(self):
+        for model_id, model in self.models.items():
+            with self.subTest(model=model_id):
+                self.assertEqual(model.template["display"]["panel_separator_color"], "#000000")
+
     def test_summary_has_no_template(self):
         summary = self.models["OMNI-KP-6BV"].summary()
         self.assertNotIn("template", summary)
@@ -82,12 +95,18 @@ class BadModelTests(unittest.TestCase):
             "aliases type": {**self.data, "aliases": "OMNI-KP-T6BV"},
             "alias is another model": {**self.data, "aliases": ["OMNI-KP-8BV"]},
             "alias is another alias": {**self.data, "aliases": ["OMNI-KP-T8BV"]},
+            "tabletop button count": {**self.data, "tabletop": {"columns": 4, "rows": 2}},
+            "tabletop type": {**self.data, "tabletop": [3, 2]},
         }
         for case, data in cases.items():
             with self.subTest(case=case):
                 self.write(data)
                 with self.assertRaisesRegex(ValueError, "OMNI-KP-6BV.json"):
                     load_models(self.folder)
+
+    def test_tabletop_defaults_to_the_wall_grid(self):
+        self.write({k: v for k, v in self.data.items() if k != "tabletop"})
+        self.assertEqual(load_models(self.folder)["OMNI-KP-6BV"].tabletop, {"columns": 2, "rows": 3})
 
     def test_aliases_are_optional(self):
         self.write({k: v for k, v in self.data.items() if k != "aliases"})

@@ -137,6 +137,37 @@ class ServerTests(unittest.TestCase):
         self.assertTrue(self.json_request("GET", "/api/projects/Lobby")[1]["showAlt"])
         self.assertEqual(self.json_request("POST", "/api/projects/Lobby/settings", {"showAlt": "yes"})[0], 400)
 
+    def test_new_project_takes_housing_and_finish(self):
+        status, project = self.json_request("POST", "/api/projects", {
+            "name": "Desk", "model": "OMNI-KP-6BV", "housing": "tabletop", "finish": "white"})
+        self.assertEqual((status, project["housing"], project["finish"]), (200, "tabletop", "white"), project)
+        status, body = self.json_request("POST", "/api/projects", {"name": "Hall", "housing": "ceiling"})
+        self.assertEqual(status, 400, body)
+
+    def test_settings_change_housing_and_finish(self):
+        self.json_request("POST", "/api/projects", {"name": "Lobby"})
+        status, project = self.json_request("POST", "/api/projects/Lobby/settings",
+                                            {"housing": "tabletop", "finish": "white"})
+        self.assertEqual((status, project["housing"], project["finish"]), (200, "tabletop", "white"), project)
+        self.assertEqual(self.json_request("POST", "/api/projects/Lobby/settings", {"finish": "red"})[0], 400)
+        self.assertEqual(self.json_request("POST", "/api/projects/Lobby/settings", {})[0], 400)
+
+    def test_save_sets_the_separator_colour(self):
+        self.json_request("POST", "/api/projects", {"name": "Lobby"})
+        status, project = self.json_request("PUT", "/api/projects/Lobby",
+                                            {"buttons": [], "recipes": {}, "separatorColor": "#336699"})
+        self.assertEqual(status, 200, project)
+        self.assertEqual(project["config"]["display"]["panel_separator_color"], "#336699")
+        status, body = self.json_request("PUT", "/api/projects/Lobby",
+                                         {"buttons": [], "recipes": {}, "separatorColor": "blue"})
+        self.assertEqual(status, 400, body)
+
+    def test_load_from_a_tabletop_keypad_sets_the_housing(self):
+        self.assertEqual(self.from_keypad()["housing"], "wall")
+        self.keypad.params["/configuration/device/model"]["value"] = "OMNI-KP-T8BV"
+        project = self.from_keypad()
+        self.assertEqual((project["model"], project["housing"]), ("OMNI-KP-8BV", "tabletop"))
+
     def test_taken_project_name_is_409(self):
         self.json_request("POST", "/api/projects", {"name": "Lobby"})
         self.json_request("POST", "/api/projects", {"name": "Hall"})
