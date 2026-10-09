@@ -1,5 +1,6 @@
 import base64
 import copy
+import http.client
 import json
 import tempfile
 import threading
@@ -16,10 +17,11 @@ from designer.assets import GraphicsZip
 from designer.keypad_ops import KeypadOps
 from designer.library import Library
 from designer.projects import ProjectStore
-from designer.server import make_server
+from designer.server import _Handler, make_server
 from keypad_design import DESIGN_PATH, Design
 from tests.fake_keypad import FakeKeypad
-from tests.helpers import FIXTURES, make_png
+from tests.helpers import FIXTURES, make_png, wait_until
+from tests.test_designer_debug import DESCRIPTOR, descriptor_for
 
 
 def b64(data: bytes) -> str:
@@ -444,6 +446,111 @@ class ServerTests(unittest.TestCase):
                                          {"host": "127.0.0.1", "backup": name})
         self.assertEqual(status, 200)
         self.assertEqual(body["fingerprint"], Design.from_cpio(self.data).fingerprint)
+
+
+def next_event(response) -> tuple[str, dict]:
+    """Read one server-sent event, skipping keepalive comments."""
+    event, data = "message", None
+    while True:
+        line = response.readline().decode("utf-8").rstrip("\r\n")
+        if not line:
+            if data is not None:
+                return event, json.loads(data)
+            continue
+        if line.startswith(":"):
+            continue
+        field, _, value = line.partition(": ")
+        if field == "event":
+            event = value
+        elif field == "data":
+            data = value
+
+
+class DebugRouteTests(unittest.TestCase):
+    def setUp(self):
+        self.keypad = FakeKeypad().__enter__()
+        self.addCleanup(self.keypad.__exit__, None, None, None)
+        self.keypad.files[DESCRIPTOR] = descriptor_for(self.keypad.params)
+        tmp = Path(tempfile.mkdtemp())
+        zip_path = tmp / "g.zip"
+        with zipfile.ZipFile(zip_path, "w") as archive:
+            archive.writestr("Keypad Graphics/Squared/Squared_Black.png", make_png())
+        ops = KeypadOps(tmp / "backups", port=self.keypad.port, timeout=2)
+        self.server = make_server(0, ops, Library(tmp / "library"), GraphicsZip(zip_path),
+                                  ProjectStore(tmp / "projects"))
+        self.debug = self.server.RequestHandlerClass.debug
+        self.addCleanup(self.debug.disconnect)
+        threading.Thread(target=self.server.serve_forever, daemon=True).start()
+        self.addCleanup(self.server.server_close)
+        self.addCleanup(self.server.shutdown)
+        self.port = self.server.server_address[1]
+
+    def post(self, path, body=None):
+        req = urllib.request.Request(
+            f"http://127.0.0.1:{self.port}{path}", method="POST",
+            data=json.dumps(body or {}).encode(), headers={"Content-Type": "application/json"})
+        try:
+            with urllib.request.urlopen(req, timeout=10) as response:
+                return response.status, json.loads(response.read())
+        except urllib.error.HTTPError as error:
+            with error:
+                return error.code, json.loads(error.read())
+
+    def open_events(self):
+        conn = http.client.HTTPConnection("127.0.0.1", self.port, timeout=5)
+        self.addCleanup(conn.close)
+        conn.request("GET", "/api/debug/events")
+        response = conn.getresponse()
+        self.assertEqual(response.status, 200)
+        self.assertEqual(response.headers["Content-Type"], "text/event-stream")
+        self.assertEqual(response.headers["Cache-Control"], "no-cache")
+        return conn, response
+
+    def test_connect_and_disconnect(self):
+        status, body = self.post("/api/debug/connect", {"host": "127.0.0.1"})
+        self.assertEqual((status, body["connected"], body["model"]), (200, True, "OMNI-KP-8BV"))
+        status, body = self.post("/api/debug/disconnect")
+        self.assertEqual((status, body["connected"]), (200, False))
+
+    def test_connect_needs_a_host(self):
+        status, body = self.post("/api/debug/connect", {})
+        self.assertEqual((status, body["error"]), (400, "enter the keypad's IP address"))
+
+    def test_connect_failure_names_the_keypad(self):
+        del self.keypad.files[DESCRIPTOR]
+        status, body = self.post("/api/debug/connect", {"host": "127.0.0.1"})
+        self.assertEqual(status, 502)
+        self.assertTrue(body["error"].startswith("couldn't talk to the keypad at 127.0.0.1"), body)
+        self.assertFalse(self.debug.status()["connected"])
+
+    def test_stream_says_hello_then_sends_entries(self):
+        _, response = self.open_events()
+        event, hello = next_event(response)
+        self.assertEqual(event, "hello")
+        self.assertEqual(hello["boot"], self.debug.boot)
+        self.assertFalse(hello["status"]["connected"])
+        self.post("/api/debug/connect", {"host": "127.0.0.1"})
+        texts = []
+        while not any(text.startswith("Subscribed to") for text in texts):
+            event, entry = next_event(response)
+            self.assertEqual(event, "message")
+            texts.append(entry["text"])
+        self.assertEqual(texts[0], "Connecting to 127.0.0.1…")
+
+    def test_stream_refuses_other_hosts(self):
+        conn = http.client.HTTPConnection("127.0.0.1", self.port, timeout=5)
+        self.addCleanup(conn.close)
+        conn.request("GET", "/api/debug/events", headers={"Host": "evil.example"})
+        self.assertEqual(conn.getresponse().status, 403)
+
+    def test_closed_stream_removes_its_listener(self):
+        with mock.patch.object(_Handler, "KEEPALIVE", 0.05):
+            conn, response = self.open_events()
+            next_event(response)
+            self.assertEqual(len(self.debug._listeners), 1)
+            response.close()
+            conn.close()
+            self.assertTrue(wait_until(lambda: not self.debug._listeners, timeout=5))
 
 
 if __name__ == "__main__":
