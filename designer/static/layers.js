@@ -59,7 +59,11 @@ export function createLayers({ root, catalog, iconTags, onChange, onSelect, onSt
   }
 
   function render(next, nextState) {
-    if (nextState !== state) origin = null;
+    if (nextState !== state) {
+      // Each state has its own layers, so a selection doesn't carry across.
+      origin = null;
+      selected = -1;
+    }
     recipe = next;
     state = nextState;
     const list = layers();

@@ -165,6 +165,12 @@ export async function paintInto(canvas, recipe, state, catalog) {
   ctx.drawImage(scratch, 0, 0);
 }
 
+// Empties a canvas that paintInto draws on, and stops a paint still in progress from drawing there.
+export function clearPainted(canvas) {
+  generations.set(canvas, (generations.get(canvas) ?? 0) + 1);
+  canvas.getContext("2d").clearRect(0, 0, canvas.width, canvas.height);
+}
+
 export function toBase64(canvas) {
   return canvas.toDataURL("image/png").split(",")[1];
 }

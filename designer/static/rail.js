@@ -5,7 +5,7 @@
 // first is true on its first move.
 
 import { SIZE, STATES } from "./model.js";
-import { paintInto } from "./render.js";
+import { paintInto, clearPainted } from "./render.js";
 
 const pct = (value) => `${(value / SIZE) * 100}%`;
 
@@ -38,7 +38,7 @@ export function createRail({ root, catalog, onPick, onRemoveAlt, onDrag }) {
       root.querySelector(`[data-rail="${s}"]`).classList.toggle("current", s === state);
       tile(s).classList.toggle("empty", !own);
       if (own) paintInto(canvas(s), recipe, s, catalog);
-      else canvas(s).getContext("2d").clearRect(0, 0, SIZE, SIZE);
+      else clearPainted(canvas(s));
     }
     root.querySelector(".add-alt").hidden = !recipe || Boolean(recipe.states.alt);
     root.querySelector("[data-remove-alt]").hidden = !recipe?.states.alt;
@@ -72,14 +72,17 @@ export function createRail({ root, catalog, onPick, onRemoveAlt, onDrag }) {
     drag.moved = true;
     onDrag({ dx, dy, first });
   });
-  const stop = () => {
-    if (drag?.moved) root.addEventListener("click", (e) => e.stopPropagation(), { capture: true, once: true });
+  // The click that ends a drag isn't a pick. Only a click straight after the
+  // drag is ignored, so a drag that ends without one never eats a later click.
+  let ignoreClicksUntil = 0;
+  root.addEventListener("pointerup", () => {
+    if (drag?.moved) ignoreClicksUntil = performance.now() + 100;
     drag = null;
-  };
-  root.addEventListener("pointerup", stop);
-  root.addEventListener("pointercancel", stop);
+  });
+  root.addEventListener("pointercancel", () => { drag = null; });
 
   root.addEventListener("click", (event) => {
+    if (performance.now() < ignoreClicksUntil) return;
     if (event.target.closest("[data-remove-alt]")) return onRemoveAlt();
     const pick = event.target.closest("[data-pick]")?.dataset.pick;
     if (pick) onPick(pick);

@@ -82,17 +82,10 @@ export function createSimple({ root, catalog, iconTags, onChange, onSelect, onSt
     }
   }
 
-  // Updates the summaries and markers without redrawing, so a field keeps its focus.
+  // The settings form sits after its row, not inside it, so redrawing the rows leaves its fields alone.
   function refreshSummaries() {
-    for (const row of root.querySelectorAll("[data-part]")) {
-      const type = row.dataset.part;
-      row.querySelector("[data-summary]").textContent = partSummary(recipe, state, type);
-      const on = Boolean(simpleParts(recipe, state)[type]?.layer.visible);
-      row.classList.toggle("off", !on);
-      const sw = row.querySelector("[data-switch]");
-      sw.classList.toggle("on", on);
-      sw.setAttribute("aria-checked", on);
-    }
+    const parts = simpleParts(recipe, state);
+    for (const row of root.querySelectorAll("[data-part]")) row.outerHTML = partRow(row.dataset.part, parts[row.dataset.part]);
   }
 
   root.addEventListener("click", (event) => {
