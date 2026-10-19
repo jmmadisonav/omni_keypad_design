@@ -316,3 +316,9 @@ test("movedText names the first moved layer", () => {
     "Shape moved behind Text to keep Back layers behind Front ones.");
   assert.equal(movedText([]), "");
 });
+
+test("upgradeRecipe gives each state its own image source", () => {
+  const { recipe } = upgradeRecipe({ version: 1, name: "", layers: [
+    { type: "image", off: "a", on: "b", source: { kind: "keypad" }, size: SIZE, x: CENTRE, y: CENTRE, visible: true }] });
+  assert.notEqual(recipe.states.off.layers[0].source, recipe.states.on.layers[0].source);
+});

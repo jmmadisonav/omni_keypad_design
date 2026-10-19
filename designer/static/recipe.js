@@ -93,7 +93,7 @@ function layerForState(layer, state) {
       const from = layer[state] ? state : layer.off ? "off" : "on";
       const image = { type, src: layer[from] || "", file: layer[`${from}File`] || "",
                       size: layer.size, x: layer.x, y: layer.y, visible };
-      if (layer.source) image.source = layer.source;
+      if (layer.source) image.source = { ...layer.source };
       return image;
     }
     default:
