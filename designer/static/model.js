@@ -29,7 +29,9 @@ export const FONTS = ["Titillium Web", "Inter", "Roboto", "Oswald"];
 export const STATES = ["off", "on", "alt"];
 
 // The images a button has: OFF and ON, plus ALT when it has an ALT state.
+// Takes a version 1 or version 2 recipe.
 export function statesOf(recipe) {
+  if (recipe?.states) return STATES.filter((state) => recipe.states[state]);
   return recipe?.alt ? STATES : ["off", "on"];
 }
 
@@ -122,7 +124,12 @@ export function quickRecipe({ label, icon, colour }, name = "") {
   ] };
 }
 
+// Whether a button shows nothing in any state. Takes a version 1 or version 2 recipe.
 export function isBlank(recipe) {
+  if (recipe.states) {
+    return !Object.values(recipe.states).some((s) =>
+      s.layers.some((l) => l.visible && (l.type !== "image" || l.src)));
+  }
   return !recipe.layers.some((l) => l.visible && (l.type !== "image" || l.off || l.on));
 }
 
