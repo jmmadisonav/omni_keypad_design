@@ -2,19 +2,23 @@
 
 OMNI Keypad Designer is where you design button images for an OMNI keypad and
 deploy them to it. It runs as a local web page, or as a Windows desktop app
-with its own installer. Each button gets an OFF and an ON image,
-built from layers. The images are 188x188 pixels on the 8BV and 150x150 on the
-6B and 6BV; the designer renders them at the project's size, so you lay out
-layers the same way on every model.
+with its own installer. Each button gets an OFF and an ON image, and
+optionally an ALT image. You design each of these states on its own. The
+images are 188x188 pixels on the 8BV and 150x150 on the 6B and 6BV; the
+designer renders them at the project's size, so you lay out buttons the same
+way on every model.
 
-The layers are:
+Each state is built from four parts, drawn from back to front:
 
-- **Shape:** a base shape from `docs/Keypad Graphics.zip` (Squared, Bubble, or
-  Circle 45) in any of its colours.
-- **Icon:** any of more than 1,800 Lucide icons, with separate OFF and ON
-  colours.
+- **Background:** a base shape from `docs/Keypad Graphics.zip` (Squared,
+  Bubble, or Circle 45) in any of its colours, or a colour of your own.
+- **Image:** a PNG or SVG of your own, such as a logo. It fills the button and
+  covers the background.
+- **Icon:** any of more than 1,800 Lucide icons.
 - **Text:** one or two lines in Titillium Web, Inter, Roboto, or Oswald.
-- **Image:** a PNG or SVG of your own, such as a logo.
+
+For two lines of text in different places, a second icon, or several images,
+switch the button to **Layers**.
 
 The designer runs on your computer and doesn't need internet access.
 
@@ -62,17 +66,28 @@ anything you saved in the meantime across.
    name and keypad model. To work on a keypad's current design, enter its IP
    address, or click **Find**, and click **Load**. That saves the design as a
    new project named after the keypad, for example `172-17-0-55 2026-10-06`.
-1. Click a button on the keypad view. The **Button** tab shows its OFF and ON
-   canvases and its layers. A button that wasn't made in the designer opens
-   as one Image layer that holds its existing artwork.
-1. Add layers with **+ Shape**, **+ Icon**, **+ Text**, and **+ Image**, or
-   click **Quick button** to build a shape, an icon, and a label in one step.
-   To move a layer, drag it on either canvas or change **X** and **Y**. To
-   check the ON images on every button, click **ON** under the keypad view.
+1. Click a button on the keypad view. The **States** rail next to the keypad
+   shows its OFF, ON, and ALT images. Click a state to edit it. The keypad
+   shows that state on every button, and the **Button** tab shows that
+   state's parts only. A button that wasn't made in the designer opens with
+   its existing artwork in the Image part.
+1. Turn parts on with their switches, and click a part to change it. Each
+   state keeps its own settings, so ON can have a different icon, colour, or
+   text from OFF. A part that differs from OFF is marked **≠ OFF**. To move
+   the open part, drag it on the selected state in the rail, or change **X**
+   and **Y**.
 
-   A shape uses a colour from Keypad Graphics. To use your own OFF and ON
-   colours instead, click **+** after the colour swatches. The designer
-   recolours the set's grey artwork, so the shape keeps its shading.
+   To start from finished artwork, click **Start from a ready-made** and pick
+   a design. It sets OFF and ON together.
+
+   A background uses a colour from Keypad Graphics. To use your own colour
+   instead, click **+** after the colour swatches. The designer recolours the
+   set's grey artwork, so the shape keeps its shading.
+1. To make another state match this one, click **Copy state** and choose a
+   state. To copy this state, or every state, to another button, choose
+   **Copy the {state} state to another button…** or **Copy all states to
+   another button…**, and then click the button. You can switch pages first.
+   The other button keeps its name and page link.
 1. Repeat for other buttons and pages. A red square marks each changed button, and
    one next to the project name means there are unsaved changes.
 1. Click **Save**. You don't need a keypad for any of these steps.
@@ -92,22 +107,41 @@ each slot.
 
 Each button has a third state, ALT, next to OFF and ON. Your code sets it
 over HControl with `"value":"Alt"` on the button's `state` path. Most designs
-don't use it, so the designer hides it until you turn it on for a project.
+don't use it, so a button has no ALT state until you add one.
 
-To design a button's ALT image, do the following:
+To give a button an ALT state, do the following:
 
-1. Click **Show ALT** under the keypad view. The project remembers this, and
-   an **ALT** option appears next to **OFF** and **ON**.
-1. Select a button, and click **+ ALT** on its ALT canvas. The ALT image
-   starts as a copy of OFF.
-1. Change it in the ALT fields: text lines and colours, icon colours, an ALT
-   image for Image layers, and, for shapes, any swatch's OFF or ON artwork.
-   An ALT field you leave empty uses the OFF setting.
+1. Select the button, and click **+ Add ALT** in the States rail.
+1. Click **Start from OFF**, **Start from ON**, or **Start blank**.
+1. Change ALT's parts. They're separate from OFF and ON.
 
-A button gets an ALT image on the keypad only after you click **+ ALT** for
-it. To take a button's ALT image off the keypad, click **Remove ALT** and
-save. **Hide ALT** only hides the controls: buttons that have ALT images keep
-them. **Load** keeps the ALT images a keypad already has.
+A button gets an ALT image on the keypad only once it has an ALT state, even
+a blank one. To take a button's ALT image off the keypad, click **Remove ALT**
+under its ALT image, and save. **Load** keeps the ALT images a keypad already
+has.
+
+### Layers
+
+**Simple** shows one of each part. When a button needs more, such as two
+text labels or a second icon, click **Layers** next to the button name.
+Layers shows the state's layers in two groups:
+
+- **Front** holds Text and Icon layers. They're see-through, so you can have
+  any number in any order.
+- **Back** holds Shape and Image layers. They're solid, and they always draw
+  behind Front.
+
+When one Back layer hides another, a warning explains what's hidden and
+offers to delete the hidden layer or, for an image, to shrink it. You can
+switch back to **Simple** when every state has at most one of each part.
+
+### Projects from earlier versions
+
+Projects made before the States rail open without changes. Each button is
+split into its OFF, ON, and ALT states only when you edit it, and its images
+on the keypad stay as they are until then. If a button had a shape above its
+text, it opens in Layers with a note: the shape moves behind the text when you
+edit the button.
 
 ### Backups
 
