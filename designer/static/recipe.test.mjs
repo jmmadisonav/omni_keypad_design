@@ -299,3 +299,7 @@ test("layerSummary for Layers rows", () => {
   assert.equal(layerSummary(icon()), "tv");
   assert.equal(layerSummary(text({ lines: ["A", "B"] })), "A / B");
 });
+
+test("coverage ignores an empty image underneath", () => {
+  assert.deepEqual(coverage([image({ src: "" }), shape()], () => true), []);
+});

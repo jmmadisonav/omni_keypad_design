@@ -62,12 +62,6 @@
           <div class="led" aria-hidden="true"></div>
         </div>
         <div class="stage-controls">
-          <div class="seg seg-state" role="group" aria-label="Preview state">
-            <button id="show-off" type="button" class="current">OFF</button>
-            <button id="show-on" type="button">ON</button>
-            <button id="show-alt" type="button" hidden>ALT</button>
-          </div>
-          <button id="toggle-alt" type="button" class="link-quiet">Show ALT</button>
           <div id="housing" class="seg seg-look" role="group" aria-label="Housing" title="How the keypad is housed. Saved with the project.">
             <button type="button" data-housing="wall" class="current">Wall</button>
             <button type="button" data-housing="tabletop">Tabletop</button>
@@ -122,6 +116,8 @@
     </section>
    </div>
 
+    <aside id="rail" class="rail" aria-label="States"></aside>
+
     <aside class="sidebar">
       <div class="side-tabs" role="tablist">
         <button id="tab-button" type="button" role="tab" class="current">Button</button>
@@ -131,17 +127,9 @@
       <div id="button-panel" class="side-panel">
         <div id="no-selection" class="pad">
           <h2 class="title">Button<span class="dot">.</span></h2>
-          <p class="lead">Select a button on the keypad to edit its layers, OFF and ON images and page link.</p>
+          <p class="lead">Select a button on the keypad to edit its states, parts and page link.</p>
         </div>
         <div id="selection" class="selection" hidden>
-          <div class="sel-head">
-            <div class="sel-thumb"><img id="sel-thumb" alt=""></div>
-            <div class="sel-text">
-              <div id="sel-overline" class="overline"></div>
-              <div class="sel-title"><span id="sel-name"></span><span class="dot">.</span>
-                <span id="sel-changed" class="changed-tag" hidden>Changed</span></div>
-            </div>
-          </div>
           <div id="editor" class="editor"></div>
           <div class="block divided">
             <label class="stack"><span class="label">Button name</span>
@@ -153,7 +141,7 @@
           <div class="grow"></div>
           <div class="side-footer">
             <button id="save-recipe" type="button" class="btn-outline wide">Save to library</button>
-            <button id="clear-layers" type="button" class="btn-danger" title="Remove all layers and images">Clear layers</button>
+            <button id="clear-button" type="button" class="btn-danger" title="Remove every state's parts and layers">Clear button</button>
           </div>
         </div>
       </div>

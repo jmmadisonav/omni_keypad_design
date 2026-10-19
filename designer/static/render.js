@@ -1,6 +1,6 @@
-// Draws a recipe onto a 188x188 canvas for the OFF, ON or ALT state.
+// Draws a version 2 recipe onto a 188x188 canvas for the OFF, ON or ALT state.
 
-import { SIZE, shapeFiles, textLines, tintPixels, tintSource, colourFor, shapeArt, statesOf } from "./model.js";
+import { SIZE, shapeFiles, tintPixels, tintSource, statesOf } from "./model.js";
 import { assetUrl } from "./api.js";
 
 const images = new Map();       // src -> Promise<HTMLImageElement>
@@ -67,25 +67,23 @@ function iconSource(name, size, colour, stroke) {
   return "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svg);
 }
 
-async function drawLayer(ctx, layer, state, catalog) {
+// Draws one layer of a version 2 recipe. Each layer has one value per setting.
+async function drawLayer(ctx, layer, catalog) {
   switch (layer.type) {
     case "shape": {
       const grey = tintSource(catalog, layer.set);
-      const tint = layer.tint && colourFor(layer.tint, state);
-      if (grey && /^#[0-9a-f]{6}$/i.test(tint || "")) {
-        // ALT recolours the OFF artwork.
-        ctx.drawImage(await tintedShape(assetUrl(grey[state === "on" ? "on" : "off"]), tint), 0, 0, SIZE, SIZE);
+      if (grey && /^#[0-9a-f]{6}$/i.test(layer.tint || "")) {
+        ctx.drawImage(await tintedShape(assetUrl(grey[layer.art]), layer.tint), 0, 0, SIZE, SIZE);
         return;
       }
-      const { colour, art } = shapeArt(layer, state);
-      const files = shapeFiles(catalog, layer.set, colour);
+      const files = shapeFiles(catalog, layer.set, layer.colour);
       if (!files) return;
-      ctx.drawImage(await loadImage(assetUrl(files[art])), 0, 0, SIZE, SIZE);
+      ctx.drawImage(await loadImage(assetUrl(files[layer.art])), 0, 0, SIZE, SIZE);
       return;
     }
     case "icon": {
       await loadIcons();
-      const src = iconSource(layer.icon, layer.size, colourFor(layer.colour, state), layer.stroke);
+      const src = iconSource(layer.icon, layer.size, layer.colour, layer.stroke);
       if (!src) return;
       ctx.drawImage(await loadImage(src), layer.x - layer.size / 2, layer.y - layer.size / 2,
                     layer.size, layer.size);
@@ -95,10 +93,10 @@ async function drawLayer(ctx, layer, state, catalog) {
       const font = `${layer.weight} ${layer.size}px "${layer.font}"`;
       await document.fonts.load(font);
       ctx.font = font;
-      ctx.fillStyle = colourFor(layer.colour, state);
+      ctx.fillStyle = layer.colour;
       ctx.textAlign = layer.align;
       ctx.textBaseline = "middle";
-      const lines = textLines(layer, state);
+      const lines = layer.lines[1] ? layer.lines : [layer.lines[0] || ""];
       const step = layer.size * 1.15;
       lines.forEach((line, i) => {
         ctx.fillText(line, layer.x, layer.y + (i - (lines.length - 1) / 2) * step);
@@ -106,9 +104,8 @@ async function drawLayer(ctx, layer, state, catalog) {
       return;
     }
     case "image": {
-      const src = layer[state] || layer.off || layer.on;
-      if (!src) return;
-      const img = await loadImage(src);
+      if (!layer.src) return;
+      const img = await loadImage(layer.src);
       const scale = layer.size / Math.max(img.naturalWidth, img.naturalHeight);
       const w = img.naturalWidth * scale;
       const h = img.naturalHeight * scale;
@@ -118,13 +115,14 @@ async function drawLayer(ctx, layer, state, catalog) {
   }
 }
 
+// Draws one state of a version 2 recipe.
 export async function drawRecipe(ctx, recipe, state, catalog) {
   ctx.clearRect(0, 0, SIZE, SIZE);
-  for (const layer of recipe.layers) {
+  for (const layer of recipe.states[state]?.layers ?? []) {
     if (!layer.visible) continue;
     ctx.save();
     try {
-      await drawLayer(ctx, layer, state, catalog);
+      await drawLayer(ctx, layer, catalog);
     } catch (error) {
       console.warn("Skipped a layer:", error);
     } finally {

@@ -267,11 +267,12 @@ export const SHRINK_SIZE = Math.round(SIZE * 0.8);
 
 // Each visible Back layer that a visible Back layer above it covers, with the
 // nearest one that does. A shape always covers; an image covers when fills(layer).
+// An image with no file draws nothing, so it's never reported as hidden.
 export function coverage(layers, fills) {
   const covers = (l) => isBack(l) && l.visible && (l.type === "shape" || fills(l));
   const result = [];
   layers.forEach((layer, lower) => {
-    if (!isBack(layer) || !layer.visible) return;
+    if (!isBack(layer) || !layer.visible || (layer.type === "image" && !layer.src)) return;
     const top = layers.findIndex((l, i) => i > lower && covers(l));
     if (top >= 0) result.push({ lower, top });
   });

@@ -7,6 +7,7 @@ import {
   statesOf,
 } from "./model.js";
 import { renderRecipe, toBase64, loadIcons } from "./render.js";
+import { upgradeRecipe, clearRecipe } from "./recipe.js";
 import { createEditor, icon } from "./editor.js";
 import {
   MAX_PAGES, layoutFromConfig, addPage, deletePage, setDestination, destinationOf,
@@ -26,7 +27,7 @@ const FINISHES = [["black", "Black"], ["white", "White"]];
 const state = {
   catalog: null,
   models: {},            // id -> { id, name, columns, rows, dial, faceplate, tested }
-  project: null,         // { name, model, config, images, recipes, baseFingerprint, lastDeployed, showAlt }
+  project: null,         // { name, model, config, images, recipes, baseFingerprint, lastDeployed }
   projects: [],          // [{ name, model, saved }], newest first
   layout: null,          // Pages and page switching; see pages.js.
   layoutChanges: 0,      // Page and page-link changes not saved yet.
@@ -34,8 +35,8 @@ const state = {
   separator: { saved: "#000000", value: "#000000" },  // The colour of the lines between buttons.
   pageId: "",            // The page shown in the keypad view.
   selected: null,        // { pageId, button }
-  recipes: new Map(),    // buttonKey(pageId, button) -> saved layers
-  edits: new Map(),      // buttonKey(pageId, button) -> unsaved layers
+  recipes: new Map(),    // buttonKey(pageId, button) -> saved recipe, version 1 or 2, as stored
+  edits: new Map(),      // buttonKey(pageId, button) -> unsaved version 2 recipe
   previews: new Map(),   // buttonKey(pageId, button) -> { off, on, alt? }: data URLs
   linkChanged: new Set(),// buttonKey(pageId, button) whose page link changed
   view: "off",           // The state shown on the keypad: "off", "on" or "alt".
@@ -118,17 +119,22 @@ function designImage(pageId, button, key) {
   return data ? `data:image/png;base64,${data}` : "";
 }
 
-// The layers to edit: unsaved ones, saved ones, or the keypad's own artwork.
-function recipeFor(pageId, button) {
+// The button to edit, as version 2: unsaved edits, the saved recipe, or the
+// keypad's own artwork. moved lists layers that converting a saved version 1
+// recipe moved behind Front layers. The stored recipe stays as it is until
+// you edit the button, so the keypad keeps its images until then.
+function openRecipe(pageId, button) {
   const key = keyOf(pageId, button);
-  if (state.edits.has(key)) return state.edits.get(key);
-  if (state.recipes.has(key)) return structuredClone(state.recipes.get(key));
+  if (state.edits.has(key)) return { recipe: state.edits.get(key), moved: [] };
+  if (state.recipes.has(key)) return upgradeRecipe(structuredClone(state.recipes.get(key)));
   const off = designImage(pageId, button, "offImage");
   const on = designImage(pageId, button, "onImage");
   const name = nameFromImage(imageNames(pageId, button, "offImage")[0] || "");
-  if (!off && !on) return { version: 1, name, layers: [] };
-  return recipeFromImages(off, on, name, { kind: "keypad" }, designImage(pageId, button, "altImage"));
+  if (!off && !on) return upgradeRecipe({ version: 1, name, layers: [] });
+  return upgradeRecipe(recipeFromImages(off, on, name, { kind: "keypad" }, designImage(pageId, button, "altImage")));
 }
+
+const recipeFor = (pageId, button) => openRecipe(pageId, button).recipe;
 
 function buttonName(pageId, button) {
   return recipeFor(pageId, button).name || "";
@@ -206,7 +212,7 @@ function restore(snap) {
   renderSeparator();
   lastChange = { key: null, time: 0 };
   const sel = state.selected;
-  if (sel) editor.setRecipe(structuredClone(recipeFor(sel.pageId, sel.button)), { keepLayer: true });
+  if (sel) editor.setRecipe(structuredClone(recipeFor(sel.pageId, sel.button)), { keep: true });
   renderTabs();
   renderKeypad();
   renderSelection();
@@ -329,29 +335,14 @@ function renderKeypad() {
     });
     keypad.append(cell);
   }
-  for (const view of ["off", "on", "alt"]) $(`show-${view}`).classList.toggle("current", state.view === view);
 }
 
+// The state shown on the keypad, which is also the state the editor edits.
 function setView(view) {
   state.view = view;
-  editor.setView(view);
+  editor.setState(view);
   renderKeypad();
   renderSelectionHead();
-}
-
-// Show or hide the ALT state for this project. It's saved straight away,
-// and it doesn't change any button: buttons with ALT images keep them.
-async function setShowAlt(show) {
-  try {
-    const { showAlt } = await sendJson("POST", `${projectUrl(state.project.name)}/settings`, { showAlt: show });
-    state.project.showAlt = showAlt;
-  } catch (error) {
-    return setStatus(`Couldn't change the ALT setting: ${error.message}`, true);
-  }
-  renderShowAlt();
-  if (!show && state.view === "alt") setView("off");
-  setStatus(show ? "Showing the ALT state. To give a button an ALT image, select it and click + ALT."
-    : "Hid the ALT state. Buttons that have ALT images still deploy them.");
 }
 
 // Housing (wall or tabletop) and finish (black or white) change how the keypad
@@ -399,14 +390,6 @@ function renderSeparator() {
   $("separator-picker").value = state.separator.value.toLowerCase();
   $("separator-hex").value = state.separator.value;
   $("faceplate").style.setProperty("--sep", state.separator.value);
-}
-
-function renderShowAlt() {
-  const show = Boolean(state.project?.showAlt);
-  $("show-alt").hidden = !show;
-  $("toggle-alt").textContent = show ? "Hide ALT" : "Show ALT";
-  $("toggle-alt").title = show ? "Hide the ALT state for this project" : "Design the ALT state, the keypad's third button state";
-  editor.setAltVisible(show);
 }
 
 async function swapKeys(a, b) {
@@ -607,7 +590,8 @@ function setTab(tab) {
 
 function selectButton(pageId, button) {
   state.selected = { pageId, button };
-  editor.setRecipe(structuredClone(recipeFor(pageId, button)));
+  const { recipe, moved } = openRecipe(pageId, button);
+  editor.setRecipe(structuredClone(recipe), { moved });
   setTab("button");
   renderKeypad();
   renderSelection();
@@ -616,13 +600,9 @@ function selectButton(pageId, button) {
 function renderSelectionHead() {
   const sel = state.selected;
   if (!sel) return;
-  const number = pageNumber(state.layout, sel.pageId);
-  $("sel-thumb").src = faceImage(sel.pageId, sel.button) || "data:,";
-  $("sel-thumb").hidden = isKeyBlank(sel.pageId, sel.button);
-  $("sel-overline").textContent = `Button ${sel.button} · ${pageName(state.layout, sel.pageId)} · /page${number}/button${sel.button}`;
   const name = buttonName(sel.pageId, sel.button);
-  $("sel-name").textContent = name || `Button ${sel.button}`;
-  $("sel-changed").hidden = !isChanged(keyOf(sel.pageId, sel.button));
+  editor.setHeader(`${pageName(state.layout, sel.pageId)} · Button ${sel.button}`, name || `Button ${sel.button}`,
+    isChanged(keyOf(sel.pageId, sel.button)));
   renderNameHint(name);
 }
 
@@ -668,20 +648,22 @@ function onGoToChange() {
   changeLayout(setDestination(state.layout, sel.pageId, sel.button, $("goto").value || null));
 }
 
-function onEdit(recipe) {
+// label names the change for undo; without one, quick changes to a button merge into one step.
+function onEdit(recipe, label) {
   const sel = state.selected;
   if (!sel) return;
-  record(`the change to button ${sel.button}`, `edit ${keyOf(sel.pageId, sel.button)}`);
+  if (label) record(`${label} on button ${sel.button}`);
+  else record(`the change to button ${sel.button}`, `edit ${keyOf(sel.pageId, sel.button)}`);
   setEdit(sel.pageId, sel.button, recipe);
 }
 
-function clearLayers() {
+function clearButton() {
   const sel = state.selected;
-  const recipe = { ...editor.getRecipe(), layers: [] };
+  const recipe = clearRecipe(editor.getRecipe());
   record(`clearing button ${sel.button}`);
-  editor.setRecipe(recipe);
+  editor.setRecipe(recipe, { keep: true });
   setEdit(sel.pageId, sel.button, recipe);
-  setStatus(`Cleared the layers on button ${sel.button}. It's now blank.`);
+  setStatus(`Cleared button ${sel.button}. It's now blank.`);
 }
 
 // -- HControl drawer -------------------------------------------------------------------
@@ -1000,7 +982,7 @@ async function applyRecipe(get, pageId, button) {
   }
   let recipe;
   try {
-    recipe = structuredClone(await get());
+    recipe = upgradeRecipe(structuredClone(await get())).recipe;
   } catch (error) {
     return setStatus(error.message, true);
   }
@@ -1054,14 +1036,14 @@ async function saveRecipe() {
   if (!recipe) return;
   const result = await nameModal({
     title: "Save to library",
-    body: "Saves this button's layers as a recipe. The name also names its image files on the keypad.",
+    body: "Saves this button's states as a recipe. The name also names its image files on the keypad.",
     label: "Recipe name",
     value: (recipe.name || "").replace(/_/g, " "),
     hint: (name) => { const stem = fileStem(name.trim(), 1, 1); return `Files on keypad: ${name.trim() ? stem : "Name"}_OFF.png, ${name.trim() ? stem : "Name"}_ON.png`; },
     confirm: "Save",
     submit: async (name) => {
       const saved = await sendJson("PUT", `/api/library/${encodeURIComponent(name)}`,
-        { recipe, thumbnail: toBase64(editor.canvases.off) });
+        { recipe, thumbnail: toBase64(await editor.thumbnail()) });
       return saved;
     },
   });
@@ -1148,10 +1130,8 @@ function showProject(project) {
   clearHistory();
   editor.setImageSize(imageSize());
   editor.setRecipe(null);
-  renderShowAlt();
   renderLook();
   renderSeparator();
-  if (!project.showAlt && state.view === "alt") setView("off");
   $("project-name").textContent = project.name;
   $("project-name").title = project.name;
   renderTabs();
@@ -1827,10 +1807,6 @@ function wire() {
   $("load").addEventListener("click", loadFromKeypad);
   $("backups").addEventListener("click", () => openBackups());
   $("deploy").addEventListener("click", openDeploy);
-  $("show-off").addEventListener("click", () => setView("off"));
-  $("show-on").addEventListener("click", () => setView("on"));
-  $("show-alt").addEventListener("click", () => setView("alt"));
-  $("toggle-alt").addEventListener("click", () => state.project && setShowAlt(!state.project.showAlt));
   $("housing").addEventListener("click", (e) => { const b = e.target.closest("[data-housing]"); if (b) setLook("housing", b.dataset.housing); });
   $("finish").addEventListener("click", (e) => { const b = e.target.closest("[data-finish]"); if (b) setLook("finish", b.dataset.finish); });
   $("separator-picker").addEventListener("input", (e) => state.project && setSeparator(e.target.value));
@@ -1843,7 +1819,7 @@ function wire() {
   wireDrawer();
   wireDebug();
   $("save-recipe").addEventListener("click", saveRecipe);
-  $("clear-layers").addEventListener("click", clearLayers);
+  $("clear-button").addEventListener("click", clearButton);
   $("lib-query").addEventListener("input", () => { state.libQuery = $("lib-query").value; renderLibrary(); });
   // Clicking empty stage deselects the button.
   $("stage").addEventListener("click", (event) => {
@@ -1882,8 +1858,8 @@ async function start() {
     state.catalog = catalog;
     state.models = Object.fromEntries(models.map((m) => [m.id, m]));
     editor = createEditor({
-      root: $("editor"), catalog, iconTags, onChange: onEdit,
-      onPreview: setView, onChooseLibrary: () => setTab("library"), onStatus: setStatus,
+      root: $("editor"), railRoot: $("rail"), catalog, iconTags, onChange: onEdit, onState: setView,
+      onCopyToButton: () => {}, onStatus: setStatus, onConfirm: setStatus,
     });
     await refreshLibrary();
   } catch (error) {

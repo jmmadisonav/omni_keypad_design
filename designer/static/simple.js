@@ -19,8 +19,9 @@ async function dataUrl(url) {
 }
 
 // onChange(recipe, label) reports each change; label names it for undo, or
-// is null for a setting that merges with the changes around it.
-export function createSimple({ root, catalog, iconTags, onChange, onStatus, onConfirm, imageSize }) {
+// is null for a setting that merges with the changes around it. onSelect()
+// reports that another part opened, so the rail can outline it.
+export function createSimple({ root, catalog, iconTags, onChange, onSelect, onStatus, onConfirm, imageSize }) {
   let recipe = null;
   let state = "off";
   let open = null;                 // The part type whose settings are open.
@@ -151,6 +152,7 @@ export function createSimple({ root, catalog, iconTags, onChange, onStatus, onCo
         `turning ${on ? "off" : "on"} ${PART_NAMES[type]} for ${STATE()}`);
     } else if (row) {
       open = open === row.dataset.part ? null : row.dataset.part;
+      onSelect();
       render(recipe, state);
     } else if (button?.hasAttribute("data-gallery")) {
       gallery = !gallery;

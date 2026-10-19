@@ -14,7 +14,7 @@ const GLYPHS = { shape: "square", icon: "shapes", text: "type", image: "image" }
 const ADD = [["text", "Goes to Front"], ["icon", "Goes to Front"],
              ["shape", "Goes to Back · solid"], ["image", "Goes to Back · solid"]];
 
-export function createLayers({ root, catalog, iconTags, onChange, onStatus, imageSize }) {
+export function createLayers({ root, catalog, iconTags, onChange, onSelect, onStatus, imageSize }) {
   let recipe = null;
   let state = "off";
   let selected = -1;
@@ -122,6 +122,7 @@ export function createLayers({ root, catalog, iconTags, onChange, onStatus, imag
       }
     } else if (item) {
       selected = Number(item.dataset.index);
+      onSelect();
       render(recipe, state);
     } else if (button?.dataset.add) {
       const { recipe: next, index } = addLayerTo(recipe, state, defaultLayerFor(button.dataset.add, catalog, state, recipe.name));

@@ -12,6 +12,7 @@
   <script type="module">
     import { getJson } from "/static/api.js";
     import { renderRecipe, toBase64 } from "/static/render.js";
+    import { upgradeRecipe } from "/static/recipe.js";
     import { newRecipe, addLayer, defaultLayer } from "/static/model.js";
     const catalog = await getJson("/api/assets");
     let recipe = newRecipe("check");
@@ -20,7 +21,7 @@
     recipe.layers[1].y = 80;
     recipe.layers[2].lines = ["HDMI 1"];
     recipe.layers[2].y = 150;
-    const { off, on } = await renderRecipe(recipe, catalog);
+    const { off, on } = await renderRecipe(upgradeRecipe(recipe).recipe, catalog);
     document.getElementById("out").append(off, on);
     const sizes = [off, on].map((c) => {
       const png = atob(toBase64(c));
