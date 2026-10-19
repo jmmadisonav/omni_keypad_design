@@ -29,6 +29,34 @@ const isHex = (value) => /^#[0-9a-f]{6}$/i.test(value);
 export const defaultArt = (state) => (state === "on" ? "on" : "off");
 const label = (text, extra = "") => `<span class="label">${text}${extra}</span>`;
 
+let measure = null;
+
+// A layer's box on the 188-unit canvas, [left, top, width, height], for the
+// selection outline, or null for a shape or a hidden layer. natural is an
+// image's own size, or null while it loads.
+export function layerBounds(layer, natural) {
+  if (!layer?.visible) return null;
+  switch (layer.type) {
+    case "icon": return [layer.x - layer.size / 2, layer.y - layer.size / 2, layer.size, layer.size];
+    case "text": {
+      measure ??= document.createElement("canvas").getContext("2d");
+      measure.font = `${layer.weight} ${layer.size}px "${layer.font}"`;
+      const lines = layer.lines[1] ? layer.lines : [layer.lines[0] || ""];
+      const width = Math.max(1, ...lines.map((l) => measure.measureText(l).width));
+      const height = lines.length * layer.size * 1.15;
+      const left = layer.align === "center" ? layer.x - width / 2 : layer.align === "left" ? layer.x : layer.x - width;
+      return [left, layer.y - height / 2, width, height];
+    }
+    case "image": {
+      if (!layer.src || !natural) return null;
+      const scale = layer.size / Math.max(natural.width, natural.height);
+      const [w, h] = [natural.width * scale, natural.height * scale];
+      return [layer.x - w / 2, layer.y - h / 2, w, h];
+    }
+  }
+  return null;
+}
+
 function segmented(name, options, current, disabled = false) {
   return `<div class="seg" role="group">${options.map(([value, text, glyph]) =>
     `<button type="button" data-seg="${name}" data-value="${value}" class="${String(value) === String(current) ? "current" : ""}"${glyph ? ` title="${text}" aria-label="${text}"` : ""}${disabled ? " disabled" : ""}>${glyph ? icon(glyph, 14) : text}</button>`).join("")}</div>`;
