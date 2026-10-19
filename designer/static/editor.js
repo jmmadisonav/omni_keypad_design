@@ -14,7 +14,7 @@ import { escapeHtml } from "./layer-settings.js";
 export { icon } from "./layer-settings.js";
 
 // onRename(name) gets the button name as you type it, after you double-click the name.
-export function createEditor({ root, railRoot, catalog, iconTags, onChange, onState, onRename, onCopyToButton, onStatus, onConfirm }) {
+export function createEditor({ root, railRoot, catalog, iconTags, onChange, onState, onRename, onCopyToButton, onStatus }) {
   let recipe = null;
   let state = "off";
   let mode = "simple";
@@ -87,7 +87,7 @@ export function createEditor({ root, railRoot, catalog, iconTags, onChange, onSt
     renderRail();
   }
 
-  const shared = { catalog, iconTags, onChange: fromView, onSelect: () => renderRail(), onStatus, onConfirm, imageSize };
+  const shared = { catalog, iconTags, onChange: fromView, onSelect: () => renderRail(), onStatus, imageSize };
   const views = {
     simple: createSimple({ root: $('[data-view="simple"]'), ...shared }),
     layers: createLayers({ root: $('[data-view="layers"]'), ...shared }),
@@ -183,7 +183,6 @@ export function createEditor({ root, railRoot, catalog, iconTags, onChange, onSt
       if (kind === "to") {
         const [from, to] = [state.toUpperCase(), value.toUpperCase()];
         change(copyState(recipe, state, value), `copying ${from} to ${to}`);
-        onConfirm(`Copied ${from} to ${to}. You can now change ${to} on its own.`);
       } else {
         onCopyToButton(value);
       }

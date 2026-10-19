@@ -595,7 +595,6 @@ function setTab(tab) {
 }
 
 function selectButton(pageId, button) {
-  if (state.selected?.pageId !== pageId || state.selected?.button !== button) hideConfirm();
   state.selected = { pageId, button };
   const { recipe, moved } = openRecipe(pageId, button);
   editor.setRecipe(structuredClone(recipe), { moved });
@@ -677,17 +676,6 @@ function clearButton() {
 
 // -- Copying to another button ----------------------------------------------------------
 
-// The bar at the bottom of the stage that confirms a copy or a ready-made. It also goes to the status bar.
-function confirmBar(text) {
-  $("confirm-text").textContent = text;
-  $("confirm-bar").hidden = false;
-  setStatus(text);
-}
-
-function hideConfirm() {
-  $("confirm-bar").hidden = true;
-}
-
 // Copy state's "to another button" rows: the next button you click gets the
 // state you're editing (scope "state"), or every state (scope "all").
 function startPick(scope) {
@@ -726,8 +714,8 @@ async function pickButton(pageId, button) {
   const next = scope === "all" ? copyAllStates(source, target) : copyStateFrom(source, target, view);
   await setEdit(pageId, button, next);
   const [fromName, toName] = [nameOrNumber(from.pageId, from.button), nameOrNumber(pageId, button)];
-  confirmBar(scope === "all" ? `Copied all states of ${fromName} to button ${button}.`
-    : `Copied ${view.toUpperCase()} from ${fromName} to ${toName}. Its other states are unchanged.`);
+  setStatus(scope === "all" ? `Copied all states of ${fromName} to ${toName}.`
+    : `Copied ${view.toUpperCase()} from ${fromName} to ${toName}.`);
 }
 
 // -- HControl drawer -------------------------------------------------------------------
@@ -1887,7 +1875,7 @@ function wire() {
   $("stage").addEventListener("click", (event) => {
     // A click can re-render what was clicked, so check where it started, not where it is now.
     if (!event.target.isConnected || !state.selected ||
-        event.target.closest(".faceplate, .tabs-wrap, .stage-controls, .banner, .pick-banner, .confirm-bar")) return;
+        event.target.closest(".faceplate, .tabs-wrap, .stage-controls, .banner, .pick-banner")) return;
     state.selected = null;
     renderKeypad();
     renderSelection();
@@ -1907,7 +1895,6 @@ function wire() {
   document.addEventListener("keydown", onUndoKey);
   document.addEventListener("keydown", (event) => { if (event.key === "Escape") endPick(); });
   $("pick-cancel").addEventListener("click", endPick);
-  $("confirm-dismiss").addEventListener("click", hideConfirm);
   document.addEventListener("keydown", (event) => {
     if (event.key === "Escape" && !$("modal").hidden && modalClosable) (modalCancel || closeModal)();
   });
@@ -1924,7 +1911,7 @@ async function start() {
     state.models = Object.fromEntries(models.map((m) => [m.id, m]));
     editor = createEditor({
       root: $("editor"), railRoot: $("rail"), catalog, iconTags, onChange: onEdit, onState: setView, onRename: onNameInput,
-      onCopyToButton: startPick, onStatus: setStatus, onConfirm: confirmBar,
+      onCopyToButton: startPick, onStatus: setStatus,
     });
     await refreshLibrary();
   } catch (error) {

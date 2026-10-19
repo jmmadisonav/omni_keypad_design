@@ -397,3 +397,7 @@ These were decided after the handoff was written:
   set keeps the dim or bright choice, and copying a state copies it exactly.
   New shapes start as dim Blue, and new icons and text start white, in every
   state. Summaries read, for example, "Squared · Red, bright".
+- **No confirmation bar.** Copying a state shows no message (this replaces
+  the "Confirmation bar" call and the confirmation copy above). Copying to
+  another button leaves one line in the status bar, for example "Copied ON
+  from Mic to Button 7.", because the target can be on another page.

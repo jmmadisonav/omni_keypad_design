@@ -160,11 +160,6 @@ body.busy .lockable { opacity: .4; pointer-events: none; }
 .pick-cancel { height: 28px; padding: 0 12px; border: 1px solid var(--white); background: transparent; color: var(--white);
                font-size: 13px; font-weight: 700; }
 .key.pick-target { outline: 1px dashed var(--muted); outline-offset: 2px; cursor: copy; }
-.confirm-bar { position: sticky; z-index: 2; bottom: 0; flex: none; display: flex; align-items: center; gap: 10px;
-               max-width: 100%; margin-top: 14px; padding: 10px 14px; background: var(--white);
-               border: 1px solid var(--control); font-size: 14px; }
-.confirm-bar .unsaved-mark { width: 8px; height: 8px; }
-.confirm-bar .link-quiet { font-size: 12px; font-weight: 700; }
 .banner { display: flex; gap: 12px; align-items: flex-start; width: min(100%, 640px); margin-bottom: 16px;
           padding: 12px 16px; background: var(--white); border: 1px solid var(--red); font-size: 14px; line-height: 1.5; }
 .banner .chip-error { margin-top: 2px; }
