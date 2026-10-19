@@ -390,3 +390,10 @@ These were decided after the handoff was written:
 - **With no button selected, the States rail and the sidebar are hidden**, so
   the keypad has the room. The LIBRARY tab is reachable once a button is
   selected.
+- **No automatic picture choice. You decide every state.** The Artwork
+  control is gone (this replaces the "Shape artwork" and "Background art"
+  calls above). Each colour swatch shows its dim and bright pictures, and each
+  half is its own choice. A custom colour has a Dim | Bright choice. Picking a
+  set keeps the dim or bright choice, and copying a state copies it exactly.
+  New shapes start as dim Blue, and new icons and text start white, in every
+  state. Summaries read, for example, "Squared · Red, bright".

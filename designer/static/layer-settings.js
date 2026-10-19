@@ -14,7 +14,7 @@ const POPULAR = ["house", "laptop", "monitor", "tv", "projector", "presentation"
   "speaker", "music", "radio", "blinds", "thermometer", "network", "grip", "ban", "activity",
   "audio-lines", "square-play", "star", "users"];
 const SIZES = { icon: [12, SIZE, "px"], text: [8, 80, "px"], image: [10, 200, "%"] };
-const DEFAULT_TINT = { off: "#9e1328", on: "#e31837" };    // MGE red, darker when OFF.
+const DEFAULT_TINT = { off: "#9e1328", on: "#e31837" };    // MGE red, darker for the dim picture.
 const ALIGN_ICONS = { left: "text-align-start", center: "text-align-center", right: "text-align-end" };
 
 export function icon(name, size = 16) {
@@ -25,8 +25,6 @@ export const escapeHtml = (text) => String(text).replace(/[&<>"']/g, (c) =>
   ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;", "'": "&#39;" })[c]);
 const cap = (text) => text[0].toUpperCase() + text.slice(1);
 const isHex = (value) => /^#[0-9a-f]{6}$/i.test(value);
-// The shape artwork a state draws by default: ON for ON, OFF for OFF and ALT.
-export const defaultArt = (state) => (state === "on" ? "on" : "off");
 const label = (text, extra = "") => `<span class="label">${text}${extra}</span>`;
 
 let measure = null;
@@ -94,12 +92,21 @@ export function createLayerSettings({ form, catalog, iconTags, onChange, onStatu
     onChange(changes, { rerender });
   };
 
-  function swatch(set, colour, current) {
+  // A colour's swatch: its dim picture on the left and its bright one on the
+  // right, each its own choice. A colour with one picture is one choice.
+  function swatch(set, colour) {
     const files = catalog.shapes[set]?.[colour];
     if (!files) return "";
-    return `<button type="button" class="swatch${current ? " current" : ""}" data-colour="${escapeHtml(colour)}" title="${escapeHtml(colour)}" aria-label="${escapeHtml(colour)}">
-      <img alt="" src="${assetUrl(files[layer.art || defaultArt(state)])}"></button>`;
+    const pictures = files.off === files.on ? [["off", ""]] : [["off", ", dim"], ["on", ", bright"]];
+    return `<div class="swatch split">${pictures.map(([art, word]) => {
+      const current = !layer.tint && layer.colour === colour && (pictures.length === 1 || layer.art === art);
+      const name = escapeHtml(colour + word);
+      return `<button type="button" class="${current ? "current" : ""}" data-colour="${escapeHtml(colour)}" data-art="${art}"
+        title="${name}" aria-label="${name}"><img alt="" src="${assetUrl(files[art])}"></button>`;
+    }).join("")}</div>`;
   }
+
+  const pictureName = () => (layer.art === "on" ? "bright" : "dim");
 
   function shapeFields() {
     const sets = Object.keys(catalog.shapes);
@@ -108,13 +115,12 @@ export function createLayerSettings({ form, catalog, iconTags, onChange, onStatu
     const customSwatch = canTint ? `<button type="button" class="swatch custom${custom ? " current" : ""}" data-custom
         title="Custom colour" aria-label="Custom colour"${custom ? ` style="background: ${layer.tint}"` : ""}>${custom ? "" : icon("plus", 14)}</button>` : "";
     return `<div class="stack">${label("Shape")}${segmented("set", sets.map((s) => [s, s]), layer.set)}</div>
-      <div class="stack">${label(`Colour · ${custom ? "Custom" : escapeHtml(layer.colour)}`)}
+      <div class="stack">${label(`Colour · ${custom ? "Custom" : escapeHtml(layer.colour)}, ${pictureName()}`)}
         <div class="swatch-grid">${Object.keys(catalog.shapes[layer.set] || {}).map((c) =>
-          swatch(layer.set, c, !custom && c === layer.colour)).join("")}${customSwatch}</div>
-        ${canTint && !custom ? `<span class="help">To pick your own colour, click +.</span>` : ""}</div>
-      ${custom ? `<div class="stack">${label(`Custom colour · ${state.toUpperCase()}`)}${colourField(layer.tint, "tint")}</div>` : ""}
-      ${view === "layers" ? `<div class="stack">${label("Artwork")}${segmented("art", [["off", "OFF"], ["on", "ON"]], layer.art)}
-        <span class="help">Which of the colour's two artworks this state draws.</span></div>` : ""}`;
+          swatch(layer.set, c)).join("")}${customSwatch}</div>
+        <span class="help">Each swatch has a dim picture on the left and a bright one on the right.${canTint && !custom ? " To pick your own colour, click +." : ""}</span></div>
+      ${custom ? `<div class="stack">${label("Custom colour")}${colourField(layer.tint, "tint")}
+        ${segmented("art", [["off", "Dim"], ["on", "Bright"]], layer.art)}</div>` : ""}`;
   }
 
   function imageFields() {
@@ -259,21 +265,19 @@ export function createLayerSettings({ form, catalog, iconTags, onChange, onStatu
   form.addEventListener("click", (event) => {
     const button = event.target.closest("button");
     if (!button || !layer) return;
-    // Simple resets the artwork to the state's own when you pick a set or colour; Layers keeps it.
-    const art = view === "simple" ? { art: defaultArt(state) } : {};
     if (button.dataset.icon) {
       change({ icon: button.dataset.icon });
       form.querySelectorAll(".icon-choice").forEach((b) => b.classList.toggle("current", b === button));
       form.querySelector("[data-icon-name]").textContent = button.dataset.icon;
     } else if (button.dataset.colour) {
-      change({ colour: button.dataset.colour, tint: undefined, ...art }, true);
+      change({ colour: button.dataset.colour, art: button.dataset.art, tint: undefined }, true);
     } else if (button.hasAttribute("data-custom")) {
-      if (!layer.tint) change({ tint: DEFAULT_TINT[defaultArt(state)], ...art }, true);
+      if (!layer.tint) change({ tint: DEFAULT_TINT[layer.art] }, true);
     } else if (button.dataset.seg === "set") {
       const colours = Object.keys(catalog.shapes[button.dataset.value] || {});
       const colour = colours.includes(layer.colour) ? layer.colour : colours.includes("Blue") ? "Blue" : colours[0];
       const tint = layer.tint && tintSource(catalog, button.dataset.value) ? layer.tint : undefined;
-      change({ set: button.dataset.value, colour, tint, ...art }, true);
+      change({ set: button.dataset.value, colour, tint }, true);
     } else if (button.dataset.seg === "art") {
       change({ art: button.dataset.value }, true);
     } else if (button.dataset.seg === "weight") {

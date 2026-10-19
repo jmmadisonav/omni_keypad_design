@@ -82,9 +82,15 @@ anything you saved in the meantime across.
    ready-made button. To rename the button, double-click its name at the top
    of the **Button** tab, type, and press Enter. Esc puts the old name back.
 
-   A background uses a colour from Keypad Graphics. To use your own colour
-   instead, click **+** after the colour swatches. The designer recolours the
-   set's grey artwork, so the shape keeps its shading.
+   A background uses a colour from Keypad Graphics. Most colours come as a dim
+   and a bright picture: click the left half of a swatch for dim, or the right
+   half for bright. You choose this for each state. Nothing changes it for you.
+   To use your own colour instead, click **+** after the colour swatches, and
+   pick **Dim** or **Bright**. The designer recolours the set's grey artwork,
+   so the shape keeps its shading.
+
+   New parts start the same in every state: a dim Blue background, and white
+   icons and text.
 1. To make another state match this one, click **Copy state** and choose a
    state. To copy this state, or every state, to another button, choose
    **Copy the {state} state to another button…** or **Copy all states to

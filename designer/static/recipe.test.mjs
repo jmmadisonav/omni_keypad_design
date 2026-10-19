@@ -99,13 +99,13 @@ test("defaultLayerFor text uses the name", () => {
   assert.deepEqual(defaultLayerFor("text", catalog, "on").lines, ["Label"]);
 });
 
-test("defaultLayerFor gives single values for the state", () => {
-  assert.equal(defaultLayerFor("icon", catalog, "off").colour, "#9AA0A6");
-  assert.equal(defaultLayerFor("icon", catalog, "on").colour, "#FFFFFF");
-  assert.equal(defaultLayerFor("text", catalog, "alt").colour, "#9AA0A6");
-  assert.deepEqual(defaultLayerFor("shape", catalog, "on"),
-    { type: "shape", set: "Bubble", colour: "Blue", art: "on", visible: true });
-  assert.equal(defaultLayerFor("shape", catalog, "alt").art, "off");
+test("defaultLayerFor starts the same in every state", () => {
+  for (const state of ["off", "on", "alt"]) {
+    assert.equal(defaultLayerFor("icon", catalog, state).colour, "#FFFFFF");
+    assert.equal(defaultLayerFor("text", catalog, state).colour, "#FFFFFF");
+    assert.deepEqual(defaultLayerFor("shape", catalog, state),
+      { type: "shape", set: "Bubble", colour: "Blue", art: "off", visible: true });
+  }
   const image = defaultLayerFor("image", catalog, "off");
   assert.equal(image.src, "");
   assert.equal(image.size, SIZE);
@@ -161,7 +161,7 @@ test("simpleParts finds each part and its index", () => {
 test("setPart adds a missing part in order", () => {
   const next = setPart(v2([shape(), text()]), "off", "icon", { visible: true }, catalog);
   assert.deepEqual(next.states.off.layers.map((l) => l.type), ["shape", "icon", "text"]);
-  assert.equal(next.states.off.layers[1].colour, "#9AA0A6");
+  assert.equal(next.states.off.layers[1].colour, "#FFFFFF");
 });
 
 test("setPart text uses the button name", () => {
@@ -187,8 +187,8 @@ test("differsFromOff", () => {
 });
 
 test("partSummary background covered", () => {
-  assert.equal(partSummary(v2([shape(), image()]), "off", "shape"), "Squared · Blue · covered by image");
-  assert.equal(partSummary(v2([shape({ tint: "#123456" })]), "off", "shape"), "Squared · Custom");
+  assert.equal(partSummary(v2([shape(), image()]), "off", "shape"), "Squared · Blue, dim · covered by image");
+  assert.equal(partSummary(v2([shape({ tint: "#123456", art: "on" })]), "off", "shape"), "Squared · Custom, bright");
 });
 
 test("partSummary for each part", () => {
@@ -280,7 +280,8 @@ test("startAlt, removeAlt and clearRecipe", () => {
 });
 
 test("layerSummary for Layers rows", () => {
-  assert.equal(layerSummary(shape()), "Squared · Blue");
+  assert.equal(layerSummary(shape()), "Squared · Blue, dim");
+  assert.equal(layerSummary(shape({ art: "on" })), "Squared · Blue, bright");
   assert.equal(layerSummary(image({ src: "", file: "" })), "No image");
   assert.equal(layerSummary(icon()), "tv");
   assert.equal(layerSummary(text({ lines: ["A", "B"] })), "A / B");

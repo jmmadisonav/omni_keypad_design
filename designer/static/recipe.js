@@ -8,8 +8,7 @@
 import { SIZE, CENTRE, FONTS, STATES, textLines, colourFor, shapeArt } from "./model.js";
 
 export const BACK = ["shape", "image"];
-const OFF_GREY = "#9AA0A6";
-const ON_WHITE = "#FFFFFF";
+const WHITE = "#FFFFFF";
 
 export const isBack = (layer) => BACK.includes(layer.type);
 const title = (type) => type[0].toUpperCase() + type.slice(1);
@@ -18,16 +17,16 @@ export function blankRecipe(name = "") {
   return { version: 2, name, states: { off: { layers: [] }, on: { layers: [] } } };
 }
 
-// A new layer for a state. Icons and text are grey for OFF and ALT and white
-// for ON. A shape draws its colour's ON artwork for ON and OFF artwork otherwise.
+// A new layer. It starts the same in every state: you decide how each state
+// looks. Icons and text are white, and a shape draws its colour's dim picture
+// (art "off"; "on" is the bright one).
 export function defaultLayerFor(type, catalog, state, name = "") {
-  const colour = state === "on" ? ON_WHITE : OFF_GREY;
+  const colour = WHITE;
   switch (type) {
     case "shape": {
       const set = Object.keys(catalog.shapes)[0];
       const colours = Object.keys(catalog.shapes[set] || {});
-      return { type, set, colour: colours.includes("Blue") ? "Blue" : colours[0],
-               art: state === "on" ? "on" : "off", visible: true };
+      return { type, set, colour: colours.includes("Blue") ? "Blue" : colours[0], art: "off", visible: true };
     }
     case "icon":
       return { type, icon: "circle", colour, stroke: 2, size: 80, x: CENTRE, y: CENTRE, visible: true };
@@ -203,7 +202,8 @@ function imageName(layer) {
   return layer.file || (layer.src ? "Uploaded image" : "No image");
 }
 
-const shapeName = (layer) => `${layer.set} · ${layer.tint ? "Custom" : layer.colour}`;
+const shapeName = (layer) =>
+  `${layer.set} · ${layer.tint ? "Custom" : layer.colour}, ${layer.art === "on" ? "bright" : "dim"}`;
 
 // The summary line under a part's name in Simple.
 export function partSummary(recipe, state, type) {

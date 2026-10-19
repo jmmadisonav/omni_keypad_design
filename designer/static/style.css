@@ -365,6 +365,11 @@ body.busy .lockable { opacity: .4; pointer-events: none; }
           overflow: hidden; outline-offset: 1px; }
 .swatch img { width: 100%; height: 100%; object-fit: cover; }
 .swatch.current { outline: 2px solid var(--red); }
+/* A colour's dim and bright pictures: each half of the swatch is its own choice. */
+.swatch.split { width: 100%; }
+.swatch.split button { flex: 1; min-width: 0; height: 100%; padding: 0; border: 0; background: none; outline-offset: -2px; }
+.swatch.split button.current { outline: 2px solid var(--red); }
+.swatch.split img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .icon-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(38px, 1fr)); gap: 4px; }
 .icon-grid.scroll { max-height: 176px; overflow: auto; }
 .icon-choice { display: grid; place-items: center; aspect-ratio: 1; padding: 0; border: 1px solid var(--light);
