@@ -13,7 +13,8 @@ import { escapeHtml } from "./layer-settings.js";
 
 export { icon } from "./layer-settings.js";
 
-export function createEditor({ root, railRoot, catalog, iconTags, onChange, onState, onCopyToButton, onStatus, onConfirm }) {
+// onRename(name) gets the button name as you type it, after you double-click the name.
+export function createEditor({ root, railRoot, catalog, iconTags, onChange, onState, onRename, onCopyToButton, onStatus, onConfirm }) {
   let recipe = null;
   let state = "off";
   let mode = "simple";
@@ -25,7 +26,8 @@ export function createEditor({ root, railRoot, catalog, iconTags, onChange, onSt
     <div class="ed-head">
       <div class="ed-title">
         <div class="overline" data-overline></div>
-        <div class="sel-title"><span data-name></span><span class="dot">.</span>
+        <div class="sel-title"><span data-name title="Double-click to rename"></span>
+          <input class="name-edit" data-name-edit spellcheck="false" maxlength="64" aria-label="Button name" hidden><span class="dot">.</span>
           <span class="state-chip" data-chip></span>
           <span class="changed-tag" data-changed hidden>Changed</span></div>
       </div>
@@ -195,6 +197,33 @@ export function createEditor({ root, railRoot, catalog, iconTags, onChange, onSt
   document.addEventListener("click", (event) => {
     if (menuOpen && !event.target.closest(".copy-wrap")) closeMenu();
   });
+
+  // Renaming: double-click the name. Enter or leaving the field keeps it; Esc puts the old name back.
+  const nameLabel = $("[data-name]");
+  const nameEdit = $("[data-name-edit]");
+  let nameBefore = "";
+  nameLabel.addEventListener("dblclick", () => {
+    if (!recipe) return;
+    nameBefore = recipe.name || "";
+    nameEdit.value = nameBefore;
+    nameLabel.hidden = true;
+    nameEdit.hidden = false;
+    nameEdit.focus();
+    nameEdit.select();
+  });
+  const endRename = () => {
+    nameEdit.hidden = true;
+    nameLabel.hidden = false;
+  };
+  nameEdit.addEventListener("input", () => onRename(nameEdit.value));
+  nameEdit.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") {
+      nameEdit.value = nameBefore;
+      onRename(nameBefore);
+    }
+    if (event.key === "Enter" || event.key === "Escape") endRename();
+  });
+  nameEdit.addEventListener("blur", endRename);
   document.addEventListener("keydown", (event) => {
     if (event.key === "Escape") closeMenu();
   });

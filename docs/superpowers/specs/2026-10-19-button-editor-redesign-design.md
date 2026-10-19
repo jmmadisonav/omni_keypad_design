@@ -377,3 +377,16 @@ These were decided after the handoff was written:
   ALT.
 - **Quick button is removed.**
 - **ALT is always shown.** The Show ALT link and setting are removed.
+
+## Changes after the first build (decided)
+
+- **No Start from a ready-made in Simple.** The LIBRARY tab already applies
+  ready-made buttons, so Simple shows only the parts list.
+- **Rename by double-clicking the name** in the editor header. Enter or
+  leaving the field keeps the name, and Esc puts the old one back. The Button
+  name field is gone; the "Files on keypad" hint stays under Go to page.
+- **Layers' add buttons sit under their group:** + Text and + Icon under
+  Front, + Shape and + Image under Back, with no "Goes to" sub-lines.
+- **With no button selected, the States rail and the sidebar are hidden**, so
+  the keypad has the room. The LIBRARY tab is reachable once a button is
+  selected.

@@ -66,7 +66,8 @@ anything you saved in the meantime across.
    name and keypad model. To work on a keypad's current design, enter its IP
    address, or click **Find**, and click **Load**. That saves the design as a
    new project named after the keypad, for example `172-17-0-55 2026-10-06`.
-1. Click a button on the keypad view. The **States** rail next to the keypad
+1. Click a button on the keypad view. Until you do, the keypad has the whole
+   window. The **States** rail next to the keypad
    shows its OFF, ON, and ALT images. Click a state to edit it. The keypad
    shows that state on every button, and the **Button** tab shows that
    state's parts only. A button that wasn't made in the designer opens with
@@ -77,8 +78,9 @@ anything you saved in the meantime across.
    the open part, drag it on the selected state in the rail, or change **X**
    and **Y**.
 
-   To start from finished artwork, click **Start from a ready-made** and pick
-   a design. It sets OFF and ON together.
+   To start from finished artwork, open the **Library** tab and pick a
+   ready-made button. To rename the button, double-click its name at the top
+   of the **Button** tab, type, and press Enter. Esc puts the old name back.
 
    A background uses a colour from Keypad Graphics. To use your own colour
    instead, click **+** after the colour swatches. The designer recolours the
@@ -265,7 +267,7 @@ the button's layers and name, and keeps its page link.
 
 The recipe name also names the image files on the keypad, for example
 `HDMI_1_OFF.png`. Buttons that use the same recipe share the same files. To
-change the file names for one button, edit its **Button name**.
+change the file names for one button, double-click its name and rename it.
 
 **Ready-made** shows the finished buttons in `Keypad Graphics.zip`.
 

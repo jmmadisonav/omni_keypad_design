@@ -218,22 +218,6 @@ export function partSummary(recipe, state, type) {
   }
 }
 
-// Uses ready-made artwork for OFF and ON: each state's Image part shows the
-// artwork, and its other parts are switched off. ALT isn't touched.
-export function useReadyMade(recipe, name, offSrc, onSrc) {
-  let next = recipe;
-  for (const [state, src] of [["off", offSrc], ["on", onSrc]]) {
-    const image = { type: "image", src, file: "", source: { kind: "library", name },
-                    size: SIZE, x: CENTRE, y: CENTRE, visible: true };
-    const layers = layersOf(next, state).filter((l) => l.type !== "image")
-      .map((l) => ({ ...l, visible: false }));
-    const at = layers.findIndex((l) => PARTS.indexOf(l.type) > PARTS.indexOf("image"));
-    layers.splice(at < 0 ? layers.length : at, 0, image);
-    next = withLayers(next, state, layers);
-  }
-  return next;
-}
-
 // -- Layers -------------------------------------------------------------------------------
 
 // Adds a layer at the top of its group: a Back layer after the last Back

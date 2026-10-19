@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { SIZE, CENTRE, statesOf, isBlank } from "./model.js";
 import {
   upgradeRecipe, defaultLayerFor, blankRecipe, sortBackFront, isBack,
-  fitsSimple, simpleParts, setPart, differsFromOff, partSummary, useReadyMade,
+  fitsSimple, simpleParts, setPart, differsFromOff, partSummary,
   layerNames, addLayerTo, setLayerAt, removeLayerAt, moveInGroup, coverage, imageFills, SHRINK_SIZE,
   copyState, copyAllStates, startAlt, removeAlt, clearRecipe, layerSummary, copyStateFrom, movedText,
 } from "./recipe.js";
@@ -200,20 +200,6 @@ test("partSummary for each part", () => {
   assert.equal(partSummary(recipe, "off", "text"), "“A / B”");
   assert.equal(partSummary(recipe, "off", "shape"), "Off");
   assert.equal(partSummary(v2([]), "off", "image"), "Off · your own photo or logo");
-});
-
-test("useReadyMade leaves ALT alone", () => {
-  const alt = { layers: [text({ lines: ["ALT"] })] };
-  const recipe = { ...v2([shape(), text()], [shape()]), states: { off: { layers: [shape(), text()] }, on: { layers: [shape()] }, alt } };
-  const next = useReadyMade(recipe, "HDMI_Squared", "data:off", "data:on");
-  assert.deepEqual(next.states.alt, alt);
-  const parts = simpleParts(next, "off");
-  assert.equal(parts.shape.layer.visible, false);
-  assert.equal(parts.text.layer.visible, false);
-  assert.equal(parts.image.layer.src, "data:off");
-  assert.deepEqual(parts.image.layer.source, { kind: "library", name: "HDMI_Squared" });
-  assert.equal(simpleParts(next, "on").image.layer.src, "data:on");
-  assert.equal(simpleParts(next, "on").image.layer.size, SIZE);
 });
 
 // -- Layers, coverage and copying --------------------------------------------------------

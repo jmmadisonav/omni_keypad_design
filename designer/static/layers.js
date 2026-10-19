@@ -11,8 +11,9 @@ import {
 import { createLayerSettings, layerBounds, icon, escapeHtml } from "./layer-settings.js";
 
 const GLYPHS = { shape: "square", icon: "shapes", text: "type", image: "image" };
-const ADD = [["text", "Goes to Front"], ["icon", "Goes to Front"],
-             ["shape", "Goes to Back · solid"], ["image", "Goes to Back · solid"]];
+// The add buttons under each group.
+const addButtons = (types) => `<div class="add-grid">${types.map((type) =>
+  `<button type="button" class="btn-outline small" data-add="${type}">+ ${type[0].toUpperCase() + type.slice(1)}</button>`).join("")}</div>`;
 
 export function createLayers({ root, catalog, iconTags, onChange, onSelect, onStatus, imageSize }) {
   let recipe = null;
@@ -77,6 +78,7 @@ export function createLayers({ root, catalog, iconTags, onChange, onSelect, onSt
       <div class="layer-group">
         <div class="group-head"><span class="label-strong">Front</span><span class="help">See-through · any order</span></div>
         <ul class="layer-list">${group(front)}</ul>
+        ${addButtons(["text", "icon"])}
       </div>
       <div class="layer-group">
         <div class="group-head"><span class="label-strong">Back</span><span class="help">Solid · fills the button</span></div>
@@ -87,11 +89,7 @@ export function createLayers({ root, catalog, iconTags, onChange, onSelect, onSt
             <button type="button" class="btn-outline small" data-fix="delete" data-lower="${warn.lower}">Delete ${escapeHtml(names[warn.lower].toLowerCase())}</button>
             ${list[warn.top].type === "image" ? `<button type="button" class="btn-outline small" data-fix="shrink" data-top="${warn.top}">Shrink ${escapeHtml(names[warn.top].toLowerCase())}</button>` : ""}
           </div></div>` : ""}
-      </div>
-      <div class="stack">
-        <span class="label">Add layer</span>
-        <div class="add-grid">${ADD.map(([type, sub]) => `<button type="button" class="add-tile" data-add="${type}">
-          <span class="add-name">+ ${type[0].toUpperCase() + type.slice(1)}</span><span class="sub">${sub}</span></button>`).join("")}</div>
+        ${addButtons(["shape", "image"])}
       </div>`;
     if (selected >= 0) {
       root.append(form);

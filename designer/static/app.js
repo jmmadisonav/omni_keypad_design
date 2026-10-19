@@ -617,7 +617,6 @@ function renderNameHint(name) {
   const sel = state.selected;
   const error = buttonNameError(name);
   const stem = fileStem(name, pageNumber(state.layout, sel.pageId), sel.button);
-  $("button-name").classList.toggle("invalid", Boolean(error));
   $("name-hint").classList.toggle("error", Boolean(error));
   const files = statesOf(recipeFor(sel.pageId, sel.button)).map((s) => `${stem}_${s.toUpperCase()}.png`);
   $("name-hint").textContent = error || `Files on keypad: ${files.join(", ")}`;
@@ -627,13 +626,14 @@ function renderSelection() {
   const sel = state.selected;
   $("no-selection").hidden = Boolean(sel);
   $("selection").hidden = !sel;
+  // With no button selected, the keypad gets the room: the rail and the sidebar are hidden.
+  document.querySelector(".main").classList.toggle("nothing-selected", !sel);
   renderHControl();
   if (!sel) {
     if (editor.getRecipe()) editor.setRecipe(null);     // The rail shows no button either.
     return;
   }
   renderSelectionHead();
-  $("button-name").value = buttonName(sel.pageId, sel.button);
   const options = [["", "None"], ...state.layout.pages.filter((p) => p.id !== sel.pageId).map((p) => [p.id, p.name])];
   $("goto").replaceChildren(...options.map(([value, label]) => {
     const option = document.createElement("option");
@@ -644,8 +644,7 @@ function renderSelection() {
   $("goto").value = destinationOf(state.layout, sel.pageId, sel.button) || "";
 }
 
-function onNameInput() {
-  const name = $("button-name").value;
+function onNameInput(name) {
   editor.rename(name);
   renderNameHint(name);
 }
@@ -1115,7 +1114,6 @@ async function saveRecipe() {
   if (!result) return;
   editor.setRecipe(result);
   onEdit(result);
-  $("button-name").value = result.name;
   await refreshLibrary();
   setStatus(`Saved recipe ${result.name} to the library.`);
 }
@@ -1879,7 +1877,6 @@ function wire() {
   $("separator-hex").addEventListener("keydown", (e) => { if (e.key === "Enter") e.target.blur(); });
   $("tab-button").addEventListener("click", () => setTab("button"));
   $("tab-library").addEventListener("click", () => setTab("library"));
-  $("button-name").addEventListener("input", onNameInput);
   $("goto").addEventListener("change", onGoToChange);
   wireDrawer();
   wireDebug();
@@ -1926,7 +1923,7 @@ async function start() {
     state.catalog = catalog;
     state.models = Object.fromEntries(models.map((m) => [m.id, m]));
     editor = createEditor({
-      root: $("editor"), railRoot: $("rail"), catalog, iconTags, onChange: onEdit, onState: setView,
+      root: $("editor"), railRoot: $("rail"), catalog, iconTags, onChange: onEdit, onState: setView, onRename: onNameInput,
       onCopyToButton: startPick, onStatus: setStatus, onConfirm: confirmBar,
     });
     await refreshLibrary();

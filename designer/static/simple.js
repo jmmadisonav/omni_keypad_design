@@ -1,31 +1,21 @@
 // Simple: the four fixed parts of one state, Background, Image, Icon and
-// Text, drawn back to front, plus Start from a ready-made. It never says
-// "layer".
+// Text, drawn back to front. It never says "layer". Ready-made artwork comes
+// from the LIBRARY tab.
 
 import { clampPosition } from "./model.js";
 import { assetUrl } from "./api.js";
 import {
-  PARTS, PART_NAMES, simpleParts, setPart, differsFromOff, partSummary, useReadyMade, defaultLayerFor,
+  PARTS, PART_NAMES, simpleParts, setPart, differsFromOff, partSummary, defaultLayerFor,
 } from "./recipe.js";
 import { createLayerSettings, layerBounds, icon, escapeHtml } from "./layer-settings.js";
-
-async function dataUrl(url) {
-  const blob = await (await fetch(url)).blob();
-  return new Promise((resolve) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result);
-    reader.readAsDataURL(blob);
-  });
-}
 
 // onChange(recipe, label) reports each change; label names it for undo, or
 // is null for a setting that merges with the changes around it. onSelect()
 // reports that another part opened, so the rail can outline it.
-export function createSimple({ root, catalog, iconTags, onChange, onSelect, onStatus, onConfirm, imageSize }) {
+export function createSimple({ root, catalog, iconTags, onChange, onSelect, onStatus, imageSize }) {
   let recipe = null;
   let state = "off";
   let open = null;                 // The part type whose settings are open.
-  let gallery = false;
   let origin = null;               // The open part's position when a drag started.
 
   const form = document.createElement("form");
@@ -46,12 +36,6 @@ export function createSimple({ root, catalog, iconTags, onChange, onSelect, onSt
   }
 
   const STATE = () => state.toUpperCase();
-  const readyNames = () => Object.keys(catalog.buttons);
-  const readyInUse = () => {
-    const image = simpleParts(recipe, state).image?.layer;
-    return image?.visible && image.source?.kind === "library" ? image.source.name : "";
-  };
-  const readyArt = (name) => assetUrl(catalog.buttons[name][state === "on" ? "on" : "off"]);
 
   function thumb(type, layer) {
     switch (type) {
@@ -68,23 +52,6 @@ export function createSimple({ root, catalog, iconTags, onChange, onSelect, onSt
       default:
         return `<span class="part-thumb aa">Aa</span>`;
     }
-  }
-
-  function readyBlock() {
-    const names = readyNames();
-    if (!names.length) return "";
-    const current = readyInUse();
-    return `<div class="ready-block${gallery ? " open" : ""}">
-      <button type="button" class="ready-row" data-gallery>
-        <span>Start from a ready-made</span>
-        <span class="ready-thumb"><img alt="" src="${readyArt(current || names[0])}"></span>
-        <span class="sub">${gallery ? "Close" : `${names.length} designs`}</span>
-      </button>
-      ${gallery ? `<div class="ready-grid">${names.map((name) => `
-        <button type="button" class="ready-tile${name === current ? " current" : ""}" data-ready="${escapeHtml(name)}" title="${escapeHtml(name)}" aria-label="${escapeHtml(name)}">
-          <img alt="" src="${readyArt(name)}"></button>`).join("")}</div>
-        <p class="help">Sets OFF and ON together from the artwork pair. ALT is left as it is.</p>` : ""}
-    </div>`;
   }
 
   function partRow(type, part) {
@@ -105,7 +72,7 @@ export function createSimple({ root, catalog, iconTags, onChange, onSelect, onSt
     recipe = next;
     state = nextState;
     const parts = simpleParts(recipe, state);
-    root.innerHTML = `${readyBlock()}
+    root.innerHTML = `
       <div class="parts-head"><span class="label-strong">Editing ${STATE()} state</span><span class="help">Back to front</span></div>
       <ul class="parts">${PARTS.map((type) => partRow(type, parts[type])).join("")}</ul>`;
     if (open) {
@@ -128,19 +95,6 @@ export function createSimple({ root, catalog, iconTags, onChange, onSelect, onSt
     }
   }
 
-  async function pickReady(name) {
-    const files = catalog.buttons[name];
-    try {
-      const [off, on] = await Promise.all([dataUrl(assetUrl(files.off)), dataUrl(assetUrl(files.on))]);
-      gallery = false;
-      open = null;
-      commit(useReadyMade(recipe, name, off, on), `using the ${name} ready-made`);
-      onConfirm(`Used the ${name} ready-made for OFF and ON. Turn on Text or Icon to add to it.`);
-    } catch (error) {
-      onStatus(`Couldn't load the ${name} ready-made: ${error.message}`, true);
-    }
-  }
-
   root.addEventListener("click", (event) => {
     if (form.contains(event.target)) return;
     const button = event.target.closest("button");
@@ -154,11 +108,6 @@ export function createSimple({ root, catalog, iconTags, onChange, onSelect, onSt
       open = open === row.dataset.part ? null : row.dataset.part;
       onSelect();
       render(recipe, state);
-    } else if (button?.hasAttribute("data-gallery")) {
-      gallery = !gallery;
-      render(recipe, state);
-    } else if (button?.dataset.ready) {
-      pickReady(button.dataset.ready);
     }
   });
 
@@ -168,8 +117,8 @@ export function createSimple({ root, catalog, iconTags, onChange, onSelect, onSt
 
   return {
     render,
-    // Closes the open part and the ready-mades, for another button.
-    reset() { open = null; gallery = false; },
+    // Closes the open part, for another button.
+    reset() { open = null; },
     selectedBounds() {
       const layer = openLayer();
       return layer ? layerBounds(layer, layer.type === "image" ? imageSize(layer.src) : null) : null;
