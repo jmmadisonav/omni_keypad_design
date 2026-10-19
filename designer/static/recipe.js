@@ -299,6 +299,12 @@ export function copyState(recipe, from, to) {
   return { ...recipe, states: { ...recipe.states, [to]: clone(recipe.states[from]) } };
 }
 
+// The target button with one state replaced by a copy of the source button's.
+// Its other states, name and Simple or Layers choice don't change.
+export function copyStateFrom(source, target, state) {
+  return { ...target, states: { ...target.states, [state]: clone(source.states[state]) } };
+}
+
 // The target button with every state of the source, and its Simple or Layers
 // choice. The target keeps its name, and has ALT only when the source does.
 export function copyAllStates(source, target) {

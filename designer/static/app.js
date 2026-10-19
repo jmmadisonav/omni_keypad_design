@@ -7,7 +7,7 @@ import {
   statesOf,
 } from "./model.js";
 import { renderRecipe, toBase64, loadIcons } from "./render.js";
-import { upgradeRecipe, clearRecipe } from "./recipe.js";
+import { upgradeRecipe, clearRecipe, copyStateFrom, copyAllStates } from "./recipe.js";
 import { createEditor, icon } from "./editor.js";
 import {
   MAX_PAGES, layoutFromConfig, addPage, deletePage, setDestination, destinationOf,
@@ -48,6 +48,7 @@ const state = {
   keypadModel: "",       // The model of the keypad at the address, when known.
   connected: false,
   busy: null,            // "save", "load", "find", "deploy", "restore" or "backup"
+  pick: null,            // { scope: "state" | "all", from: { pageId, button }, view }: copying to a button
 };
 
 let editor;
@@ -287,11 +288,13 @@ function renderKeypad() {
     const cell = document.createElement("button");
     cell.type = "button";
     cell.className = "key";
-    cell.draggable = true;
+    cell.draggable = !state.pick;
     cell.setAttribute("aria-label", `${pageName(state.layout, pageId)} button ${button}`);
     const src = faceImage(pageId, button);
     cell.classList.toggle("blank", isKeyBlank(pageId, button) || !src);
     cell.classList.toggle("selected", state.selected?.pageId === pageId && state.selected?.button === button);
+    const source = state.pick?.from;
+    cell.classList.toggle("pick-target", Boolean(source) && !(source.pageId === pageId && source.button === button));
     if (src && !isKeyBlank(pageId, button)) {
       const img = document.createElement("img");
       img.alt = "";
@@ -311,7 +314,7 @@ function renderKeypad() {
       badge.textContent = `→ ${pageName(state.layout, target)}`;
       cell.append(badge);
     }
-    cell.addEventListener("click", () => selectButton(pageId, button));
+    cell.addEventListener("click", () => (state.pick ? pickButton(pageId, button) : selectButton(pageId, button)));
     cell.addEventListener("dragstart", (event) => {
       drag = { kind: "key", pageId, button };
       event.dataTransfer.setData("text/plain", "key");
@@ -589,6 +592,7 @@ function setTab(tab) {
 }
 
 function selectButton(pageId, button) {
+  if (state.selected?.pageId !== pageId || state.selected?.button !== button) hideConfirm();
   state.selected = { pageId, button };
   const { recipe, moved } = openRecipe(pageId, button);
   editor.setRecipe(structuredClone(recipe), { moved });
@@ -621,7 +625,10 @@ function renderSelection() {
   $("no-selection").hidden = Boolean(sel);
   $("selection").hidden = !sel;
   renderHControl();
-  if (!sel) return;
+  if (!sel) {
+    if (editor.getRecipe()) editor.setRecipe(null);     // The rail shows no button either.
+    return;
+  }
   renderSelectionHead();
   $("button-name").value = buttonName(sel.pageId, sel.button);
   const options = [["", "None"], ...state.layout.pages.filter((p) => p.id !== sel.pageId).map((p) => [p.id, p.name])];
@@ -664,6 +671,61 @@ function clearButton() {
   editor.setRecipe(recipe, { keep: true });
   setEdit(sel.pageId, sel.button, recipe);
   setStatus(`Cleared button ${sel.button}. It's now blank.`);
+}
+
+// -- Copying to another button ----------------------------------------------------------
+
+// The bar at the bottom of the stage that confirms a copy or a ready-made. It also goes to the status bar.
+function confirmBar(text) {
+  $("confirm-text").textContent = text;
+  $("confirm-bar").hidden = false;
+  setStatus(text);
+}
+
+function hideConfirm() {
+  $("confirm-bar").hidden = true;
+}
+
+// Copy state's "to another button" rows: the next button you click gets the
+// state you're editing (scope "state"), or every state (scope "all").
+function startPick(scope) {
+  if (!state.selected) return;
+  state.pick = { scope, from: { ...state.selected }, view: state.view };
+  renderPick();
+}
+
+function endPick() {
+  if (!state.pick) return;
+  state.pick = null;
+  renderPick();
+}
+
+function renderPick() {
+  const pick = state.pick;
+  $("pick-banner").hidden = !pick;
+  if (pick) {
+    $("pick-text").textContent = pick.scope === "all" ? "Click a button to copy all states to it."
+      : `Click a button to copy the ${pick.view.toUpperCase()} state to it.`;
+  }
+  renderKeypad();
+}
+
+const nameOrNumber = (pageId, button) => buttonName(pageId, button) || `Button ${button}`;
+
+// Copies to the clicked button. Its name, page link and control path stay;
+// clicking the button you're copying from just ends pick mode.
+async function pickButton(pageId, button) {
+  const { scope, from, view } = state.pick;
+  endPick();
+  if (from.pageId === pageId && from.button === button) return;
+  const source = recipeFor(from.pageId, from.button);
+  const target = recipeFor(pageId, button);
+  record(`copying to button ${button}`);
+  const next = scope === "all" ? copyAllStates(source, target) : copyStateFrom(source, target, view);
+  await setEdit(pageId, button, next);
+  const [fromName, toName] = [nameOrNumber(from.pageId, from.button), nameOrNumber(pageId, button)];
+  confirmBar(scope === "all" ? `Copied all states of ${fromName} to button ${button}.`
+    : `Copied ${view.toUpperCase()} from ${fromName} to ${toName}. Its other states are unchanged.`);
 }
 
 // -- HControl drawer -------------------------------------------------------------------
@@ -1825,7 +1887,7 @@ function wire() {
   $("stage").addEventListener("click", (event) => {
     // A click can re-render what was clicked, so check where it started, not where it is now.
     if (!event.target.isConnected || !state.selected ||
-        event.target.closest(".faceplate, .tabs-wrap, .stage-controls, .banner")) return;
+        event.target.closest(".faceplate, .tabs-wrap, .stage-controls, .banner, .pick-banner, .confirm-bar")) return;
     state.selected = null;
     renderKeypad();
     renderSelection();
@@ -1843,6 +1905,9 @@ function wire() {
     pressedOnBackdrop = false;
   });
   document.addEventListener("keydown", onUndoKey);
+  document.addEventListener("keydown", (event) => { if (event.key === "Escape") endPick(); });
+  $("pick-cancel").addEventListener("click", endPick);
+  $("confirm-dismiss").addEventListener("click", hideConfirm);
   document.addEventListener("keydown", (event) => {
     if (event.key === "Escape" && !$("modal").hidden && modalClosable) (modalCancel || closeModal)();
   });
@@ -1859,7 +1924,7 @@ async function start() {
     state.models = Object.fromEntries(models.map((m) => [m.id, m]));
     editor = createEditor({
       root: $("editor"), railRoot: $("rail"), catalog, iconTags, onChange: onEdit, onState: setView,
-      onCopyToButton: () => {}, onStatus: setStatus, onConfirm: setStatus,
+      onCopyToButton: startPick, onStatus: setStatus, onConfirm: confirmBar,
     });
     await refreshLibrary();
   } catch (error) {

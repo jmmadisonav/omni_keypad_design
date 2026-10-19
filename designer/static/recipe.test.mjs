@@ -5,7 +5,7 @@ import {
   upgradeRecipe, defaultLayerFor, blankRecipe, sortBackFront, isBack,
   fitsSimple, simpleParts, setPart, differsFromOff, partSummary, useReadyMade,
   layerNames, addLayerTo, setLayerAt, removeLayerAt, moveInGroup, coverage, imageFills, SHRINK_SIZE,
-  copyState, copyAllStates, startAlt, removeAlt, clearRecipe, layerSummary,
+  copyState, copyAllStates, startAlt, removeAlt, clearRecipe, layerSummary, copyStateFrom,
 } from "./recipe.js";
 
 const catalog = {
@@ -302,4 +302,16 @@ test("layerSummary for Layers rows", () => {
 
 test("coverage ignores an empty image underneath", () => {
   assert.deepEqual(coverage([image({ src: "" }), shape()], () => true), []);
+});
+
+test("copyStateFrom copies one state from another button", () => {
+  const source = v2([shape()], [text({ lines: ["SRC"] })], { name: "A" });
+  const target = { ...v2([icon()], [icon()], { name: "B", editor: "layers" }), states: { off: { layers: [icon()] }, on: { layers: [icon()] }, alt: { layers: [] } } };
+  const next = copyStateFrom(source, target, "on");
+  assert.deepEqual(next.states.on, source.states.on);
+  assert.notEqual(next.states.on.layers[0], source.states.on.layers[0]);
+  assert.deepEqual(next.states.off, target.states.off);
+  assert.deepEqual(next.states.alt, { layers: [] });
+  assert.equal(next.name, "B");
+  assert.equal(next.editor, "layers");
 });

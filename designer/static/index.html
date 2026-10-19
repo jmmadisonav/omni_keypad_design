@@ -47,6 +47,10 @@
   <main class="main">
    <div class="workspace">
     <section id="stage" class="stage" aria-label="Keypad">
+      <div id="pick-banner" class="pick-banner" role="status" hidden>
+        <span id="pick-text"></span>
+        <button id="pick-cancel" type="button" class="pick-cancel">Cancel</button>
+      </div>
       <div id="model-banner" class="banner" hidden>
         <span class="chip-error">Error</span>
         <span id="model-banner-text"></span>
@@ -78,6 +82,11 @@
             </span>
           </label>
           <div class="legend"><span class="unsaved-mark" aria-hidden="true"></span>Unsaved changes. Drag buttons to swap artwork and page links. Ctrl+Z undoes.</div>        </div>
+      </div>
+      <div id="confirm-bar" class="confirm-bar" role="status" hidden>
+        <span class="unsaved-mark" aria-hidden="true"></span>
+        <span id="confirm-text"></span>
+        <button id="confirm-dismiss" type="button" class="link-quiet">Dismiss</button>
       </div>
     </section>
 
