@@ -4,7 +4,7 @@
 // that state is the one the keypad shows.
 
 import { STATES } from "./model.js";
-import { fitsSimple, copyState, startAlt, removeAlt, movedText } from "./recipe.js";
+import { fitsSimple, viewFor, copyState, startAlt, removeAlt, movedText } from "./recipe.js";
 import { renderRecipe } from "./render.js";
 import { createRail } from "./rail.js";
 import { createSimple } from "./simple.js";
@@ -58,7 +58,9 @@ export function createEditor({ root, railRoot, catalog, iconTags, onChange, onSt
   const $ = (selector) => root.querySelector(selector);
   const menu = $(".copy-menu");
 
-  // The natural size of an image, loaded once. Views that measure images draw again when it's known.
+  // The natural size of an image, loaded once. Views that measure images draw
+  // again when it's known, unless you're typing in one of their fields: then
+  // only the rail's outline updates, and the view catches up when it next draws.
   function imageSize(src) {
     if (!src) return null;
     if (!imageSizes.has(src)) {
@@ -66,7 +68,9 @@ export function createEditor({ root, railRoot, catalog, iconTags, onChange, onSt
       const img = new Image();
       img.onload = () => {
         imageSizes.set(src, { width: img.naturalWidth, height: img.naturalHeight });
-        if (recipe) renderView();
+        if (!recipe) return;
+        if (root.contains(document.activeElement) && document.activeElement.matches("input, select")) renderRail();
+        else renderView();
       };
       img.src = src;
     }
@@ -239,9 +243,7 @@ export function createEditor({ root, railRoot, catalog, iconTags, onChange, onSt
       moved = nextMoved;
       closeMenu();
       if (!keep) Object.values(views).forEach((view) => view.reset());
-      if (recipe && !(keep && mode === "layers")) {
-        mode = moved.length || !fitsSimple(recipe).ok || recipe.editor === "layers" ? "layers" : "simple";
-      }
+      if (recipe) mode = viewFor(recipe, moved);
       const note = $(".moved-note");
       note.hidden = !moved.length;
       if (moved.length) {

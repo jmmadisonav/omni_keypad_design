@@ -155,6 +155,12 @@ export function fitsSimple(recipe) {
   return { ok: true };
 }
 
+// The view a button opens in: Layers when you chose it, when a state doesn't
+// fit Simple, or when migration moved a layer; otherwise Simple.
+export function viewFor(recipe, moved = []) {
+  return moved.length || recipe.editor === "layers" || !fitsSimple(recipe).ok ? "layers" : "simple";
+}
+
 // A state's parts: { shape, image, icon, text }, each { layer, index } or null.
 export function simpleParts(recipe, state) {
   const layers = layersOf(recipe, state);

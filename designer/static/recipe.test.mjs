@@ -5,7 +5,7 @@ import {
   upgradeRecipe, defaultLayerFor, blankRecipe, sortBackFront, isBack,
   fitsSimple, simpleParts, setPart, differsFromOff, partSummary,
   layerNames, addLayerTo, setLayerAt, removeLayerAt, moveInGroup, coverage, imageFills, SHRINK_SIZE,
-  copyState, copyAllStates, startAlt, removeAlt, clearRecipe, layerSummary, copyStateFrom, movedText,
+  copyState, copyAllStates, startAlt, removeAlt, clearRecipe, layerSummary, copyStateFrom, movedText, viewFor,
 } from "./recipe.js";
 
 const catalog = {
@@ -321,4 +321,11 @@ test("upgradeRecipe gives each state its own image source", () => {
   const { recipe } = upgradeRecipe({ version: 1, name: "", layers: [
     { type: "image", off: "a", on: "b", source: { kind: "keypad" }, size: SIZE, x: CENTRE, y: CENTRE, visible: true }] });
   assert.notEqual(recipe.states.off.layers[0].source, recipe.states.on.layers[0].source);
+});
+
+test("viewFor picks Simple or Layers from the recipe", () => {
+  assert.equal(viewFor(blankRecipe()), "simple");
+  assert.equal(viewFor({ ...blankRecipe(), editor: "layers" }), "layers");
+  assert.equal(viewFor(blankRecipe(), [{ state: "off", layer: "Shape", behind: "Text" }]), "layers");
+  assert.equal(viewFor(v2([text(), text()])), "layers");
 });

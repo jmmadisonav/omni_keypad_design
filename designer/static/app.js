@@ -213,7 +213,11 @@ function restore(snap) {
   renderSeparator();
   lastChange = { key: null, time: 0 };
   const sel = state.selected;
-  if (sel) editor.setRecipe(structuredClone(recipeFor(sel.pageId, sel.button)), { keep: true });
+  if (sel) {
+    // Undoing back to an unedited old button brings its moved note back too.
+    const { recipe, moved } = openRecipe(sel.pageId, sel.button);
+    editor.setRecipe(structuredClone(recipe), { keep: true, moved });
+  }
   renderTabs();
   renderKeypad();
   renderSelection();
