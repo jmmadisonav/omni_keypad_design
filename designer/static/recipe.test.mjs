@@ -5,7 +5,7 @@ import {
   upgradeRecipe, defaultLayerFor, blankRecipe, sortBackFront, isBack,
   fitsSimple, simpleParts, setPart, differsFromOff, partSummary, useReadyMade,
   layerNames, addLayerTo, setLayerAt, removeLayerAt, moveInGroup, coverage, imageFills, SHRINK_SIZE,
-  copyState, copyAllStates, startAlt, removeAlt, clearRecipe, layerSummary, copyStateFrom,
+  copyState, copyAllStates, startAlt, removeAlt, clearRecipe, layerSummary, copyStateFrom, movedText,
 } from "./recipe.js";
 
 const catalog = {
@@ -314,4 +314,18 @@ test("copyStateFrom copies one state from another button", () => {
   assert.deepEqual(next.states.alt, { layers: [] });
   assert.equal(next.name, "B");
   assert.equal(next.editor, "layers");
+});
+
+test("upgradeRecipe draws a tinted ALT from the OFF artwork, as version 1 did", () => {
+  const { recipe } = upgradeRecipe({ version: 1, name: "", alt: true, layers: [
+    v1Shape({ tint: { off: "#100000", on: "#200000" }, altArt: { colour: "Aqua", art: "on" } })] });
+  assert.equal(recipe.states.alt.layers[0].art, "off");
+  assert.equal(recipe.states.alt.layers[0].tint, "#100000");
+  assert.equal(recipe.states.on.layers[0].art, "on");
+});
+
+test("movedText names the first moved layer", () => {
+  assert.equal(movedText([{ state: "off", layer: "Shape", behind: "Text" }, { state: "on", layer: "Shape", behind: "Text" }]),
+    "Shape moved behind Text to keep Back layers behind Front ones.");
+  assert.equal(movedText([]), "");
 });

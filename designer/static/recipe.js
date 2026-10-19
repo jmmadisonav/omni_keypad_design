@@ -76,7 +76,11 @@ function layerForState(layer, state) {
     case "shape": {
       const { colour, art } = shapeArt(layer, state);
       const shape = { type, set: layer.set, colour, art, visible };
-      if (layer.tint) shape.tint = colourFor(layer.tint, state);
+      if (layer.tint) {
+        // Version 1 recoloured the OFF grey for ALT and ignored altArt on a tinted shape.
+        shape.tint = colourFor(layer.tint, state);
+        shape.art = state === "on" ? "on" : "off";
+      }
       return shape;
     }
     case "icon":
@@ -96,6 +100,11 @@ function layerForState(layer, state) {
     default:
       return { ...layer };
   }
+}
+
+// The sentence that tells you migration moved a layer, naming the first one, or "".
+export function movedText(moved) {
+  return moved.length ? `${moved[0].layer} moved behind ${moved[0].behind} to keep Back layers behind Front ones.` : "";
 }
 
 // Any recipe as version 2. A version 1 recipe is split into a layer list per

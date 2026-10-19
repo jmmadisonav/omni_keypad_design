@@ -4,7 +4,7 @@
 // that state is the one the keypad shows.
 
 import { STATES } from "./model.js";
-import { fitsSimple, copyState, startAlt, removeAlt } from "./recipe.js";
+import { fitsSimple, copyState, startAlt, removeAlt, movedText } from "./recipe.js";
 import { renderRecipe } from "./render.js";
 import { createRail } from "./rail.js";
 import { createSimple } from "./simple.js";
@@ -217,8 +217,7 @@ export function createEditor({ root, railRoot, catalog, iconTags, onChange, onSt
       const note = $(".moved-note");
       note.hidden = !moved.length;
       if (moved.length) {
-        note.textContent = `${moved[0].layer} moved behind ${moved[0].behind} to keep Back layers behind Front ones. ` +
-          "The keypad shows the old order until you change this button.";
+        note.textContent = `${movedText(moved)} The keypad shows the old order until you change this button.`;
       }
       renderView();
     },

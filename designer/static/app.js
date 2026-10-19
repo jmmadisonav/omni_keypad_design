@@ -7,7 +7,7 @@ import {
   statesOf,
 } from "./model.js";
 import { renderRecipe, toBase64, loadIcons } from "./render.js";
-import { upgradeRecipe, clearRecipe, copyStateFrom, copyAllStates } from "./recipe.js";
+import { upgradeRecipe, clearRecipe, copyStateFrom, copyAllStates, movedText } from "./recipe.js";
 import { createEditor, icon } from "./editor.js";
 import {
   MAX_PAGES, layoutFromConfig, addPage, deletePage, setDestination, destinationOf,
@@ -398,8 +398,8 @@ function renderSeparator() {
 async function swapKeys(a, b) {
   if (a.pageId === b.pageId && a.button === b.button) return;
   record(`swapping buttons ${a.button} and ${b.button}`);
-  const ra = recipeFor(a.pageId, a.button);
-  const rb = recipeFor(b.pageId, b.button);
+  const { recipe: ra, moved: movedA } = openRecipe(a.pageId, a.button);
+  const { recipe: rb, moved: movedB } = openRecipe(b.pageId, b.button);
   state.layout = swapDestinations(state.layout, a, b);
   state.layoutChanges++;
   state.linkChanged.add(keyOf(a.pageId, a.button)).add(keyOf(b.pageId, b.button));
@@ -410,7 +410,10 @@ async function swapKeys(a, b) {
   renderSelection();
   const where = a.pageId === b.pageId ? `buttons ${a.button} and ${b.button}`
     : `${pageName(state.layout, a.pageId)} button ${a.button} and ${pageName(state.layout, b.pageId)} button ${b.button}`;
-  setStatus(`Swapped artwork and page link between ${where}. Control settings stay with each slot.`);
+  // Swapping redraws both buttons, so say if an old button's layers moved.
+  const moved = [[movedA, b.button], [movedB, a.button]].filter(([m]) => m.length)
+    .map(([m, button]) => ` On button ${button}, ${movedText(m).replace(/^./, (c) => c.toLowerCase())}`).join("");
+  setStatus(`Swapped artwork and page link between ${where}. Control settings stay with each slot.${moved}`);
 }
 
 // -- Pages ------------------------------------------------------------------------------
