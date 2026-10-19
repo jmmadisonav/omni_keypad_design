@@ -8,6 +8,7 @@ from tests.helpers import make_png
 
 RECIPE = {"version": 1, "name": "", "layers": [{"type": "shape", "set": "Squared",
                                                  "colour": "Blue", "visible": True}]}
+RECIPE_V2 = {"version": 2, "name": "", "states": {"off": {"layers": []}, "on": {"layers": []}}}
 
 
 class NameTests(unittest.TestCase):
@@ -60,9 +61,22 @@ class LibraryTests(unittest.TestCase):
         with self.assertRaises(FileNotFoundError):
             self.library.delete("nope")
 
+    def test_save_accepts_version_2(self):
+        self.library.save("x", dict(RECIPE_V2), make_png())
+        self.assertEqual(self.library.get("x")["states"], RECIPE_V2["states"])
+
+    def test_save_rejects_bad_version_2(self):
+        bad = ({"off": {"layers": []}},
+               {"off": {"layers": "no"}, "on": {"layers": []}},
+               {"off": {"layers": []}, "on": {"layers": []}, "dim": {"layers": []}},
+               [])
+        for states in bad:
+            with self.subTest(states=states), self.assertRaises(ValueError):
+                self.library.save("x", {"version": 2, "states": states}, make_png())
+
     def test_save_rejects_bad_recipe_and_thumbnail(self):
         with self.assertRaises(ValueError):
-            self.library.save("x", {"version": 2, "layers": []}, make_png())
+            self.library.save("x", {"version": 3, "layers": []}, make_png())
         with self.assertRaises(ValueError):
             self.library.save("x", {"version": 1, "layers": "no"}, make_png())
         with self.assertRaises(ValueError):

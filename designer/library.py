@@ -1,7 +1,9 @@
 """Save button recipes so you can reopen and reuse them.
 
-A recipe is the list of layers that make up a button. It's saved as
-<name>.json, with the rendered OFF image as <name>.png for the thumbnail.
+A recipe is the layers that make up a button: version 1 has one list of
+layers, and version 2 has a list for each state (off, on, and optionally
+alt). It's saved as <name>.json, with the rendered OFF image as <name>.png
+for the thumbnail.
 """
 
 from __future__ import annotations
@@ -26,6 +28,19 @@ def validate_name(name: str) -> str:
     return name
 
 
+def valid_recipe(recipe: object) -> bool:
+    """Return whether recipe is a version 1 or version 2 button recipe."""
+    if not isinstance(recipe, dict):
+        return False
+    if recipe.get("version") == 1:
+        return isinstance(recipe.get("layers"), list)
+    states = recipe.get("states")
+    if recipe.get("version") != 2 or not isinstance(states, dict) \
+            or not {"off", "on"} <= states.keys() <= {"off", "on", "alt"}:
+        return False
+    return all(isinstance(s, dict) and isinstance(s.get("layers"), list) for s in states.values())
+
+
 class Library:
     def __init__(self, folder: str | Path):
         self.folder = Path(folder)
@@ -48,9 +63,9 @@ class Library:
 
     def save(self, name: str, recipe: dict, thumbnail: bytes) -> dict:
         path = self._path(name, ".json")
-        if not isinstance(recipe, dict) or recipe.get("version") != 1 \
-                or not isinstance(recipe.get("layers"), list):
-            raise ValueError("a recipe needs \"version\": 1 and a list of layers")
+        if not valid_recipe(recipe):
+            raise ValueError("a recipe needs \"version\": 1 with a list of layers, "
+                             "or \"version\": 2 with OFF and ON states")
         png_size(thumbnail)                   # Raises ValueError if it isn't a PNG.
         recipe = {**recipe, "name": name}
         path.write_text(json.dumps(recipe, indent=2) + "\n", encoding="utf-8")

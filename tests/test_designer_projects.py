@@ -117,9 +117,16 @@ class ProjectStoreTests(unittest.TestCase):
     def test_save_rejects_recipes_for_missing_buttons_or_bad_layers(self):
         self.store.new("Lobby")
         for recipes in ({"2-1": RECIPE}, {"1-9": RECIPE}, {"x": RECIPE},
-                        {"1-1": {"version": 2, "layers": []}}, []):
+                        {"1-1": {"version": 3, "layers": []}}, []):
             with self.subTest(recipes=recipes), self.assertRaises(ValueError):
                 self.store.save("Lobby", [], None, recipes)
+
+    def test_save_accepts_version_2_recipes(self):
+        self.store.new("Lobby")
+        recipe = {"version": 2, "name": "", "states": {
+            "off": {"layers": []}, "on": {"layers": []}, "alt": {"layers": []}}}
+        self.store.save("Lobby", [], None, {"1-1": recipe})
+        self.assertEqual(self.store.open("Lobby")["recipes"], {"1-1": recipe})
 
     def test_failed_save_leaves_the_project_intact(self):
         self.store.new("Lobby")

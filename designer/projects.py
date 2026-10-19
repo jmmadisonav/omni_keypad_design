@@ -18,7 +18,7 @@ import threading
 from pathlib import Path
 
 from designer.keypad_ops import ButtonImages, Layout, apply_buttons, apply_layout
-from designer.library import validate_name
+from designer.library import valid_recipe, validate_name
 from designer.models import DEFAULT_MODEL, Model, load_models
 from keypad_design import Design
 
@@ -263,8 +263,7 @@ def _clean_recipes(recipes: dict, design: Design) -> dict:
         page, button = int(match[1]), int(match[2])
         if page > len(design.pages) or button > len(design.page(page)["buttons"]):
             raise ValueError(f"page {page} button {button} doesn't exist")
-        if not isinstance(recipe, dict) or recipe.get("version") != 1 \
-                or not isinstance(recipe.get("layers"), list):
+        if not valid_recipe(recipe):
             raise ValueError(f"the layers for page {page} button {button} aren't a valid recipe")
         clean[key] = recipe
     return clean
