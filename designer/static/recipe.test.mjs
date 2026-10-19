@@ -1,7 +1,10 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { SIZE, CENTRE, statesOf, isBlank } from "./model.js";
-import { upgradeRecipe, defaultLayerFor, blankRecipe, sortBackFront, isBack } from "./recipe.js";
+import {
+  upgradeRecipe, defaultLayerFor, blankRecipe, sortBackFront, isBack,
+  fitsSimple, simpleParts, setPart, differsFromOff, partSummary, useReadyMade,
+} from "./recipe.js";
 
 const catalog = {
   shapes: {
@@ -117,4 +120,96 @@ test("isBlank and statesOf take both versions", () => {
     on: { layers: [{ type: "text", lines: ["x"], visible: true }] } } };
   assert.equal(isBlank(withText), false);
   assert.equal(isBlank({ version: 1, layers: [] }), true);
+});
+
+// -- Simple parts ---------------------------------------------------------------------
+
+const v2 = (off, on = [], extra = {}) => ({ version: 2, name: "", ...extra,
+  states: { off: { layers: off }, on: { layers: on } } });
+const shape = (extra = {}) => ({ type: "shape", set: "Squared", colour: "Blue", art: "off", visible: true, ...extra });
+const image = (extra = {}) => ({ type: "image", src: "data:a", file: "logo.png", size: SIZE, x: CENTRE, y: CENTRE, visible: true, ...extra });
+const icon = (extra = {}) => ({ type: "icon", icon: "tv", colour: "#FFFFFF", stroke: 2, size: 80, x: CENTRE, y: CENTRE, visible: true, ...extra });
+const text = (extra = {}) => ({ type: "text", lines: ["HDMI"], colour: "#FFFFFF", font: "Inter", weight: 700, size: 24, align: "center", x: CENTRE, y: CENTRE, visible: true, ...extra });
+
+test("fitsSimple accepts one of each in order", () => {
+  assert.deepEqual(fitsSimple(v2([shape(), image(), icon(), text()], [shape(), text()])), { ok: true });
+  assert.deepEqual(fitsSimple(blankRecipe()), { ok: true });
+});
+
+test("fitsSimple names two text layers", () => {
+  assert.deepEqual(fitsSimple(v2([text()], [text(), text()])),
+    { ok: false, state: "on", reason: "ON has two Text layers. Simple has one of each part." });
+  assert.equal(fitsSimple(v2([text(), text(), text()])).reason,
+    "OFF has 3 Text layers. Simple has one of each part.");
+});
+
+test("fitsSimple names the order", () => {
+  assert.deepEqual(fitsSimple(v2([image(), shape()])), { ok: false, state: "off",
+    reason: "OFF has Shape above Image. Simple draws Background, Image, Icon and Text from back to front." });
+});
+
+test("simpleParts finds each part and its index", () => {
+  const parts = simpleParts(v2([shape(), text()]), "off");
+  assert.equal(parts.shape.index, 0);
+  assert.equal(parts.text.index, 1);
+  assert.equal(parts.image, null);
+  assert.equal(simpleParts(v2([shape()]), "alt").shape, null);
+});
+
+test("setPart adds a missing part in order", () => {
+  const next = setPart(v2([shape(), text()]), "off", "icon", { visible: true }, catalog);
+  assert.deepEqual(next.states.off.layers.map((l) => l.type), ["shape", "icon", "text"]);
+  assert.equal(next.states.off.layers[1].colour, "#9AA0A6");
+});
+
+test("setPart text uses the button name", () => {
+  const next = setPart(v2([], [], { name: "HDMI_1" }), "on", "text", { visible: true }, catalog);
+  assert.deepEqual(next.states.on.layers[0].lines, ["HDMI 1"]);
+});
+
+test("setPart changes only its state", () => {
+  const recipe = v2([icon()], [icon()]);
+  const next = setPart(recipe, "on", "icon", { icon: "mic" }, catalog);
+  assert.equal(next.states.on.layers[0].icon, "mic");
+  assert.equal(next.states.off.layers[0].icon, "tv");
+  assert.equal(recipe.states.on.layers[0].icon, "tv");
+});
+
+test("differsFromOff", () => {
+  assert.equal(differsFromOff(v2([icon()], [icon()]), "on", "icon"), false);
+  assert.equal(differsFromOff(v2([icon()], [icon({ icon: "mic" })]), "on", "icon"), true);
+  assert.equal(differsFromOff(v2([text({ visible: false })], []), "on", "text"), false);
+  assert.equal(differsFromOff(v2([text()], []), "on", "text"), true);
+  assert.equal(differsFromOff(v2([icon()], [icon({ icon: "mic" })]), "off", "icon"), false);
+  assert.equal(differsFromOff(v2([text()], [text({ size: 30 })]), "on", "text"), false);
+});
+
+test("partSummary background covered", () => {
+  assert.equal(partSummary(v2([shape(), image()]), "off", "shape"), "Squared · Blue · covered by image");
+  assert.equal(partSummary(v2([shape({ tint: "#123456" })]), "off", "shape"), "Squared · Custom");
+});
+
+test("partSummary for each part", () => {
+  const recipe = v2([image({ source: { kind: "library", name: "HDMI_Squared" } }), icon(), text({ lines: ["A", "B"] })]);
+  assert.equal(partSummary(recipe, "off", "image"), "Ready-made · HDMI_Squared");
+  assert.equal(partSummary(v2([image()]), "off", "image"), "logo.png");
+  assert.equal(partSummary(v2([image({ source: { kind: "keypad" } })]), "off", "image"), "Loaded from keypad");
+  assert.equal(partSummary(recipe, "off", "icon"), "tv");
+  assert.equal(partSummary(recipe, "off", "text"), "“A / B”");
+  assert.equal(partSummary(recipe, "off", "shape"), "Off");
+  assert.equal(partSummary(v2([]), "off", "image"), "Off · your own photo or logo");
+});
+
+test("useReadyMade leaves ALT alone", () => {
+  const alt = { layers: [text({ lines: ["ALT"] })] };
+  const recipe = { ...v2([shape(), text()], [shape()]), states: { off: { layers: [shape(), text()] }, on: { layers: [shape()] }, alt } };
+  const next = useReadyMade(recipe, "HDMI_Squared", "data:off", "data:on");
+  assert.deepEqual(next.states.alt, alt);
+  const parts = simpleParts(next, "off");
+  assert.equal(parts.shape.layer.visible, false);
+  assert.equal(parts.text.layer.visible, false);
+  assert.equal(parts.image.layer.src, "data:off");
+  assert.deepEqual(parts.image.layer.source, { kind: "library", name: "HDMI_Squared" });
+  assert.equal(simpleParts(next, "on").image.layer.src, "data:on");
+  assert.equal(simpleParts(next, "on").image.layer.size, SIZE);
 });

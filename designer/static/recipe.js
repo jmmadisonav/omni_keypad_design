@@ -113,3 +113,114 @@ export function upgradeRecipe(recipe) {
   }
   return { recipe: { version: 2, name: recipe.name || "", states }, moved };
 }
+
+// -- Simple parts -----------------------------------------------------------------------
+
+// Simple's four parts, back to front, and the names it shows for them.
+export const PARTS = ["shape", "image", "icon", "text"];
+export const PART_NAMES = { shape: "Background", image: "Image", icon: "Icon", text: "Text" };
+
+const layersOf = (recipe, state) => recipe.states[state]?.layers ?? [];
+
+// Whether every state has at most one of each part, in PARTS order. If not,
+// reason says which state and why, for the Simple toggle's tooltip.
+export function fitsSimple(recipe) {
+  for (const state of STATES) {
+    const layers = recipe.states[state]?.layers;
+    if (!layers) continue;
+    const STATE = state.toUpperCase();
+    for (const type of PARTS) {
+      const count = layers.filter((l) => l.type === type).length;
+      if (count > 1) {
+        return { ok: false, state,
+                 reason: `${STATE} has ${count === 2 ? "two" : count} ${title(type)} layers. Simple has one of each part.` };
+      }
+    }
+    for (let i = 1; i < layers.length; i++) {
+      const [below, above] = [layers[i - 1], layers[i]];
+      if (PARTS.indexOf(above.type) < PARTS.indexOf(below.type)) {
+        return { ok: false, state, reason: `${STATE} has ${title(above.type)} above ${title(below.type)}. ` +
+                 "Simple draws Background, Image, Icon and Text from back to front." };
+      }
+    }
+  }
+  return { ok: true };
+}
+
+// A state's parts: { shape, image, icon, text }, each { layer, index } or null.
+export function simpleParts(recipe, state) {
+  const layers = layersOf(recipe, state);
+  return Object.fromEntries(PARTS.map((type) => {
+    const index = layers.findIndex((l) => l.type === type);
+    return [type, index < 0 ? null : { layer: layers[index], index }];
+  }));
+}
+
+const withLayers = (recipe, state, layers) =>
+  ({ ...recipe, states: { ...recipe.states, [state]: { ...recipe.states[state], layers } } });
+
+// Changes one part of one state. A missing part is added first, with the
+// defaults for that state, in its place in PARTS order.
+export function setPart(recipe, state, type, changes, catalog) {
+  const layers = [...layersOf(recipe, state)];
+  let index = layers.findIndex((l) => l.type === type);
+  if (index < 0) {
+    index = layers.findIndex((l) => PARTS.indexOf(l.type) > PARTS.indexOf(type));
+    if (index < 0) index = layers.length;
+    layers.splice(index, 0, defaultLayerFor(type, catalog, state, recipe.name));
+  }
+  layers[index] = { ...layers[index], ...changes };
+  return withLayers(recipe, state, layers);
+}
+
+const SHOWN = ["set", "colour", "tint", "icon", "src", "lines"];
+
+// Whether an ON or ALT part looks different from OFF: it's on in one and not
+// the other, or its shape set, colour, icon, image or text differs. A part
+// that's off in both doesn't differ.
+export function differsFromOff(recipe, state, type) {
+  if (state === "off") return false;
+  const mine = simpleParts(recipe, state)[type]?.layer;
+  const off = simpleParts(recipe, "off")[type]?.layer;
+  const [a, b] = [Boolean(mine?.visible), Boolean(off?.visible)];
+  if (a !== b) return true;
+  if (!a) return false;
+  return SHOWN.some((key) => JSON.stringify(mine[key]) !== JSON.stringify(off[key]));
+}
+
+function imageName(layer) {
+  if (layer.source?.kind === "library") return `Ready-made · ${layer.source.name}`;
+  if (layer.source?.kind === "keypad") return "Loaded from keypad";
+  return layer.file || (layer.src ? "Uploaded image" : "No image");
+}
+
+const shapeName = (layer) => `${layer.set} · ${layer.tint ? "Custom" : layer.colour}`;
+
+// The summary line under a part's name in Simple.
+export function partSummary(recipe, state, type) {
+  const parts = simpleParts(recipe, state);
+  const layer = parts[type]?.layer;
+  if (!layer?.visible) return type === "image" ? "Off · your own photo or logo" : "Off";
+  switch (type) {
+    case "shape": return shapeName(layer) + (parts.image?.layer.visible ? " · covered by image" : "");
+    case "image": return imageName(layer);
+    case "icon": return layer.icon;
+    default: return `“${layer.lines.filter(Boolean).join(" / ")}”`;
+  }
+}
+
+// Uses ready-made artwork for OFF and ON: each state's Image part shows the
+// artwork, and its other parts are switched off. ALT isn't touched.
+export function useReadyMade(recipe, name, offSrc, onSrc) {
+  let next = recipe;
+  for (const [state, src] of [["off", offSrc], ["on", onSrc]]) {
+    const image = { type: "image", src, file: "", source: { kind: "library", name },
+                    size: SIZE, x: CENTRE, y: CENTRE, visible: true };
+    const layers = layersOf(next, state).filter((l) => l.type !== "image")
+      .map((l) => ({ ...l, visible: false }));
+    const at = layers.findIndex((l) => PARTS.indexOf(l.type) > PARTS.indexOf("image"));
+    layers.splice(at < 0 ? layers.length : at, 0, image);
+    next = withLayers(next, state, layers);
+  }
+  return next;
+}
