@@ -4,6 +4,8 @@ import { SIZE, CENTRE, statesOf, isBlank } from "./model.js";
 import {
   upgradeRecipe, defaultLayerFor, blankRecipe, sortBackFront, isBack,
   fitsSimple, simpleParts, setPart, differsFromOff, partSummary, useReadyMade,
+  layerNames, addLayerTo, setLayerAt, removeLayerAt, moveInGroup, coverage, imageFills, SHRINK_SIZE,
+  copyState, copyAllStates, startAlt, removeAlt, clearRecipe, layerSummary,
 } from "./recipe.js";
 
 const catalog = {
@@ -212,4 +214,88 @@ test("useReadyMade leaves ALT alone", () => {
   assert.deepEqual(parts.image.layer.source, { kind: "library", name: "HDMI_Squared" });
   assert.equal(simpleParts(next, "on").image.layer.src, "data:on");
   assert.equal(simpleParts(next, "on").image.layer.size, SIZE);
+});
+
+// -- Layers, coverage and copying --------------------------------------------------------
+
+test("layerNames numbers repeats", () => {
+  assert.deepEqual(layerNames([text(), icon(), text()]), ["Text", "Icon", "Text 2"]);
+});
+
+test("addLayerTo puts a back layer under the front group", () => {
+  const { recipe, index } = addLayerTo(v2([shape(), text()]), "off", image());
+  assert.deepEqual(recipe.states.off.layers.map((l) => l.type), ["shape", "image", "text"]);
+  assert.equal(index, 1);
+  const front = addLayerTo(v2([shape(), text()]), "off", icon());
+  assert.deepEqual(front.recipe.states.off.layers.map((l) => l.type), ["shape", "text", "icon"]);
+  assert.equal(front.index, 2);
+});
+
+test("setLayerAt and removeLayerAt touch one state", () => {
+  const recipe = v2([shape(), text()], [text()]);
+  assert.equal(setLayerAt(recipe, "off", 1, { size: 30 }).states.off.layers[1].size, 30);
+  assert.equal(setLayerAt(recipe, "off", 1, { size: 30 }).states.on.layers[0].size, 24);
+  assert.deepEqual(removeLayerAt(recipe, "off", 0).states.off.layers.map((l) => l.type), ["text"]);
+});
+
+test("moveInGroup stays in its group", () => {
+  const recipe = v2([shape(), text()]);
+  assert.equal(moveInGroup(recipe, "off", 1, -1).recipe, recipe);
+  const two = v2([shape(), image(), text()]);
+  const moved = moveInGroup(two, "off", 0, 1);
+  assert.deepEqual(moved.recipe.states.off.layers.map((l) => l.type), ["image", "shape", "text"]);
+  assert.equal(moved.index, 1);
+});
+
+test("coverage finds a covering layer", () => {
+  assert.deepEqual(coverage([shape(), image()], () => true), [{ lower: 0, top: 1 }]);
+  assert.deepEqual(coverage([shape(), image()], () => false), []);
+  assert.deepEqual(coverage([shape({ visible: false }), image()], () => true), []);
+  assert.deepEqual(coverage([shape(), shape(), text()], () => false), [{ lower: 0, top: 1 }]);
+  assert.deepEqual(coverage([image(), shape(), image()], () => true), [{ lower: 0, top: 1 }, { lower: 1, top: 2 }]);
+});
+
+test("imageFills", () => {
+  assert.equal(imageFills(image(), { width: 188, height: 188 }), true);
+  assert.equal(imageFills(image({ size: 150 }), { width: 188, height: 188 }), false);
+  assert.equal(imageFills(image(), { width: 376, height: 188 }), false);
+  assert.equal(imageFills(image({ x: CENTRE + 10 }), { width: 188, height: 188 }), false);
+  assert.equal(SHRINK_SIZE, 150);
+});
+
+test("copyState creates the target state", () => {
+  const recipe = v2([shape()], [text({ lines: ["ON"] })]);
+  const next = copyState(recipe, "on", "alt");
+  assert.deepEqual(next.states.alt, recipe.states.on);
+  assert.notEqual(next.states.alt.layers[0], recipe.states.on.layers[0]);
+  assert.deepEqual(copyState(recipe, "on", "off").states.off, recipe.states.on);
+});
+
+test("copyAllStates removes ALT and keeps the name", () => {
+  const source = v2([shape()], [text()], { name: "A", editor: "layers" });
+  const target = { ...v2([], [], { name: "B" }), states: { off: { layers: [] }, on: { layers: [] }, alt: { layers: [icon()] } } };
+  const next = copyAllStates(source, target);
+  assert.equal(next.name, "B");
+  assert.equal(next.editor, "layers");
+  assert.equal(next.states.alt, undefined);
+  assert.deepEqual(next.states.on, source.states.on);
+  assert.notEqual(next.states.on.layers[0], source.states.on.layers[0]);
+  assert.equal(copyAllStates(v2([], [], { name: "A" }), { ...target, editor: "layers" }).editor, undefined);
+});
+
+test("startAlt, removeAlt and clearRecipe", () => {
+  const recipe = v2([shape()], [text()]);
+  assert.deepEqual(startAlt(recipe, "on").states.alt, recipe.states.on);
+  assert.deepEqual(startAlt(recipe, null).states.alt, { layers: [] });
+  assert.equal(removeAlt(startAlt(recipe, null)).states.alt, undefined);
+  const cleared = clearRecipe(startAlt(recipe, "off"));
+  assert.deepEqual(cleared.states, { off: { layers: [] }, on: { layers: [] }, alt: { layers: [] } });
+  assert.equal(clearRecipe(recipe).states.alt, undefined);
+});
+
+test("layerSummary for Layers rows", () => {
+  assert.equal(layerSummary(shape()), "Squared · Blue");
+  assert.equal(layerSummary(image({ src: "", file: "" })), "No image");
+  assert.equal(layerSummary(icon()), "tv");
+  assert.equal(layerSummary(text({ lines: ["A", "B"] })), "A / B");
 });

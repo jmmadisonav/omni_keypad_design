@@ -224,3 +224,101 @@ export function useReadyMade(recipe, name, offSrc, onSrc) {
   }
   return next;
 }
+
+// -- Layers -------------------------------------------------------------------------------
+
+// Adds a layer at the top of its group: a Back layer after the last Back
+// layer, a Front layer at the end. index is where it went.
+export function addLayerTo(recipe, state, layer) {
+  const layers = [...layersOf(recipe, state)];
+  const index = isBack(layer) ? layers.filter(isBack).length : layers.length;
+  layers.splice(index, 0, layer);
+  return { recipe: withLayers(recipe, state, layers), index };
+}
+
+export function setLayerAt(recipe, state, index, changes) {
+  return withLayers(recipe, state, layersOf(recipe, state).map((l, i) => (i === index ? { ...l, ...changes } : l)));
+}
+
+export function removeLayerAt(recipe, state, index) {
+  return withLayers(recipe, state, layersOf(recipe, state).filter((_, i) => i !== index));
+}
+
+// Swaps a layer with its neighbour (delta 1 is up) within its group. A move
+// that would leave the group returns the same recipe.
+export function moveInGroup(recipe, state, index, delta) {
+  const layers = [...layersOf(recipe, state)];
+  const target = index + delta;
+  if (!layers[target] || isBack(layers[target]) !== isBack(layers[index])) return { recipe, index };
+  [layers[index], layers[target]] = [layers[target], layers[index]];
+  return { recipe: withLayers(recipe, state, layers), index: target };
+}
+
+// Whether an image layer's drawn box covers the whole button. natural is the
+// image's own size; it's scaled so its longer side is layer.size.
+export function imageFills(layer, { width, height }) {
+  const scale = layer.size / Math.max(width, height);
+  const [w, h] = [width * scale, height * scale];
+  return layer.x - w / 2 <= 0 && layer.x + w / 2 >= SIZE && layer.y - h / 2 <= 0 && layer.y + h / 2 >= SIZE;
+}
+
+// The size Shrink gives a covering image, so the shape shows around it.
+export const SHRINK_SIZE = Math.round(SIZE * 0.8);
+
+// Each visible Back layer that a visible Back layer above it covers, with the
+// nearest one that does. A shape always covers; an image covers when fills(layer).
+export function coverage(layers, fills) {
+  const covers = (l) => isBack(l) && l.visible && (l.type === "shape" || fills(l));
+  const result = [];
+  layers.forEach((layer, lower) => {
+    if (!isBack(layer) || !layer.visible) return;
+    const top = layers.findIndex((l, i) => i > lower && covers(l));
+    if (top >= 0) result.push({ lower, top });
+  });
+  return result;
+}
+
+// The summary line in a Layers row.
+export function layerSummary(layer) {
+  switch (layer.type) {
+    case "shape": return shapeName(layer);
+    case "image": return imageName(layer);
+    case "icon": return layer.icon;
+    case "text": return layer.lines.filter(Boolean).join(" / ");
+  }
+  return "";
+}
+
+// -- States -------------------------------------------------------------------------------
+
+const clone = (value) => structuredClone(value);
+
+// Replaces state to with a copy of state from, creating it if it's missing.
+export function copyState(recipe, from, to) {
+  return { ...recipe, states: { ...recipe.states, [to]: clone(recipe.states[from]) } };
+}
+
+// The target button with every state of the source, and its Simple or Layers
+// choice. The target keeps its name, and has ALT only when the source does.
+export function copyAllStates(source, target) {
+  const next = { ...target, states: clone(source.states) };
+  if (source.editor) next.editor = source.editor;
+  else delete next.editor;
+  return next;
+}
+
+// Gives the button an ALT state: a copy of OFF or ON, or empty when from is null.
+export function startAlt(recipe, from) {
+  return from ? copyState(recipe, from, "alt")
+    : { ...recipe, states: { ...recipe.states, alt: { layers: [] } } };
+}
+
+export function removeAlt(recipe) {
+  const { alt, ...states } = recipe.states;
+  return { ...recipe, states };
+}
+
+// Empties every state the button has. An ALT state stays, empty.
+export function clearRecipe(recipe) {
+  return { ...recipe, states: Object.fromEntries(Object.keys(recipe.states).map((s) => [s, { layers: [] }])) };
+}
