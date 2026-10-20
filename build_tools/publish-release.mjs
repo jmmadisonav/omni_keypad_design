@@ -12,8 +12,8 @@
 // upload into the build would either create the tag behind their back or
 // fail every time for want of one.
 //
-// The repo is private, so the download needs a GitHub login with access to
-// it. Nothing here makes it public.
+// The upload goes to jmmadisonav/omni_keypad_designer, which is public, so
+// anyone can download the release. The madisontech copy gets no releases.
 import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
