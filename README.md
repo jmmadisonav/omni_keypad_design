@@ -49,7 +49,7 @@ The menu bar has the usual Windows menus:
 - **View:** **Reload** (F5 or Ctrl+R), **Zoom In** (Ctrl+Plus), **Zoom Out**
   (Ctrl+Minus), **Actual Size** (Ctrl+0), **Full Screen** (F11), and
   **Developer Tools** (F12 or Ctrl+Shift+I).
-- **Keypad:** **Locate**, **Back Up Keypad Now**, and **Factory Reset**, for
+- **Keypad:** **Locate**, **Back Up Keypad Now**, and **Reset Keypad**, for
   the keypad whose IP address is in the header. See
   [Locate or reset a keypad](#locate-or-reset-a-keypad).
 - **Help:** **User Guide** (F1), which opens the guide in your browser, and
@@ -182,7 +182,7 @@ stay as they are.
 Every deploy saves the design that was running as
 `backups/backup_<date>_<time>.cpio` in the data folder, every **Import** saves
 a copy as `loaded_<date>_<time>.cpio`, **Back up keypad now** in **Backups**
-saves `manual_<date>_<time>.cpio`, and **Factory Reset** saves
+saves `manual_<date>_<time>.cpio`, and **Reset Keypad** saves
 `reset_<date>_<time>.cpio` unless you clear its checkbox. If a deploy fails
 after its backup, the designer offers to restore that backup.
 
@@ -203,7 +203,8 @@ keypad's LED ring cycles for about 8 minutes, the same as Locate in AVX. To
 stop it sooner, click **Stop locating**. The button changes back by itself
 when the keypad stops. **Keypad > Locate** does the same.
 
-To reset a keypad to its factory settings, click **Keypad > Factory Reset**.
+To reset a keypad to its default settings, click **Keypad > Reset Keypad**.
+The keypad keeps its firmware version.
 The designer asks first, and backs up the keypad's design unless you clear
 **Back up the keypad's design first**. The keypad loses its design and
 restarts. If it had a fixed IP address, it might come back with another one;
@@ -211,8 +212,10 @@ to find it, click **Find**. To put the design back, deploy a project or
 restore the backup.
 
 Both use HControl: Locate sends `locate` with the keypad's guid, MAC address,
-name, and a timeout in seconds (0 stops it), as captured from AVX. Factory
-reset runs `/configuration/commands/reset` with `level` set to `Factory`.
+name, and a timeout in seconds (0 stops it), as captured from AVX. Reset Keypad
+runs `/configuration/commands/reset` with `level` set to `System`. The
+`Factory` level also rolls the firmware back to the version the keypad shipped
+with, so the designer doesn't use it.
 
 ## Add pages and switch between them
 

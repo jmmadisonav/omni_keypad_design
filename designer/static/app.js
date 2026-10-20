@@ -1868,7 +1868,7 @@ async function openBackups(select = "") {
   content.push(list, addLink, error);
   const view = {
     title: "Backups",
-    body: "Stored in the backups folder of your data folder. Deploy saves backup_ files, Import saves loaded_ files, Back up keypad now saves manual_ files, and Factory reset saves reset_ files.",
+    body: "Stored in the backups folder of your data folder. Deploy saves backup_ files, Import saves loaded_ files, Back up keypad now saves manual_ files, and Reset keypad saves reset_ files.",
     content,
     secondary: { text: "Close", onClick: closeModal },
     primary: { text: "Restore", onClick: () => { if (selected && !needHost()) runRestore(selected, view); } },
@@ -1892,7 +1892,7 @@ async function backUpKeypad() {
   }
 }
 
-// -- Locate and factory reset -------------------------------------------------------------
+// -- Locate and reset keypad --------------------------------------------------------------
 
 // While the keypad locates, the page asks it every few seconds whether it
 // still is, so Locate turns itself off when the keypad stops by itself.
@@ -1941,7 +1941,7 @@ function stopWatchingLocate() {
   state.locating = false;
 }
 
-async function factoryReset() {
+async function resetKeypad() {
   if (needHost() || state.busy) return;
   const address = host();
   const keep = el("label", "check-row");
@@ -1952,28 +1952,28 @@ async function factoryReset() {
   const reset = await new Promise((resolve) => {
     const done = (value) => { closeModal(); resolve(value); };
     showModal({
-      title: "Factory reset",
-      body: `This resets the keypad at ${address} to its factory settings. It loses its design and ` +
+      title: "Reset keypad",
+      body: `This resets the keypad at ${address} to its default settings, and keeps its firmware. It loses its design and ` +
             "restarts. If it had a fixed IP address, it might come back with another one: to find it, click Find.",
       content: [keep],
       secondary: { text: "Cancel", onClick: () => done(null) },
-      primary: { text: "Factory reset", onClick: () => done({ backUp: box.checked }) },
+      primary: { text: "Reset keypad", onClick: () => done({ backUp: box.checked }) },
     });
   });
   if (!reset) return;
   stopWatchingLocate();
   setBusy("reset");
-  showModal({ title: "Factory reset", body: reset.backUp ? `Backing up ${address}, and then resetting it.` : `Resetting ${address}.`,
+  showModal({ title: "Reset keypad", body: reset.backUp ? `Backing up ${address}, and then resetting it.` : `Resetting ${address}.`,
               content: running("Waiting for the keypad."), closable: false });
   try {
-    const { backup } = await sendJson("POST", "/api/keypad/factory-reset", { host: address, backUp: reset.backUp });
+    const { backup } = await sendJson("POST", "/api/keypad/reset", { host: address, backUp: reset.backUp });
     state.connected = false;
     const saved = backup ? ` Its design is saved as ${backup}: to put it back, click Backups.` : "";
-    showModal({ title: "Factory reset", content: [result(true, `The keypad at ${address} is resetting.${saved}`)],
+    showModal({ title: "Reset keypad", content: [result(true, `The keypad at ${address} is resetting.${saved}`)],
                 secondary: { text: "Close", onClick: closeModal } });
-    setStatus(`Reset ${address} to its factory settings.${saved}`);
+    setStatus(`Reset ${address} to its default settings.${saved}`);
   } catch (error) {
-    showModal({ title: "Factory reset failed", content: [result(false, error.message)],
+    showModal({ title: "Reset failed", content: [result(false, error.message)],
                 secondary: { text: "Close", onClick: closeModal } });
     setStatus(error.message, true);
   } finally {
@@ -2072,7 +2072,7 @@ async function onMenuCommand(command, arg) {
   if (!$("modal").hidden || state.busy) return;
   if (command === "locate") toggleLocate();
   else if (command === "back-up-keypad") { if (!needHost()) backUpKeypad().catch(() => {}); }
-  else if (command === "factory-reset") factoryReset();
+  else if (command === "reset-keypad") resetKeypad();
   else if (command === "new") newProject();
   else if (command === "open" && arg) openProject(arg);
   else if (command === "save" && state.project) onSave();

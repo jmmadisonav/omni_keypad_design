@@ -402,33 +402,33 @@ class KeypadOpsTests(unittest.TestCase):
         with self.assertRaisesRegex(ConnectionError, "couldn't connect"):
             self.ops.locate("127.0.0.1", True)
 
-    def test_factory_reset_backs_up_first(self):
-        result = self.ops.factory_reset("127.0.0.1", back_up=True)
+    def test_reset_backs_up_first(self):
+        result = self.ops.reset("127.0.0.1", back_up=True)
         self.assertRegex(result["backup"], r"^reset_\d{8}_\d{6}\.cpio$")
         self.assertEqual((self.backups / result["backup"]).read_bytes(), self.data)
         self.assertEqual(self.ops.backup_info()[0]["kind"], "reset")
-        self.assertIn('"level":"Factory"', self.keypad.received[-1])
+        self.assertIn('"level":"System"', self.keypad.received[-1])
 
-    def test_factory_reset_without_a_backup(self):
-        self.assertEqual(self.ops.factory_reset("127.0.0.1", back_up=False), {"backup": ""})
+    def test_reset_without_a_backup(self):
+        self.assertEqual(self.ops.reset("127.0.0.1", back_up=False), {"backup": ""})
         self.assertEqual(list(self.backups.iterdir()), [])
-        self.assertIn('"level":"Factory"', self.keypad.received[-1])
+        self.assertIn('"level":"System"', self.keypad.received[-1])
 
-    def test_factory_reset_of_a_keypad_without_design_skips_the_backup(self):
+    def test_reset_of_a_keypad_without_design_skips_the_backup(self):
         self.keypad.ignore.add("getfile")
         self.ops.timeout = 0.5
-        self.assertEqual(self.ops.factory_reset("127.0.0.1", back_up=True), {"backup": ""})
-        self.assertIn('"level":"Factory"', self.keypad.received[-1])
+        self.assertEqual(self.ops.reset("127.0.0.1", back_up=True), {"backup": ""})
+        self.assertIn('"level":"System"', self.keypad.received[-1])
 
-    def test_factory_reset_counts_a_dropped_connection_as_done(self):
+    def test_reset_counts_a_dropped_connection_as_done(self):
         # The keypad might restart before it replies.
         self.keypad.ignore.add("exec")
-        with mock.patch("hcontrol.HControlClient.factory_reset", side_effect=ConnectionError("closed")):
-            self.assertEqual(self.ops.factory_reset("127.0.0.1", back_up=False), {"backup": ""})
+        with mock.patch("hcontrol.HControlClient.reset", side_effect=ConnectionError("closed")):
+            self.assertEqual(self.ops.reset("127.0.0.1", back_up=False), {"backup": ""})
 
-    def test_factory_reset_waits_for_a_deploy(self):
+    def test_reset_waits_for_a_deploy(self):
         with self.ops._exclusive(), self.assertRaises(BusyError):
-            self.ops.factory_reset("127.0.0.1", back_up=False)
+            self.ops.reset("127.0.0.1", back_up=False)
 
     def test_keypad_model_reads_the_model(self):
         self.assertEqual(self.ops.keypad_model("127.0.0.1"), "OMNI-KP-8BV")

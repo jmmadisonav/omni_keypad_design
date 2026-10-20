@@ -56,7 +56,7 @@ def wait_for_design(host: str, port: int, fingerprint: str, timeout: float = 90)
 
 _COLOUR = re.compile(r"#[0-9A-Fa-f]{6}")
 _BACKUP_NAME = re.compile(r"(backup|loaded|manual|reset)_(\d{8}_\d{6})(_\d+)?\.cpio")
-# What made each kind of backup: a deploy, Import, Back up keypad now, or a factory reset.
+# What made each kind of backup: a deploy, Import, Back up keypad now, or Reset keypad.
 _BACKUP_KINDS = {"backup": "deploy", "loaded": "loaded", "manual": "manual", "reset": "reset"}
 
 # How long Locate runs, in seconds, unless you stop it: the same as AVX.
@@ -326,8 +326,10 @@ class KeypadOps:
         with self._connect(host) as kp:
             return bool(kp.identify("locating").get("locating"))
 
-    def factory_reset(self, host: str, back_up: bool = True) -> dict:
-        """Reset the keypad to its factory settings, and return the backup's name.
+    def reset(self, host: str, back_up: bool = True) -> dict:
+        """Reset the keypad's settings and design, and return the backup's name.
+
+        The keypad keeps its firmware: see HControlClient.reset().
 
         If back_up, save the keypad's design as reset_<time>.cpio first. A
         keypad with no design doesn't answer the download, so it's reset
@@ -345,7 +347,7 @@ class KeypadOps:
                                            "sent its design. It wasn't reset.") from None
             with self._connect(host) as kp:
                 try:
-                    kp.factory_reset()
+                    kp.reset()
                 except ConnectionError:
                     pass
             return {"backup": backup}

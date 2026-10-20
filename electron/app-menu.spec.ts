@@ -42,7 +42,7 @@ describe('menuTemplate', () => {
   it('passes the keypad commands to the page', () => {
     const a = actions();
     const keypad = submenu(ready, '&Keypad', a);
-    for (const [label, command] of [['Locate', 'locate'], ['Back Up Keypad Now', 'back-up-keypad'], ['Factory Reset…', 'factory-reset']]) {
+    for (const [label, command] of [['Locate', 'locate'], ['Back Up Keypad Now', 'back-up-keypad'], ['Reset Keypad…', 'reset-keypad']]) {
       click(item(keypad, label));
       expect(a.send).toHaveBeenLastCalledWith(command);
     }

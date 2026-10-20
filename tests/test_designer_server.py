@@ -284,17 +284,17 @@ class ServerTests(unittest.TestCase):
         self.assertEqual(status, 400)
         self.assertIn("on must be true or false", result["error"])
 
-    def test_factory_reset_backs_up_and_resets(self):
-        status, result = self.json_request("POST", "/api/keypad/factory-reset",
+    def test_reset_backs_up_and_resets(self):
+        status, result = self.json_request("POST", "/api/keypad/reset",
                                            {"host": "127.0.0.1", "backUp": True})
         self.assertEqual(status, 200, result)
         self.assertTrue(result["backup"].startswith("reset_"))
-        self.assertIn('"level":"Factory"', self.keypad.received[-1])
+        self.assertIn('"level":"System"', self.keypad.received[-1])
 
-    def test_factory_reset_needs_back_up_as_true_or_false(self):
-        status, result = self.json_request("POST", "/api/keypad/factory-reset", {"host": "127.0.0.1"})
+    def test_reset_needs_back_up_as_true_or_false(self):
+        status, result = self.json_request("POST", "/api/keypad/reset", {"host": "127.0.0.1"})
         self.assertEqual(status, 400)
-        self.assertNotIn('"level":"Factory"', "".join(self.keypad.received))
+        self.assertNotIn('"level":"System"', "".join(self.keypad.received))
 
     def test_back_up_now_needs_a_host(self):
         status, result = self.json_request("POST", "/api/backups", {})

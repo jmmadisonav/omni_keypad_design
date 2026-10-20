@@ -158,11 +158,11 @@ class DeviceTests(KeypadTestCase):
         self.kp.locate(0)
         self.assertIs(self.kp.identify()["locating"], False)
 
-    def test_factory_reset_runs_the_reset_command(self):
-        self.kp.factory_reset()
+    def test_reset_runs_the_system_reset_command(self):
+        self.kp.reset()
         self.assertEqual(self.keypad.received[-1],
                          'exec {"path":"/configuration/commands","command":"reset",'
-                         '"arguments":{"level":"Factory"}}')
+                         '"arguments":{"level":"System"}}')
 
 
 class SubscriptionTests(KeypadTestCase):

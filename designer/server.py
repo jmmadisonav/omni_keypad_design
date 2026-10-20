@@ -200,10 +200,10 @@ class _Handler(BaseHTTPRequestHandler):
             return self._json(self.ops.locate(host, _flag(body, "on")))
         if route == ("POST", "keypad", "locating"):
             return self._json({"locating": self.ops.locating(self._host_from(self._body()))})
-        if route == ("POST", "keypad", "factory-reset"):
+        if route == ("POST", "keypad", "reset"):
             body = self._body()
             host = self._host_from(body)
-            return self._json(self.ops.factory_reset(host, back_up=_flag(body, "backUp")))
+            return self._json(self.ops.reset(host, back_up=_flag(body, "backUp")))
         if route == ("POST", "design", "restore"):
             body = self._body()
             host = self._host_from(body)

@@ -13,7 +13,7 @@ import type { MenuItemConstructorOptions } from 'electron';
 import type { Shortcut } from './shortcuts';
 
 export type MenuCommand = 'new' | 'open' | 'save' | 'save-as' | 'open-data-folder' | 'undo' | 'redo'
-  | 'locate' | 'back-up-keypad' | 'factory-reset';
+  | 'locate' | 'back-up-keypad' | 'reset-keypad';
 
 /** What the page reports to the menu. */
 export interface MenuState {
@@ -123,7 +123,7 @@ export function menuTemplate(state: MenuState, actions: MenuActions, appName: st
           click: () => send('locate') },
         { label: '&Back Up Keypad Now', enabled: ready && state.hasKeypad, click: () => send('back-up-keypad') },
         { type: 'separator' },
-        { label: '&Factory Reset…', enabled: ready && state.hasKeypad, click: () => send('factory-reset') },
+        { label: '&Reset Keypad…', enabled: ready && state.hasKeypad, click: () => send('reset-keypad') },
       ],
     },
     {

@@ -196,9 +196,13 @@ class HControlClient:
         return self._request("locate", {**{key: identity.get(key, "") for key in ("guid", "mac", "name")},
                                         "timeout": timeout})
 
-    def factory_reset(self) -> None:
-        """Reset the keypad to its factory settings. It loses its design."""
-        self.exec("/configuration/commands", "reset", level="Factory")
+    def reset(self) -> None:
+        """Reset the keypad's settings and design, and keep its firmware.
+
+        This is the System level. The Factory level also rolls the firmware
+        back to the version the keypad shipped with, so it isn't used.
+        """
+        self.exec("/configuration/commands", "reset", level="System")
 
     # -- Files -------------------------------------------------------------
 
