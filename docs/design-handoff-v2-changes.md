@@ -25,8 +25,11 @@ Quoted text is the exact UI copy in the app.
 3. **ALT state.** Buttons can have a third image, ALT, shown only when you turn
    it on for the project. See [ALT state](#alt-state-added).
 4. **"Key" became "button"** in all UI copy.
-5. **Tabletop models.** Each model also covers its tabletop version (T6B,
-   T6BV, T8BV).
+5. **Tabletop models, white finish and line colour.** Each model also covers
+   its tabletop version (T6B, T6BV, T8BV). The stage has Wall | Tabletop and
+   Black | White toggles and a Lines colour. The tabletop T6B and T6BV show
+   their buttons 3 across. See
+   [Housing, finish and lines](#housing-finish-and-lines-added).
 6. **Undo and redo** with Ctrl+Z and Ctrl+Y.
 7. **The prototype's button artwork is a stand-in.** Real buttons are
    bevelled 188 px PNGs in bright colours. See
@@ -121,12 +124,103 @@ set's single grey image to any OFF and ON colour and keeps its shading. See [BUT
   "(untested)".
 - **Changed: card order** in the New project dialog: 6B, 6BV, 8BV (by button
   count, then dial).
+- **Changed: card descriptions** give the tabletop grid when it differs, for
+  example "2×3 buttons (3×2 on the tabletop), portrait faceplate, dial and LED
+  ring below".
+- **Added: Housing and Finish** in the New project dialog. See
+  [Housing, finish and lines](#housing-finish-and-lines-added).
 - **Changed: image size per model.** The 6B and 6BV use 150 × 150 px button
   images, and the 8BV uses 188 × 188 px. The editor helper shows the right
   size for the model.
 - **Changed: a project with a missing model file** is drawn from the project
   itself, not with 8BV geometry. With 6 buttons or fewer, it's drawn as a
   portrait faceplate. It shows a dial only if the page has dial settings.
+
+## Housing, finish and lines (added)
+
+OMNI keypads come as wall units and tabletop units, in black (`-BL`) or
+white (`-WH`), for example OMNI-KP-T8BV-BL or OMNI-KP-8BV-WH. The keypad view
+draws the one the project is for. The lines between buttons on the keypad's
+screen have a colour, which is part of the design.
+
+### Stage controls
+
+The stage controls row now reads, left to right:
+
+**[OFF | ON | ALT]**  Show ALT  **[WALL | TABLETOP]**  **[BLACK | WHITE]**
+LINES **[■ #000000]**, then the legend.
+
+- **Wall | Tabletop** and **Black | White** are segmented controls in the
+  existing style: 32 px high, 12 px side padding, 11 px bold uppercase,
+  letter-spacing .06em, and the selected segment filled `#2e3c49` with white
+  text.
+  - Tooltips: "How the keypad is housed. Saved with the project." and "The
+    keypad's finish. Only changes the preview."
+  - Both are saved with the project as soon as you click. They aren't
+    unsaved changes, and Ctrl+Z doesn't undo them.
+  - Status messages: "Showing a wall keypad.", "Showing a tabletop keypad.",
+    "Showing the black finish." and "Showing the white finish. The finish only
+    changes the preview."
+- **Lines** is a section label (11 px bold uppercase) followed by a colour
+  field: a 32 px colour picker and a hex text field, 118 px wide and 32 px high
+  in all, with the usual 1 px `#c9ccd0` border. Tooltip: "The colour of the
+  lines between buttons on the keypad".
+  - It's part of the design: changing it marks the project unsaved, Ctrl+Z
+    undoes it ("Undid changing the line colour."), and it's saved and deployed
+    with the project.
+  - An invalid hex value is ignored, and the field goes back to the current
+    colour.
+  - New projects use black, `#000000`. A project loaded from a keypad keeps
+    the keypad's colour.
+
+### New project dialog
+
+Below the model cards, two side-by-side groups: **HOUSING** with Wall |
+Tabletop, and **FINISH** with Black | White. Both remember the last choice.
+The body copy now reads: "Choose the keypad model now. It can't be changed
+after the project is created. You can change the housing and finish later."
+
+### Load from keypad
+
+A keypad that reports a tabletop model, such as OMNI-KP-T6BV, makes a
+project with the Tabletop housing. The keypad doesn't report its finish, so
+loaded projects start Black.
+
+### How each keypad is drawn
+
+The faceplate is the same black-glass panel as before. Its width is
+`--face-max` or less, its height follows the aspect ratio, and the screen and
+dial are placed in percentages of the faceplate.
+
+| Model and housing | Buttons | Faceplate max width and aspect | Screen left / top / width | Dial left / top / width |
+|---|---|---|---|---|
+| 8BV, wall or tabletop | 4 × 2 | 550 px, 1.07 | 11.4% / 14.8% / 77.2% | 38% / 64% / 24% |
+| 6BV, wall | 2 × 3 | 363 px, 0.62 | 18% / 7% / 64% | 35% / 73% / 30% |
+| 6B, wall | 2 × 3 | 363 px, 0.62 | 18% / 19% / 64% | none |
+| 6BV, tabletop (T6BV) | 3 × 2 | 550 px, 1.07 | 20% / 12% / 60% | 38% / 64% / 24% |
+| 6B, tabletop (T6B) | 3 × 2 | 550 px, 1.07 | 20% / 28% / 60% | none |
+
+- A tabletop keypad is drawn from above. Its top face is laid out like the
+  8BV: the screen across the top and the dial centred below. The tabletop's
+  sloped stand isn't drawn.
+- Buttons are numbered along the top row first, then the next row, on every
+  model and housing.
+- **Lines:** the gaps between buttons (6 px) show the Lines colour, so the
+  preview matches the keypad. With black lines, the screen looks like one
+  black panel.
+- **White finish:** the faceplate fill is
+  `linear-gradient(180deg, #fbfbfb 0%, #f3f4f5 80%, #e6e7e8 100%)`, with an
+  inner 1 px `#d5d8db` edge in place of the dark one. The screen stays black,
+  because it's the display, and the silver frame, the dial and the LED don't
+  change.
+
+### Reference photos
+
+Use the product photos in `keypad_images/` as the reference for these
+drawings: each model in black, wall and tabletop, plus `white.jpg`, which
+shows an 8BV in white beside one in black. The photos of the tabletop units
+are taken at an angle, so their layout reads from the front view of the wall
+units.
 
 ## ALT state (added)
 
