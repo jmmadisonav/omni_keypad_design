@@ -10,6 +10,12 @@ the same hardware. The tabletop OMNI-KP-T8BV is an OMNI-KP-8BV in another
 housing, so an 8BV project loads from and deploys to either. The tabletop
 field gives the tabletop housing's button grid, which can differ: the T6B and
 T6BV turn the screen sideways, so their 6 buttons are 3 columns by 2 rows.
+A tabletop of null means the model has no tabletop housing.
+
+A model with no buttons, such as the OMNI-KP-V, is a knob and LED ring with
+no screen: its columns and rows are both 0, and it must have a dial. The
+max_pages field limits how many pages a design holds; without it, there's
+no limit.
 """
 
 from __future__ import annotations
@@ -22,7 +28,7 @@ MODELS_DIR = Path(__file__).resolve().parent / "models"
 DEFAULT_MODEL = "OMNI-KP-8BV"            # Projects made before models existed.
 
 _DIAL_KEYS = ("ledring", "dial", "dial_button")
-_FACEPLATES = ("square", "portrait")
+_FACEPLATES = ("square", "portrait", "knob")
 
 
 @dataclass(frozen=True)
@@ -37,7 +43,8 @@ class Model:
     image_size: int          # Button images are image_size x image_size pixels.
     template: dict
     aliases: tuple[str, ...] = ()   # Other ids for the same hardware, such as OMNI-KP-T8BV.
-    tabletop: dict | None = None    # {"columns", "rows"} in the tabletop housing.
+    tabletop: dict | None = None    # {"columns", "rows"} in the tabletop housing, or None for none.
+    max_pages: int | None = None    # The most pages a design holds, or None for no limit.
 
     @property
     def buttons(self) -> int:
@@ -48,7 +55,10 @@ class Model:
 
 
 def load_models(folder: str | Path = MODELS_DIR) -> dict[str, Model]:
-    """Load and check every model file, ordered by button count, then dial."""
+    """Load and check every model file, ordered by button count, then dial.
+
+    Models with no buttons come last.
+    """
     models = [_load(path) for path in sorted(Path(folder).glob("*.json"))]
     owner = {m.id: m.id for m in models}          # Each id and alias -> its model file.
     for model in models:
@@ -57,7 +67,7 @@ def load_models(folder: str | Path = MODELS_DIR) -> dict[str, Model]:
                 raise ValueError(f"the model files {owner[alias]}.json and {model.id}.json "
                                  f"both claim {alias}")
             owner[alias] = model.id
-    return {m.id: m for m in sorted(models, key=lambda m: (m.buttons, m.dial))}
+    return {m.id: m for m in sorted(models, key=lambda m: (m.buttons == 0, m.buttons, m.dial))}
 
 
 def model_for(models: dict[str, Model], reported: str) -> str | None:
@@ -75,12 +85,13 @@ def _load(path: Path) -> Model:
     try:
         data = json.loads(path.read_text(encoding="utf-8"))
         fields = {field: data[field] for field in Model.__dataclass_fields__
-                  if field not in ("aliases", "tabletop")}
+                  if field not in ("aliases", "tabletop", "max_pages")}
         aliases = data.get("aliases", [])
         if not isinstance(aliases, list) or not all(isinstance(a, str) and a for a in aliases):
             raise ValueError("aliases must be a list of model ids")
         tabletop = data.get("tabletop", {"columns": fields["columns"], "rows": fields["rows"]})
-        model = Model(**fields, aliases=tuple(aliases), tabletop=tabletop)
+        model = Model(**fields, aliases=tuple(aliases), tabletop=tabletop,
+                      max_pages=data.get("max_pages"))
         _check(model, path)
         return model
     except (KeyError, TypeError, ValueError) as error:
@@ -91,15 +102,20 @@ def _check(model: Model, path: Path) -> None:
     if model.id != path.stem:
         raise ValueError(f"its id is {model.id!r}, but the file is named {path.name}")
     if not (isinstance(model.columns, int) and isinstance(model.rows, int)
-            and model.columns > 0 and model.rows > 0):
-        raise ValueError("columns and rows must be whole numbers")
+            and (model.columns > 0 and model.rows > 0 or model.columns == model.rows == 0)):
+        raise ValueError("columns and rows must be whole numbers, both 0 for a model with no buttons")
+    if model.buttons == 0 and model.dial is not True:
+        raise ValueError("a model with no buttons needs a dial")
+    if not (model.max_pages is None or (type(model.max_pages) is int and model.max_pages > 0)):
+        raise ValueError("max_pages must be a whole number above 0, or left out")
     grid = model.tabletop
-    if not (isinstance(grid, dict) and set(grid) == {"columns", "rows"}
-            and all(type(grid[k]) is int and grid[k] > 0 for k in grid)):
-        raise ValueError("tabletop must be {\"columns\": n, \"rows\": n}")
-    if grid["columns"] * grid["rows"] != model.buttons:
-        raise ValueError(f"the tabletop grid is {grid['columns']} x {grid['rows']}, "
-                         f"but the model has {model.buttons} buttons")
+    if grid is not None:
+        if not (isinstance(grid, dict) and set(grid) == {"columns", "rows"}
+                and all(type(grid[k]) is int and grid[k] > 0 for k in grid)):
+            raise ValueError("tabletop must be {\"columns\": n, \"rows\": n} or null")
+        if grid["columns"] * grid["rows"] != model.buttons:
+            raise ValueError(f"the tabletop grid is {grid['columns']} x {grid['rows']}, "
+                             f"but the model has {model.buttons} buttons")
     if type(model.image_size) is not int or model.image_size <= 0:
         raise ValueError("image_size must be a whole number of pixels")
     if model.faceplate not in _FACEPLATES:

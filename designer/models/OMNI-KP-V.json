@@ -1,0 +1,84 @@
+{
+  "id": "OMNI-KP-V",
+  "name": "V",
+  "aliases": [],
+  "columns": 0,
+  "rows": 0,
+  "dial": true,
+  "faceplate": "knob",
+  "tabletop": null,
+  "max_pages": 1,
+  "tested": false,
+  "image_size": 150,
+  "template": {
+    "fingerprint": "",
+    "lastdeployedtimestamp": "",
+    "haptic": {
+      "enabled": false,
+      "pattern": 1
+    },
+    "pin": {
+      "code": ""
+    },
+    "display": {
+      "brightness": 50,
+      "screentimeout": 5,
+      "screendimtimeout": 3,
+      "dimbrightness": 20,
+      "timeout": 30,
+      "panel_separator_color": "#000000"
+    },
+    "pages": [
+      {
+        "name": "Page 1",
+        "background": "#000000",
+        "ledring": {
+          "name": "led_ring",
+          "controlType": "led_ring",
+          "path": "",
+          "remote": "",
+          "steps": 24,
+          "poll": 100,
+          "dataType": "float",
+          "access": "rw",
+          "class": "harman.common.powergain",
+          "flags": []
+        },
+        "dial": {
+          "default": 0.6,
+          "enabled": true,
+          "name": "dial_one",
+          "path": "",
+          "remote": "",
+          "type": "momentary",
+          "controlType": "dial",
+          "poll": 100,
+          "dataType": "float",
+          "access": "rw",
+          "class": "harman.common.powergain",
+          "flags": []
+        },
+        "dial_button": {
+          "name": "push_button_dial",
+          "path": "",
+          "remote": "",
+          "type": "toggle",
+          "controlType": "button",
+          "value": -4,
+          "enabled": true,
+          "repeat_period_ms": 100,
+          "hold_delay_sec": 2.0,
+          "multiplier": 1.5,
+          "hold_multiplier": 2.2,
+          "destination": "",
+          "poll": 100,
+          "dataType": "enum",
+          "access": "rw",
+          "class": "harman.common.mute",
+          "flags": []
+        },
+        "buttons": []
+      }
+    ]
+  }
+}

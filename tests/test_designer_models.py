@@ -13,14 +13,16 @@ class ShippedModelTests(unittest.TestCase):
     def setUp(self):
         self.models = load_models()
 
-    def test_three_models_in_order(self):
-        self.assertEqual(list(self.models), ["OMNI-KP-6B", "OMNI-KP-6BV", "OMNI-KP-8BV"])
+    def test_models_in_order(self):
+        # Keypads with buttons come first, by size; the knob-only KP-V comes last.
+        self.assertEqual(list(self.models), ["OMNI-KP-6B", "OMNI-KP-6BV", "OMNI-KP-8BV", "OMNI-KP-V"])
         self.assertEqual(DEFAULT_MODEL, "OMNI-KP-8BV")
 
     def test_buttons_dial_faceplate_and_tested(self):
         expected = {"OMNI-KP-6B": ("6B", 2, 3, False, "portrait", False),
                     "OMNI-KP-6BV": ("6BV", 2, 3, True, "portrait", False),
-                    "OMNI-KP-8BV": ("8BV", 4, 2, True, "square", True)}
+                    "OMNI-KP-8BV": ("8BV", 4, 2, True, "square", True),
+                    "OMNI-KP-V": ("V", 0, 0, True, "knob", False)}
         for model_id, (name, columns, rows, dial, faceplate, tested) in expected.items():
             model = self.models[model_id]
             with self.subTest(model=model_id):
@@ -39,27 +41,30 @@ class ShippedModelTests(unittest.TestCase):
     def test_image_sizes(self):
         # The 6B and 6BV show 150x150 button images; the 8BV shows 188x188.
         self.assertEqual({m: self.models[m].image_size for m in self.models},
-                         {"OMNI-KP-6B": 150, "OMNI-KP-6BV": 150, "OMNI-KP-8BV": 188})
+                         {"OMNI-KP-6B": 150, "OMNI-KP-6BV": 150, "OMNI-KP-8BV": 188,
+                          "OMNI-KP-V": 150})
         self.assertEqual(self.models["OMNI-KP-6B"].summary()["image_size"], 150)
 
     def test_tabletop_models_are_aliases(self):
         self.assertEqual({m: list(self.models[m].aliases) for m in self.models},
                          {"OMNI-KP-6B": ["OMNI-KP-T6B"], "OMNI-KP-6BV": ["OMNI-KP-T6BV"],
-                          "OMNI-KP-8BV": ["OMNI-KP-T8BV"]})
+                          "OMNI-KP-8BV": ["OMNI-KP-T8BV"], "OMNI-KP-V": []})
         self.assertEqual(self.models["OMNI-KP-8BV"].summary()["aliases"], ["OMNI-KP-T8BV"])
 
     def test_model_for_what_a_keypad_reports(self):
         self.assertEqual(model_for(self.models, "OMNI-KP-8BV"), "OMNI-KP-8BV")
         self.assertEqual(model_for(self.models, "OMNI-KP-T8BV"), "OMNI-KP-8BV")
         self.assertEqual(model_for(self.models, "OMNI-KP-T6B"), "OMNI-KP-6B")
-        self.assertIsNone(model_for(self.models, "OMNI-KP-V"))
+        self.assertEqual(model_for(self.models, "OMNI-KP-V"), "OMNI-KP-V")
+        self.assertIsNone(model_for(self.models, "OMNI-KP-9X"))
 
     def test_tabletop_grids(self):
         # The tabletop T6B and T6BV turn the screen sideways: 3 columns x 2 rows.
         self.assertEqual({m: self.models[m].tabletop for m in self.models},
                          {"OMNI-KP-6B": {"columns": 3, "rows": 2},
                           "OMNI-KP-6BV": {"columns": 3, "rows": 2},
-                          "OMNI-KP-8BV": {"columns": 4, "rows": 2}})
+                          "OMNI-KP-8BV": {"columns": 4, "rows": 2},
+                          "OMNI-KP-V": None})
         self.assertEqual(self.models["OMNI-KP-6B"].summary()["tabletop"], {"columns": 3, "rows": 2})
 
     def test_new_projects_have_black_separators(self):
@@ -77,6 +82,13 @@ class ShippedModelTests(unittest.TestCase):
                 with self.subTest(model=model_id, control=control.get("name")):
                     self.assertNotIn("min", control)
                     self.assertNotIn("max", control)
+
+    def test_page_limits(self):
+        # The KP-V has no screen or buttons to switch pages, so it holds one.
+        self.assertEqual({m: self.models[m].max_pages for m in self.models},
+                         {"OMNI-KP-6B": None, "OMNI-KP-6BV": None, "OMNI-KP-8BV": None,
+                          "OMNI-KP-V": 1})
+        self.assertEqual(self.models["OMNI-KP-V"].summary()["max_pages"], 1)
 
     def test_summary_has_no_template(self):
         summary = self.models["OMNI-KP-6BV"].summary()
@@ -108,12 +120,27 @@ class BadModelTests(unittest.TestCase):
             "alias is another alias": {**self.data, "aliases": ["OMNI-KP-T8BV"]},
             "tabletop button count": {**self.data, "tabletop": {"columns": 4, "rows": 2}},
             "tabletop type": {**self.data, "tabletop": [3, 2]},
+            "one side of the grid is zero": {**self.data, "columns": 0},
+            "page limit zero": {**self.data, "max_pages": 0},
+            "page limit type": {**self.data, "max_pages": "1"},
         }
         for case, data in cases.items():
             with self.subTest(case=case):
                 self.write(data)
                 with self.assertRaisesRegex(ValueError, "OMNI-KP-6BV.json"):
                     load_models(self.folder)
+
+    def test_no_buttons_needs_a_dial(self):
+        page = {k: v for k, v in self.data["template"]["pages"][0].items()
+                if k not in DIAL_KEYS}
+        self.write({**self.data, "columns": 0, "rows": 0, "dial": False, "tabletop": None,
+                    "template": {**self.data["template"], "pages": [{**page, "buttons": []}]}})
+        with self.assertRaisesRegex(ValueError, "a model with no buttons needs a dial"):
+            load_models(self.folder)
+
+    def test_tabletop_can_be_none(self):
+        self.write({**self.data, "tabletop": None})
+        self.assertIsNone(load_models(self.folder)["OMNI-KP-6BV"].tabletop)
 
     def test_tabletop_defaults_to_the_wall_grid(self):
         self.write({k: v for k, v in self.data.items() if k != "tabletop"})
