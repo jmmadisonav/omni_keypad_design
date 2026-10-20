@@ -1,9 +1,9 @@
 // electron/shortcuts.ts
 //
-// The window has no menu: the designer's own header is the app's menu. These
-// are the shortcuts a menu would otherwise have provided, handled before the
-// page sees the key. Cut, copy, paste, and select all work without a menu on
-// Windows, and Ctrl+Z and Ctrl+Y belong to the designer's own undo.
+// The View menu's shortcuts (see electron/app-menu.ts), handled before the
+// page sees the key. The menu shows them but doesn't register them. Cut,
+// copy, paste, and select all work on Windows without a registered key, and
+// Ctrl+Z and Ctrl+Y belong to the designer's own undo.
 
 export type Shortcut = 'devtools' | 'reload' | 'zoom-in' | 'zoom-out' | 'zoom-reset' | 'fullscreen';
 

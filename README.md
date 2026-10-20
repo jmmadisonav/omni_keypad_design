@@ -1,12 +1,11 @@
 # OMNI Keypad Designer
 
 OMNI Keypad Designer is where you design button images for an OMNI keypad and
-deploy them to it. It runs as a local web page, or as a Windows desktop app
-with its own installer. Each button gets an OFF and an ON image, and
-optionally an ALT image. You design each of these states on its own. The
-images are 188x188 pixels on the 8BV and 150x150 on the 6B and 6BV; the
-designer renders them at the project's size, so you lay out buttons the same
-way on every model.
+deploy them to it. It's a Windows desktop app with its own installer. Each
+button gets an OFF and an ON image, and optionally an ALT image. You design
+each of these states on its own. The images are 188x188 pixels on the 8BV and
+150x150 on the 6B and 6BV; the designer renders them at the project's size, so
+you lay out buttons the same way on every model.
 
 Each state is built from four parts, drawn from back to front:
 
@@ -27,42 +26,47 @@ The source code is on GitHub at
 
 ## Before you begin
 
-You need Python 3.10 or later, and a keypad that runs firmware 1.1.x on your
-network. Deploying uploads the whole design, so it uses the same experimental
-method as Part 3 of the [OMNI Keypad example code](https://github.com/jmmadisonav/OMNI-Keypad-example-code) README.
+You need a keypad that runs firmware 1.1.x on your network. Deploying uploads
+the whole design, so it uses the same experimental method as Part 3 of the [OMNI Keypad example code](https://github.com/jmmadisonav/OMNI-Keypad-example-code) README.
 
 ## Start the designer
 
-To start the designer, run this command from the repository folder:
+To start the designer, open **OMNI Keypad Designer** from the Start menu. The
+app carries its own Python, so you don't need to install Python to use it. To
+run it from source or build it, see [Build the desktop app](#build-the-desktop-app).
 
-```
-python designer/server.py
-```
+The app keeps projects, backups, and the recipe library in
+`Documents\OMNI Keypad Designer`. To open that folder, click **File > Open Data
+Folder**. To see the app's version, click **Help > About**; it's also at the
+right of the status bar.
 
-The designer opens in your browser at `http://127.0.0.1:8044/`. To use another
-port, add `--port 8050`. To stop it, press Ctrl+C.
+The menu bar has the usual Windows menus:
 
-The designer is also a Windows desktop app, **OMNI Keypad Designer**, with its
-own installer. The app carries its own Python, so you don't need to install
-Python to use it. It keeps projects, backups, and the recipe library in
-`Documents\OMNI Keypad Designer` instead of `designer/`. To open that folder,
-click **Folder** next to **Save as**. The app's version is at the right of the
-status bar. The app has no menu bar, but it keeps the usual shortcuts: Ctrl+R
-or F5 reloads, Ctrl+Plus, Ctrl+Minus, and Ctrl+0 zoom, F11 toggles full
-screen, and F12 or Ctrl+Shift+I opens the developer tools. To build the app,
-see [Build the desktop app](#build-the-desktop-app).
+- **File:** **New Project** (Ctrl+N), **Open Project**, **Save** (Ctrl+S),
+  **Save As** (Ctrl+Shift+S), **Open Data Folder**, and **Exit**.
+- **Edit:** **Undo** (Ctrl+Z), **Redo** (Ctrl+Y), and **Cut**, **Copy**,
+  **Paste**, and **Select All** for text fields.
+- **View:** **Reload** (F5 or Ctrl+R), **Zoom In** (Ctrl+Plus), **Zoom Out**
+  (Ctrl+Minus), **Actual Size** (Ctrl+0), **Full Screen** (F11), and
+  **Developer Tools** (F12 or Ctrl+Shift+I).
+- **Help:** **User Guide** (F1), which opens the guide in your browser, and
+  **About OMNI Keypad Designer**.
+
+The user guide is `designer/guide/index.html`. It covers the same ground as
+this README for people who use the app, without the developer sections. When
+you change how the app works, update both.
 
 If Windows doesn't let the app save to Documents, for example because Windows
 Security's Controlled folder access is on, the app keeps your projects in
-`%APPDATA%\OMNI Keypad Designer\Data` instead and tells you once. **Folder**
-opens whichever folder is in use. If you later let the app and its `python.exe`
-through Controlled folder access, it goes back to Documents, and you can move
-anything you saved in the meantime across.
+`%APPDATA%\OMNI Keypad Designer\Data` instead and tells you once. **Open Data
+Folder** opens whichever folder is in use. If you later let the app and its
+`python.exe` through Controlled folder access, it goes back to Documents, and
+you can move anything you saved in the meantime across.
 
 ## Design and deploy buttons
 
 1. The designer opens your most recent project, or a new project called
-   "Untitled" the first time. To start another, click **New**, and choose its
+   "Untitled" the first time. To start another, click **File > New Project**, and choose its
    name and keypad model. To work on a keypad's current design, enter its IP
    address, or click **Find**, and click **Import**. That saves the design as a
    new project named after the keypad, for example `172-17-0-55 2026-10-06`.
@@ -96,9 +100,9 @@ anything you saved in the meantime across.
    **Copy the {state} state to another button…** or **Copy all states to
    another button…**, and then click the button. You can switch pages first.
    The other button keeps its name and page link.
-1. Repeat for other buttons and pages. A red square marks each changed button, and
-   one next to the project name means there are unsaved changes.
-1. Click **Save**. You don't need a keypad for any of these steps.
+1. Repeat for other buttons and pages. A red square marks each changed button,
+   and one next to the project name means there are unsaved changes.
+1. Click **File > Save**, or press Ctrl+S. You don't need a keypad for any of these steps.
 1. To put the project on a keypad, enter its IP address and click **Deploy**.
    The designer saves first if needed. The keypad restarts with the project
    in about 20 seconds.
@@ -227,9 +231,9 @@ Buttons are numbered along the top row first, then the next row.
 
 The designer doesn't support the OMNI-KP-V yet.
 
-Each project is for one model. To choose it, click **New** and pick the
+Each project is for one model. To choose it, click **File > New Project** and pick the
 model. **Import** uses the model the keypad reports. You can't change a
-project's model later. The model appears next to the project name.
+project's model later. The model appears just above the keypad view.
 
 A tabletop keypad is the same model as its wall unit. A project for the
 OMNI-KP-8BV loads from and deploys to an OMNI-KP-T8BV, and the other way
@@ -241,7 +245,7 @@ model, with the tabletop housing.
 Under the keypad view, two controls set how the keypad looks:
 
 - **Wall | Tabletop** sets the housing. The tabletop T6B and T6BV turn the
-  screen sideways, so their buttons are 3 across. Choose it in **New**, or
+  screen sideways, so their buttons are 3 across. Choose it in **New Project**, or
   change it any time.
 - **Black | White** sets the finish, such as OMNI-KP-T8BV-BL or -WH. It only
   changes the preview.
@@ -304,8 +308,8 @@ Each project is a folder in `designer/projects/`:
 | `images/` | The button images the design uses |
 | `designer.json` | Each button's layers, which keypad design the project last matched, and when it was last deployed |
 
-To open a project, choose it in **Open**. To keep a copy under another name,
-click **Save as**. To delete a project, delete its folder.
+To open a project, click **File > Open Project** and choose it. To keep a copy
+under another name, click **File > Save As**. To delete a project, delete its folder.
 
 ## Reuse designs with the library
 
@@ -368,12 +372,13 @@ LED ring. Deploying a design closes the connection. To start again, click
 
 The desktop app is an Electron window around the designer. It starts
 `designer/server.py` with a bundled copy of Python's embeddable runtime,
-and shows the same page you get in a browser. Its code is in `electron/`, and
+and shows the page the server serves. Its code is in `electron/`, and
 its release scripts are in `build_tools/`, following the BSS Commission app.
 
 ### Before you begin
 
 - Node.js 22 or later.
+- To run the app from source: Python 3.10 or later.
 - The Node dependencies: run `npm install` from the repository folder.
 - To sign a release: the code-signing certificate at
   `%OneDriveCommercial%\WindowSigningCert\MyKey.pfx`, and a `.env` file at the

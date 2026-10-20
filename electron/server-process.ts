@@ -38,7 +38,7 @@ export function parseDataDir(output: string): string | null {
 export function serverArgs(root: string, dataDir: string, fallbackDir: string | null = null): string[] {
   return [
     '-I', path.join(root, 'designer', 'server.py'),
-    '--no-browser', '--port', String(PREFERRED_PORT), '--any-port',
+    '--port', String(PREFERRED_PORT), '--any-port',
     '--data-dir', dataDir,
     ...(fallbackDir ? ['--fallback-data-dir', fallbackDir] : []),
     '--exit-with-parent',

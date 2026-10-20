@@ -48,6 +48,7 @@ const state = {
   library: [],           // [{ name, thumbnail }]
   libQuery: "",
   keypads: [],           // The last Find result.
+  dataDir: "",           // The folder that holds projects, backups, and the library.
   keypadModel: "",       // The model of the keypad at the address, when known.
   connected: false,
   busy: null,            // "save", "load", "find", "deploy", "restore" or "backup"
@@ -202,6 +203,7 @@ function record(label, mergeKey = null) {
   history.undo.push({ label, snap: snapshot() });
   if (history.undo.length > HISTORY_LIMIT) history.undo.shift();
   history.redo = [];
+  sendMenuState();
 }
 
 function restore(snap) {
@@ -244,6 +246,7 @@ function clearHistory() {
   history.undo = [];
   history.redo = [];
   lastChange = { key: null, time: 0 };
+  sendMenuState();
 }
 
 // Text fields keep the browser's own undo for their text.
@@ -1219,8 +1222,6 @@ function updateHeader() {
   const m = model();
   renderPageSettings();
   $("unsaved").hidden = !unsaved;
-  $("save").classList.toggle("faded", !unsaved);
-  $("save").textContent = state.busy === "save" ? "Saving…" : "Save";
   $("find").textContent = state.busy === "find" ? "Finding…" : "Find";
   $("load").textContent = state.busy === "load" ? "Importing…" : "Import";
   const chip = $("model-chip");
@@ -1242,6 +1243,22 @@ function updateHeader() {
   $("conn").classList.toggle("on", state.connected);
   $("find-list").hidden = state.keypads.length < 2;
   $("find-list").innerHTML = icon("chevron-down", 14);
+  sendMenuState();
+}
+
+// The menu bar's File and Edit menus show what you can do now -- see electron/app-menu.ts.
+let sentMenuState = "";
+function sendMenuState() {
+  if (!window.desktop) return;
+  const menu = {
+    open: Boolean(state.project), busy: Boolean(state.busy), unsaved: Boolean(state.project) && pendingChanges() > 0,
+    canUndo: history.undo.length > 0, canRedo: history.redo.length > 0,
+    projects: state.projects.map((p) => ({ name: p.name, model: p.model })),
+  };
+  const json = JSON.stringify(menu);
+  if (json === sentMenuState) return;
+  sentMenuState = json;
+  window.desktop.setMenuState(menu);
 }
 
 function setBusy(busy) {
@@ -1301,15 +1318,7 @@ async function refreshProjects() {
   } catch {
     state.projects = [];
   }
-  const placeholder = document.createElement("option");
-  placeholder.value = "";
-  placeholder.textContent = "Open";
-  $("projects").replaceChildren(placeholder, ...state.projects.map((p) => {
-    const option = document.createElement("option");
-    option.value = p.name;
-    option.textContent = `${p.name} · ${p.model}`;
-    return option;
-  }));
+  sendMenuState();
 }
 
 async function guard(action) {
@@ -1393,9 +1402,7 @@ async function newProject() {
   setStatus(`Created ${project.name} for ${chosen}. Click a button to design it.`);
 }
 
-async function openProject() {
-  const name = $("projects").value;
-  $("projects").value = "";
+async function openProject(name) {
   if (!name || !(await guard(`Opening ${name}`))) return;
   try {
     const project = await getJson(projectUrl(name));
@@ -1898,7 +1905,7 @@ async function runRestore(backup, listView) {
 // must be answered, so they can't be dismissed with Escape or the backdrop.
 function wireAppDialogs() {
   const bridge = window.appDialog;
-  if (!bridge) return;                        // In a browser, there's no main process.
+  if (!bridge) return;                        // Outside the desktop app, there's no main process.
   const queue = [];
   const seen = new Set();
   let showing = false;
@@ -1930,29 +1937,43 @@ function wireAppDialogs() {
   bridge.getPending().then((pending) => pending.forEach(add));
 }
 
-// In the desktop app, the page is the only menu: it offers the projects
-// folder and shows the version, which a browser has no use for.
+// The menu bar's commands, which the main process passes on (see
+// electron/app-menu.ts), and the app's version in the status bar.
 async function wireDesktop() {
   const desktop = window.desktop;
   if (!desktop) return;
+  desktop.onMenuCommand((command, arg) => onMenuCommand(command, arg));
+  sendMenuState();
   const { version, dataDir } = await desktop.info();
-  $("open-folder").hidden = false;
-  $("open-folder").title = `Open ${dataDir}, which holds your projects, backups, and library`;
-  $("open-folder").addEventListener("click", async () => {
-    const error = await desktop.openDataFolder();
-    if (error) setStatus(`Couldn't open ${dataDir}: ${error}`, true);
-  });
+  state.dataDir = dataDir;
   $("app-version").hidden = false;
   $("app-version").textContent = `v${version}`;
+}
+
+// Project commands wait while a message is open or the page is busy, as the
+// menu's own greyed-out items do.
+async function onMenuCommand(command, arg) {
+  if (command === "open-data-folder") {
+    const error = await window.desktop.openDataFolder();
+    if (error) setStatus(`Couldn't open ${state.dataDir}: ${error}`, true);
+    return;
+  }
+  if (command === "undo" || command === "redo") {
+    // In a text field, the menu undoes typing, as Ctrl+Z does there.
+    if (isTextField(document.activeElement)) document.execCommand(command);
+    else if ($("modal").hidden && state.project && !state.busy) (command === "undo" ? undo : redo)();
+    return;
+  }
+  if (!$("modal").hidden || state.busy) return;
+  if (command === "new") newProject();
+  else if (command === "open" && arg) openProject(arg);
+  else if (command === "save" && state.project) onSave();
+  else if (command === "save-as" && state.project) saveAs();
 }
 
 function wire() {
   wireAppDialogs();
   wireDesktop();
-  $("new").addEventListener("click", newProject);
-  $("projects").addEventListener("change", openProject);
-  $("save").addEventListener("click", onSave);
-  $("save-as").addEventListener("click", () => state.project && saveAs());
   $("host").addEventListener("input", onHostInput);
   $("find").addEventListener("click", findKeypads);
   $("find-list").addEventListener("click", () => {

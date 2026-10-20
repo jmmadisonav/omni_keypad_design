@@ -16,7 +16,7 @@ SERVER = ROOT / "designer" / "server.py"
 
 class LaunchTests(unittest.TestCase):
     def start(self, *args):
-        proc = subprocess.Popen([sys.executable, str(SERVER), "--no-browser", *args],
+        proc = subprocess.Popen([sys.executable, str(SERVER), *args],
                                 stdin=subprocess.PIPE, stdout=subprocess.PIPE,
                                 stderr=subprocess.PIPE, text=True)
         self.addCleanup(lambda: proc.poll() is None and proc.kill())
@@ -65,7 +65,7 @@ class LaunchTests(unittest.TestCase):
 
     def test_says_which_folders_it_tried_when_both_are_refused(self):
         refused = self.refused_folder()
-        result = subprocess.run([sys.executable, str(SERVER), "--no-browser", "--port", "0",
+        result = subprocess.run([sys.executable, str(SERVER), "--port", "0",
                                  "--data-dir", str(refused), "--fallback-data-dir", str(refused)],
                                 capture_output=True, text=True, timeout=30)
         self.assertEqual(result.returncode, 1)

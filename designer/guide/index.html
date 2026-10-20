@@ -1,0 +1,451 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>OMNI Keypad Designer User Guide</title>
+<!-- Help > User Guide opens this file in your browser, straight from the
+     app's folder, so it works without the app running or internet access. -->
+<style>
+@font-face { font-family: "Hind"; src: url("../vendor/fonts/Hind-Regular.ttf"); font-weight: 400; }
+@font-face { font-family: "Hind"; src: url("../vendor/fonts/Hind-SemiBold.ttf"); font-weight: 600; }
+@font-face { font-family: "Hind"; src: url("../vendor/fonts/Hind-Bold.ttf"); font-weight: 700; }
+:root {
+  --red: #e31837; --slate: #2e3c49; --grey: #445c6d; --muted: #909dab; --light: #e4e5e6;
+  --line: #d5d8db; --code-bg: #f3f4f5; --page: #ffffff; --text: #2e3c49; --side: #f7f7f8;
+  --mono: Consolas, "SFMono-Regular", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root { --page: #1c242c; --text: #e4e5e6; --grey: #b4c0ca; --muted: #8796a4; --line: #34424f;
+          --code-bg: #26313b; --side: #222c35; --slate: #e4e5e6; }
+}
+* { box-sizing: border-box; }
+html { scroll-padding-top: 16px; }
+body { margin: 0; background: var(--page); color: var(--text); font: 16px/1.6 "Hind", "Segoe UI", Arial, sans-serif; }
+.layout { display: grid; grid-template-columns: 260px minmax(0, 1fr); min-height: 100vh; }
+nav { position: sticky; top: 0; align-self: start; height: 100vh; overflow: auto; padding: 28px 20px;
+      background: var(--side); border-right: 1px solid var(--line); }
+nav .brand { font-size: 18px; font-weight: 600; margin-bottom: 18px; }
+nav .brand span, h1 span { color: var(--red); }
+nav ol { list-style: none; margin: 0; padding: 0; }
+nav li { margin: 2px 0; }
+nav a { display: block; padding: 3px 8px; color: var(--grey); text-decoration: none; font-size: 14px; border-left: 2px solid transparent; }
+nav a:hover { color: var(--text); border-left-color: var(--red); }
+main { max-width: 820px; padding: 40px 48px 80px; }
+h1 { font-size: 34px; font-weight: 600; line-height: 1.2; margin: 0 0 8px; }
+.lead { font-size: 18px; color: var(--grey); margin: 0 0 32px; }
+h2 { font-size: 24px; font-weight: 600; margin: 48px 0 12px; padding-top: 16px; border-top: 1px solid var(--line); }
+h3 { font-size: 18px; font-weight: 700; margin: 28px 0 8px; }
+p, li { max-width: 72ch; }
+li { margin: 4px 0; }
+a { color: var(--red); }
+b, strong { font-weight: 700; }
+code, kbd { font-family: var(--mono); font-size: 14px; background: var(--code-bg); padding: 1px 5px; border-radius: 3px; }
+kbd { border: 1px solid var(--line); border-bottom-width: 2px; }
+table { width: 100%; border-collapse: collapse; margin: 12px 0 20px; font-size: 15px; }
+th, td { text-align: left; vertical-align: top; padding: 8px 10px; border-bottom: 1px solid var(--line); }
+th { font-size: 12px; letter-spacing: .06em; text-transform: uppercase; color: var(--grey); }
+.note { border-left: 3px solid var(--red); background: var(--code-bg); padding: 10px 14px; margin: 16px 0; }
+.note p { margin: 0; }
+@media (max-width: 860px) {
+  .layout { display: block; }
+  nav { position: static; height: auto; border-right: 0; border-bottom: 1px solid var(--line); padding: 16px; }
+  main { padding: 24px 16px 60px; }
+}
+@media print { nav { display: none; } .layout { display: block; } }
+</style>
+</head>
+<body>
+<div class="layout">
+<nav aria-label="Contents">
+  <div class="brand">OMNI Keypad Designer<span>.</span></div>
+  <ol>
+    <li><a href="#start">Get started</a></li>
+    <li><a href="#design">Design a button</a></li>
+    <li><a href="#deploy">Save and deploy</a></li>
+    <li><a href="#alt">The ALT state</a></li>
+    <li><a href="#layers">Layers</a></li>
+    <li><a href="#pages">Pages</a></li>
+    <li><a href="#settings">Keypad and page settings</a></li>
+    <li><a href="#models">Keypad models</a></li>
+    <li><a href="#bindings">OMNI bindings and script references</a></li>
+    <li><a href="#library">The library</a></li>
+    <li><a href="#backups">Backups</a></li>
+    <li><a href="#hcontrol">Program the keypad from your own code</a></li>
+    <li><a href="#files">Your files</a></li>
+    <li><a href="#shortcuts">Keyboard shortcuts</a></li>
+    <li><a href="#troubleshooting">Troubleshooting</a></li>
+  </ol>
+</nav>
+
+<main>
+<h1>User guide<span>.</span></h1>
+<p class="lead">Design button images for an OMNI keypad, and deploy them to it.</p>
+
+<p>Each button has an OFF and an ON image, and optionally an ALT image. You
+design each of these states on its own. The designer draws the images at the
+size your keypad needs, so you lay out buttons the same way on every model.
+The designer runs on your computer and doesn't need internet access.</p>
+
+<h2 id="start">Get started</h2>
+
+<p>You need a keypad that runs firmware 1.1.x on your network. Deploying
+uploads the whole design to the keypad.</p>
+
+<p>To start the designer, open <b>OMNI Keypad Designer</b> from the Start menu.
+The first time, it opens a new project called "Untitled". After that, it opens
+your most recent project.</p>
+
+<p>The window has four areas:</p>
+<ul>
+  <li><b>The header</b> shows the project name, the keypad's IP address, and
+    the <b>Find</b>, <b>Import</b>, <b>Backups</b>, and <b>Deploy</b> buttons.</li>
+  <li><b>The keypad view</b> shows the page you're working on, with the page
+    tabs above it and the keypad model just above the keypad.</li>
+  <li><b>The States rail</b> shows the OFF, ON, and ALT images of the selected
+    button.</li>
+  <li><b>The sidebar</b> has the <b>Keypad</b>, <b>Page</b>, <b>Button</b>, and
+    <b>Library</b> tabs.</li>
+</ul>
+
+<p>The menu bar holds the project commands:</p>
+<ul>
+  <li><b>File:</b> New Project, Open Project, Save, Save As, Open Data Folder,
+    and Exit.</li>
+  <li><b>Edit:</b> Undo and Redo, plus Cut, Copy, Paste, and Select All for
+    text fields.</li>
+  <li><b>View:</b> Reload, zoom, Full Screen, and Developer Tools.</li>
+  <li><b>Help:</b> this guide, and About, which shows the app's version.</li>
+</ul>
+
+<h2 id="design">Design a button</h2>
+
+<ol>
+  <li>To start a project, click <b>File &gt; New Project</b>, and choose its
+    name and keypad model. To work on a keypad's current design instead, enter
+    its IP address in the header, or click <b>Find</b>, and then click
+    <b>Import</b>. That saves the design as a new project named after the
+    keypad, for example <code>172-17-0-55 2026-10-06</code>.</li>
+  <li>Click a button on the keypad view. The <b>States</b> rail shows its OFF,
+    ON, and ALT images.</li>
+  <li>Click a state in the rail to edit it. The keypad shows that state on
+    every button, and the <b>Button</b> tab shows that state's parts.</li>
+  <li>Turn parts on with their switches, and click a part to change it.</li>
+</ol>
+
+<p>Each state is built from four parts, drawn from back to front:</p>
+<ul>
+  <li><b>Background:</b> a base shape (Squared, Bubble, or Circle 45) in a
+    Keypad Graphics colour, or a colour of your own.</li>
+  <li><b>Image:</b> a PNG or SVG of your own, such as a logo. It fills the
+    button and covers the background.</li>
+  <li><b>Icon:</b> any of more than 1,800 icons.</li>
+  <li><b>Text:</b> one or two lines in Titillium Web, Inter, Roboto, or
+    Oswald.</li>
+</ul>
+
+<p>Each state keeps its own settings, so ON can have a different icon, colour,
+or text from OFF. A part that differs from OFF is marked <b>≠ OFF</b>. New parts
+start the same in every state: a dim blue background, and white icons and
+text.</p>
+
+<p>To move the open part, drag it on the selected state in the rail, or change
+<b>X</b> and <b>Y</b>.</p>
+
+<h3>Choose a background colour</h3>
+<p>Most Keypad Graphics colours come as a dim and a bright picture. To use
+dim, click the left half of a swatch. To use bright, click the right half. You
+choose this for each state.</p>
+<p>To use your own colour, click <b>+</b> after the swatches, and pick
+<b>Dim</b> or <b>Bright</b>. The designer recolours the shape's grey artwork,
+so it keeps its shading.</p>
+
+<h3>Copy a state</h3>
+<p>To make another state of this button match the one you're editing, click
+<b>Copy state</b> and choose the state. To copy to another button, choose
+<b>Copy the … state to another button</b> or <b>Copy all states to another
+button</b>, and then click that button. You can switch pages first. The other
+button keeps its name and page link.</p>
+
+<h3>Rename a button</h3>
+<p>To rename a button, double-click its name at the top of the <b>Button</b>
+tab, type the new name, and press <kbd>Enter</kbd>. To keep the old name, press
+<kbd>Esc</kbd>. The name also names the button's image files on the keypad,
+for example <code>HDMI_1_OFF.png</code>.</p>
+
+<h3>Swap two buttons</h3>
+<p>To swap two buttons, drag one onto the other. The artwork, name, and page
+link move. Control settings, such as the HControl path, stay with each
+position. To show another page while you drag, drag over that page's tab.</p>
+
+<h2 id="deploy">Save and deploy</h2>
+
+<p>A red square marks each button you've changed since you last saved. A red
+square next to the project name means the project has unsaved changes.</p>
+
+<ul>
+  <li>To save, click <b>File &gt; Save</b>, or press <kbd>Ctrl+S</kbd>. You
+    don't need a keypad to design or save.</li>
+  <li>To keep a copy under another name, click <b>File &gt; Save As</b>.</li>
+  <li>To open another project, click <b>File &gt; Open Project</b>, and choose
+    it.</li>
+</ul>
+
+<p>To put the project on a keypad, enter the keypad's IP address in the header
+and click <b>Deploy</b>. The designer saves first if it needs to. The keypad
+restarts with the project in about 20 seconds.</p>
+
+<p>Before it uploads, the designer checks the keypad's model. If it isn't the
+project's model, nothing is uploaded. If the keypad has a different design
+from the one this project last imported or deployed, the designer asks before
+it replaces it.</p>
+
+<h3>Undo a change</h3>
+<p>To undo a change, press <kbd>Ctrl+Z</kbd> or click <b>Edit &gt; Undo</b>. To
+redo it, press <kbd>Ctrl+Y</kbd>. You can undo every change since you last
+saved or opened the project. In a text field, <kbd>Ctrl+Z</kbd> undoes your
+typing in that field instead.</p>
+
+<h2 id="alt">The ALT state</h2>
+
+<p>Each button can have a third state, ALT. A control system sets it over
+HControl with <code>"value":"Alt"</code> on the button's <code>state</code>
+path. Most designs don't use it, so a button has no ALT state until you add
+one.</p>
+
+<p>To give a button an ALT state, do the following:</p>
+<ol>
+  <li>Select the button, and click <b>+ Add ALT</b> in the States rail.</li>
+  <li>Click <b>Start from OFF</b>, <b>Start from ON</b>, or <b>Start
+    blank</b>.</li>
+  <li>Change ALT's parts. They're separate from OFF and ON.</li>
+</ol>
+
+<p>To take a button's ALT image off the keypad, click <b>Remove ALT</b> under
+its ALT image, and then save and deploy. <b>Import</b> keeps the ALT images a
+keypad already has.</p>
+
+<h2 id="layers">Layers</h2>
+
+<p><b>Simple</b> shows one of each part. When a button needs more, such as two
+text labels or a second icon, click <b>Layers</b> next to the button name.
+Layers shows the state's layers in two groups:</p>
+<ul>
+  <li><b>Front</b> holds Text and Icon layers. They're see-through, so you can
+    have any number, in any order.</li>
+  <li><b>Back</b> holds Shape and Image layers. They're solid, and they always
+    draw behind Front.</li>
+</ul>
+<p>When one Back layer hides another, a warning explains what's hidden, and
+offers to delete the hidden layer or, for an image, to shrink it. You can
+switch back to <b>Simple</b> when every state has at most one of each
+part.</p>
+
+<h2 id="pages">Pages</h2>
+
+<p>The tabs above the keypad view show the design's pages. A design can have
+up to 9 pages.</p>
+<ul>
+  <li>To add a page, click <b>+ Page</b>. A new page has page 1's background
+    colour and dial and LED ring settings, blank ranges, and no button
+    images.</li>
+  <li>To rename a page, double-click its tab. Page names must be unique.
+    Buttons that switch to the page keep switching to it.</li>
+  <li>To delete the page you're viewing, click <b>×</b> on its tab. Buttons
+    that switch to it stop switching pages.</li>
+</ul>
+
+<p>To make a button switch pages, select the button, and then choose a page in
+<b>Go to page</b>. The keypad switches pages by itself, without a control
+system. A badge such as <b>→ Lights</b> marks each button that switches
+pages.</p>
+
+<div class="note"><p><b>Note:</b> HControl paths use page numbers, such as
+<code>/page3/button1/action</code>. Deleting a page moves the pages after it up
+one number, so update any control system that uses their paths.</p></div>
+
+<h2 id="settings">Keypad and page settings</h2>
+
+<p>The <b>Keypad</b> tab holds settings for every page. The <b>Page</b> tab
+holds settings for the page you're viewing. Opening either tab deselects the
+selected button. These settings are saved with the project, deployed with it,
+and undone with <kbd>Ctrl+Z</kbd>.</p>
+
+<p>On the <b>Keypad</b> tab, <b>Lines</b> sets the colour of the lines between
+buttons.</p>
+
+<p>On the <b>Page</b> tab:</p>
+<ul>
+  <li><b>Background</b> sets the page's background colour. It shows as a thin
+    border around the buttons, and behind blank buttons and the transparent
+    parts of button images.</li>
+  <li><b>Dial range</b> and <b>LED ring range</b> set the lowest and highest
+    level of the dial and the LED ring, separately. Use whole numbers; they can
+    be negative. To use the keypad's own range, 0 to 200, leave both boxes
+    blank. These settings only appear on models with a dial.</li>
+  <li><b>Bindings on this page</b> lists controls that are bound to an OMNI
+    device or use a script reference.</li>
+</ul>
+
+<h3>Housing and finish</h3>
+<p>Under the keypad view, <b>Wall | Tabletop</b> sets the housing, and
+<b>Black | White</b> sets the finish. The finish only changes the preview. Both
+are saved with the project straight away.</p>
+
+<h2 id="models">Keypad models</h2>
+
+<table>
+  <thead><tr><th>Model</th><th>Tabletop version</th><th>Wall unit buttons</th><th>Tabletop buttons</th><th>Dial and LED ring</th></tr></thead>
+  <tbody>
+    <tr><td>OMNI-KP-6B</td><td>OMNI-KP-T6B</td><td>2 columns, 3 rows</td><td>3 columns, 2 rows</td><td>No</td></tr>
+    <tr><td>OMNI-KP-6BV</td><td>OMNI-KP-T6BV</td><td>2 columns, 3 rows</td><td>3 columns, 2 rows</td><td>Yes</td></tr>
+    <tr><td>OMNI-KP-8BV</td><td>OMNI-KP-T8BV</td><td>4 columns, 2 rows</td><td>4 columns, 2 rows</td><td>Yes</td></tr>
+  </tbody>
+</table>
+
+<p>Buttons are numbered along the top row first, then the next row. The
+designer doesn't support the OMNI-KP-V yet.</p>
+
+<p>Each project is for one model, which you choose in <b>File &gt; New
+Project</b>. <b>Import</b> uses the model the keypad reports. You can't change
+a project's model later.</p>
+
+<p>A tabletop keypad is the same model as its wall unit, so a project for the
+OMNI-KP-8BV deploys to an OMNI-KP-T8BV too, and the other way around.</p>
+
+<h2 id="bindings">OMNI bindings and script references</h2>
+
+<p>A design made in AVX can bind controls to an OMNI device. A bound control
+isn't available over HControl. When a project has bound controls, a warning
+above the keypad says how many, and the <b>Page</b> tab lists them.</p>
+
+<p>To make them available over HControl, click <b>Remove OMNI bindings</b> on
+the <b>Page</b> tab, and then save and deploy. This applies to every page. Page
+links and script references stay, and the dial and LED ring go back to the
+keypad's own range.</p>
+
+<p>A control can also use an AVX script reference, such as
+<code>Category_1/Reference_1</code>. It's still available over HControl, but at
+the reference's path instead of its page's path. For example, a dial on that
+reference is at <code>/Category_1/Reference_1/level</code> instead of
+<code>/page1/dial/level</code>. To move the controls back to their page paths,
+click <b>Remove script references</b>, and then save and deploy.</p>
+
+<h2 id="library">The library</h2>
+
+<p>To keep a button's design so you can reuse it, click <b>Save to library</b>
+and give it a name. To use it, open the <b>Library</b> tab, and then click the
+design to apply it to the selected button, or drag it onto any button.
+Applying a design replaces the button's parts and name, and keeps its page
+link. Buttons that use the same design share the same image files on the
+keypad.</p>
+
+<p><b>Ready-made</b> on the <b>Library</b> tab shows finished buttons from
+Keypad Graphics.</p>
+
+<h2 id="backups">Backups</h2>
+
+<p>The designer keeps a copy of a keypad's design before it changes it:</p>
+<ul>
+  <li>Every deploy saves the design that was running first.</li>
+  <li>Every <b>Import</b> saves a copy of what it imported.</li>
+  <li><b>Back up keypad now</b> in <b>Backups</b> saves a copy whenever you
+    like.</li>
+</ul>
+
+<p>To put a design back, click <b>Backups</b>, choose a backup, and click
+<b>Restore</b>. Restoring works even when the keypad has no design. If a
+deploy fails after its backup, the designer offers to restore that
+backup.</p>
+
+<h2 id="hcontrol">Program the keypad from your own code</h2>
+
+<p>The <b>HControl</b> drawer under the keypad view shows the strings your own
+code sends to the keypad and the replies to expect. To see them for a button,
+select the button. They cover subscribing to presses, getting and setting the
+button's state, and enabling or disabling it. Models with a dial also show the
+dial and LED ring paths. The <b>Notes</b> pane explains the protocol rules.</p>
+
+<ul>
+  <li>To copy one line, point to it and click its copy button.</li>
+  <li>To copy every line, click <b>Copy all</b>.</li>
+  <li>To resize the drawer, drag its top edge. To hide or show it, click the
+    selected tab.</li>
+</ul>
+
+<h3>Try a design on the keypad</h3>
+<p>The <b>Debug</b> tab answers the keypad the way a simple control system
+would, so you can check a deployed design by hand. It doesn't need a project
+open.</p>
+<ol>
+  <li>Enter the keypad's IP address in the header, or click <b>Find</b>.</li>
+  <li>Click the <b>Debug</b> tab, and then click <b>Connect</b>.</li>
+  <li>Press buttons and turn the dial on the keypad.</li>
+</ol>
+<p>While you're connected, pressing a button switches it between OFF and ON,
+and turning the dial sets the LED ring on the same page to the dial's level.
+The log shows every line sent (→) and received (←). When you connect, the log
+lists any controls the keypad doesn't make available; they might be bound to
+an OMNI device. Deploying closes the connection. To start again, click
+<b>Connect</b>.</p>
+
+<h2 id="files">Your files</h2>
+
+<p>The designer keeps everything in <code>Documents\OMNI Keypad Designer</code>.
+To open that folder, click <b>File &gt; Open Data Folder</b>.</p>
+
+<table>
+  <thead><tr><th>Folder</th><th>Holds</th></tr></thead>
+  <tbody>
+    <tr><td><code>projects</code></td><td>One folder per project. To delete a project, delete its folder.</td></tr>
+    <tr><td><code>backups</code></td><td>Designs saved before each deploy and import, and your manual backups.</td></tr>
+    <tr><td><code>library</code></td><td>The designs you saved to the library.</td></tr>
+  </tbody>
+</table>
+
+<h2 id="shortcuts">Keyboard shortcuts</h2>
+
+<table>
+  <thead><tr><th>Shortcut</th><th>Does</th></tr></thead>
+  <tbody>
+    <tr><td><kbd>Ctrl+N</kbd></td><td>New project</td></tr>
+    <tr><td><kbd>Ctrl+S</kbd></td><td>Save</td></tr>
+    <tr><td><kbd>Ctrl+Shift+S</kbd></td><td>Save as</td></tr>
+    <tr><td><kbd>Ctrl+Z</kbd></td><td>Undo</td></tr>
+    <tr><td><kbd>Ctrl+Y</kbd> or <kbd>Ctrl+Shift+Z</kbd></td><td>Redo</td></tr>
+    <tr><td><kbd>Ctrl+Plus</kbd>, <kbd>Ctrl+Minus</kbd>, <kbd>Ctrl+0</kbd></td><td>Zoom in, zoom out, actual size</td></tr>
+    <tr><td><kbd>F5</kbd> or <kbd>Ctrl+R</kbd></td><td>Reload the window</td></tr>
+    <tr><td><kbd>F11</kbd></td><td>Full screen</td></tr>
+    <tr><td><kbd>F12</kbd> or <kbd>Ctrl+Shift+I</kbd></td><td>Developer tools</td></tr>
+  </tbody>
+</table>
+
+<h2 id="troubleshooting">Troubleshooting</h2>
+
+<h3>The app saves to AppData instead of Documents</h3>
+<p>If Windows doesn't let the app save to Documents, for example because
+Windows Security's Controlled folder access is on, the app keeps your files in
+<code>%APPDATA%\OMNI Keypad Designer\Data</code> and tells you once. If you
+later let the app and its <code>python.exe</code> through Controlled folder
+access, it goes back to Documents, and you can move anything you saved in the
+meantime across.</p>
+
+<h3>A project says its model file is missing</h3>
+<p>You can still edit the project, but you can't deploy it until the model file
+is back. To restore it, reinstall the app.</p>
+
+<h3>The keypad has no design</h3>
+<p>A keypad with no design, for example after a factory reset, doesn't need a
+backup. <b>Deploy</b> checks for a design for about 15 seconds, and then
+uploads the project anyway.</p>
+
+<h3>A button from an earlier version lost its parts</h3>
+<p>The designer only opens button designs made since the States rail, where
+each state has its own parts. A button saved by an earlier version opens with
+the images it has on the keypad, as an image in each state. A library design
+from an earlier version can't be applied; to remove it, delete it from the
+library.</p>
+</main>
+</div>
+</body>
+</html>

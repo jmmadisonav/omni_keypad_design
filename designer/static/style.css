@@ -116,8 +116,6 @@ select.field { padding: 0 8px; }
 .project .overline { font-size: 10px; }
 .project-line { display: flex; align-items: center; gap: 8px; min-width: 0; }
 .project-name { font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.file-actions { display: flex; gap: 4px; flex: none; }
-.open-select { width: 78px; flex: none; padding: 0 6px; border-radius: 0; }
 .header-right { display: flex; gap: 12px; flex: none; margin-left: auto; }
 .device-area { position: relative; }
 .device { display: flex; align-items: center; height: 38px; border: 1px solid var(--control); }
@@ -185,8 +183,8 @@ body.busy .lockable { opacity: .4; pointer-events: none; }
 .stage-body { width: 100%; display: flex; flex-direction: column; align-items: center; gap: 14px; padding-top: 16px; }
 
 /* The keypad view looks like the device. Geometry per model is set below. */
-/* It's as wide as --face-max, or less to fit the stage's height above the tabs and controls (--reserve). */
-.faceplate { --face-max: 550px; --ratio: 1.07; --reserve: 140px; --scr-left: 11.4%; --scr-top: 14.8%;
+/* It's as wide as --face-max, or less to fit the stage's height above the tabs, model, and controls (--reserve). */
+.faceplate { --face-max: 550px; --ratio: 1.07; --reserve: 174px; --scr-left: 11.4%; --scr-top: 14.8%;
              --scr-w: 77.2%; --cols: 4; --dial-left: 38%; --dial-top: 64%; --dial-w: 24%;
              position: relative; flex: none; aspect-ratio: var(--ratio);
              width: clamp(200px, calc((100cqh - var(--reserve)) * var(--ratio)), min(100%, var(--face-max)));
@@ -231,7 +229,6 @@ body.busy .lockable { opacity: .4; pointer-events: none; }
 .seg-look button { flex: none; height: 32px; padding: 0 12px; font-size: 11px; font-weight: 700;
                    letter-spacing: .06em; text-transform: uppercase; }
 .look-picks { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-.legend { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--grey); }
 
 /* -- Sidebar ----------------------------------------------------------------------- */
 

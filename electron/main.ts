@@ -7,7 +7,9 @@
 import { app, BrowserWindow, dialog, ipcMain, Menu, shell } from 'electron';
 import type { ChildProcess } from 'node:child_process';
 import * as path from 'node:path';
+import { pathToFileURL } from 'node:url';
 import { AppDialogs } from './app-dialog';
+import { INITIAL_MENU_STATE, type MenuCommand, menuTemplate, parseMenuState } from './app-menu';
 import { dataFolderNotice, lastDataDirFile, readLastDataDir, writeLastDataDir } from './data-folder';
 import { LicenseClient } from './license/license';
 import { runLicensing } from './license/license-ui';
@@ -15,7 +17,7 @@ import { registryLicenseStore } from './license/registry';
 import { setPromptFontDir } from './license/serial-prompt';
 import { APP_NAME, designerDataDir, designerLocation, fallbackDataDir, userDataDir } from './paths';
 import { serverArgs, startServer } from './server-process';
-import { shortcutFor } from './shortcuts';
+import { type Shortcut, shortcutFor } from './shortcuts';
 
 /** Require a serial number even before the license server says so -- see
  * `enforceSerial` in electron/license/license.ts. The server can still turn
@@ -47,6 +49,9 @@ const primaryDataDir = designerDataDir(app.getPath('documents'));
 const fallbackDir = fallbackDataDir(app.getPath('appData'));
 let dataDir = primaryDataDir;
 
+/** designer/guide/index.html, which Help > User Guide opens in your browser. */
+let guidePath = '';
+
 function sendToWindow(win: BrowserWindow | null, channel: string, ...args: unknown[]): void {
   if (!win || win.isDestroyed() || win.webContents.isDestroyed()) { return; }
   win.webContents.send(channel, ...args);
@@ -62,6 +67,43 @@ ipcMain.on('app-dialog:answer', (_event, id: number, confirmed: boolean) => appD
 /** What the page shows only in the desktop app -- see electron/preload.ts. */
 ipcMain.handle('desktop:info', () => ({ version: app.getVersion(), dataDir }));
 ipcMain.handle('desktop:openDataFolder', () => shell.openPath(dataDir));
+
+/** The menu bar: the page carries out its commands and reports what it
+ * needs to show -- see electron/app-menu.ts. */
+function setMenu(state = INITIAL_MENU_STATE): void {
+  const actions = {
+    send: (command: MenuCommand, arg?: string) => sendToWindow(mainWindow, 'menu:command', command, arg),
+    view: (shortcut: Shortcut) => { if (mainWindow) { runShortcut(mainWindow, shortcut); } },
+    guide: () => void shell.openExternal(pathToFileURL(guidePath).href).catch(error => {
+      dialog.showErrorBox(APP_NAME, `Couldn't open the user guide at ${guidePath}: ${error instanceof Error ? error.message : error}`);
+    }),
+    about: () => void appDialogs.show({
+      title: `About ${APP_NAME}`,
+      message: `Version ${app.getVersion()}. Your projects, backups, and library are in ${dataDir}.`,
+      confirmLabel: 'OK',
+      cancelLabel: null,
+    }),
+  };
+  Menu.setApplicationMenu(Menu.buildFromTemplate(menuTemplate(state, actions, APP_NAME)));
+}
+
+/** What a View shortcut does, from the keyboard or the View menu. */
+function runShortcut(win: BrowserWindow, shortcut: Shortcut): void {
+  const contents = win.webContents;
+  switch (shortcut) {
+    case 'devtools': contents.toggleDevTools(); break;
+    case 'reload': contents.reload(); break;
+    case 'zoom-in': contents.setZoomLevel(Math.min(contents.getZoomLevel() + 0.5, 5)); break;
+    case 'zoom-out': contents.setZoomLevel(Math.max(contents.getZoomLevel() - 0.5, -3)); break;
+    case 'zoom-reset': contents.setZoomLevel(0); break;
+    case 'fullscreen': win.setFullScreen(!win.isFullScreen()); break;
+  }
+}
+
+ipcMain.on('menu:state', (_event, value: unknown) => {
+  const state = parseMenuState(value);
+  if (state) { setMenu(state); }
+});
 
 function createWindow(url: string): BrowserWindow {
   const win = new BrowserWindow({
@@ -81,21 +123,13 @@ function createWindow(url: string): BrowserWindow {
   });
   // The page's own title is "Button Designer"; keep the app's name.
   win.on('page-title-updated', event => event.preventDefault());
-  // No menu bar: the page's header is the app's menu. The shortcuts a menu
-  // would have provided are handled here instead -- see electron/shortcuts.ts.
+  // The View menu shows these shortcuts but doesn't register them, so they're
+  // handled here -- see electron/shortcuts.ts.
   win.webContents.on('before-input-event', (event, input) => {
     const shortcut = shortcutFor(input);
     if (!shortcut) { return; }
     event.preventDefault();
-    const contents = win.webContents;
-    switch (shortcut) {
-      case 'devtools': contents.toggleDevTools(); break;
-      case 'reload': contents.reload(); break;
-      case 'zoom-in': contents.setZoomLevel(Math.min(contents.getZoomLevel() + 0.5, 5)); break;
-      case 'zoom-out': contents.setZoomLevel(Math.max(contents.getZoomLevel() - 0.5, -3)); break;
-      case 'zoom-reset': contents.setZoomLevel(0); break;
-      case 'fullscreen': win.setFullScreen(!win.isFullScreen()); break;
-    }
+    runShortcut(win, shortcut);
   });
   win.once('ready-to-show', () => win.show());
 
@@ -168,6 +202,7 @@ async function noteDataFolder(): Promise<void> {
 async function start(): Promise<void> {
   const where = designerLocation(app.isPackaged, process.resourcesPath, REPO_ROOT);
   setPromptFontDir(path.join(where.root, 'designer', 'vendor', 'fonts'));
+  guidePath = path.join(where.root, 'designer', 'guide', 'index.html');
   try {
     // The server makes the folders, not the app. Node's recursive mkdir
     // never returns on a folder Controlled folder access protects: Windows
@@ -181,11 +216,11 @@ async function start(): Promise<void> {
         dialog.showErrorBox(APP_NAME, `The designer stopped unexpectedly (exit code ${code}). Restart ${APP_NAME}.`);
       }
     });
-    Menu.setApplicationMenu(null);
+    setMenu();
     mainWindow = createWindow(running.url);
     const win = mainWindow;
     // Wait for the page, so a licensing dialog sits over a drawn window. Only
-    // the first load: View > Reload mustn't license the app again.
+    // the first load: reloading mustn't license the app again.
     // A folder notice comes first, so the two dialogs don't stack.
     win.webContents.once('did-finish-load', () => void noteDataFolder().then(() => startLicensing(win)));
   } catch (error) {

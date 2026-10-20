@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
-"""Design OMNI keypad button images in your browser and deploy them.
+"""Serve the OMNI Keypad Designer page to the desktop app, and deploy designs.
 
 Usage:
-    python designer/server.py [--port 8044] [--no-browser]
+    python designer/server.py [--port 8044]
 
-The server listens on 127.0.0.1 only, and opens the designer in your
-default browser.
+The server listens on 127.0.0.1 only. The desktop app (electron/) starts it
+and shows its page.
 """
 
 from __future__ import annotations
@@ -22,7 +22,6 @@ import sys
 import threading
 import traceback
 import urllib.parse
-import webbrowser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
@@ -509,7 +508,6 @@ def open_data(data: Path, fallback: Path | None) -> tuple[Path, tuple[ProjectSto
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--port", type=int, default=8044)
-    parser.add_argument("--no-browser", action="store_true", help="don't open a browser")
     parser.add_argument("--data-dir", type=Path, default=HERE,
                         help="where to keep projects, backups, and the library (default: designer/)")
     parser.add_argument("--fallback-data-dir", type=Path,
@@ -537,8 +535,6 @@ def main() -> None:
         threading.Thread(target=_exit_when_stdin_closes, daemon=True).start()
     url = f"http://127.0.0.1:{server.server_address[1]}/"
     print(f"Button designer running at {url}. Press Ctrl+C to stop.", flush=True)
-    if not args.no_browser:
-        webbrowser.open(url)
     try:
         server.serve_forever()
     except KeyboardInterrupt:
