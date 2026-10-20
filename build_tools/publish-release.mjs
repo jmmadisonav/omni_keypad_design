@@ -3,7 +3,7 @@
 //
 // A separate command from release.mjs, run after it and after the git flow:
 //
-//   npm run release -- 0.2.5            build and sign the installer
+//   npm run release -- 0.2.5            build, sign and zip the installer
 //   (commit, tag v0.2.5, push the tag)
 //   npm run release:publish -- 0.2.5    upload it
 //
@@ -17,7 +17,7 @@
 import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
-import { ROOT, installerExeName } from './project-config.mjs';
+import { ROOT, releaseZipName } from './project-config.mjs';
 import {
   formatCommand, ghReleaseArgs, normalizeVersion, notesAreEmpty, notesAreStale, releaseNotesBody,
 } from './release-steps.mjs';
@@ -36,9 +36,10 @@ function main(argv) {
   // Checked before anything is sent: an upload of the wrong file, or of a
   // release with last version's notes, is visible to everyone with access
   // the moment it lands.
-  const installer = path.join(OUTPUT_DIR, installerExeName(version));
-  if (!existsSync(installer)) {
-    throw new Error(`Installer not found: ${installer}. Run \`npm run release -- ${version}\` first.`);
+  // The zip, not the bare installer: it carries release_notes.txt too.
+  const zip = path.join(OUTPUT_DIR, releaseZipName(version));
+  if (!existsSync(zip)) {
+    throw new Error(`Release zip not found: ${zip}. Run \`npm run release -- ${version}\` first.`);
   }
   const notesPath = path.join(OUTPUT_DIR, 'release_notes.txt');
   const notes = existsSync(notesPath) ? readFileSync(notesPath, 'utf8') : '';
@@ -49,7 +50,7 @@ function main(argv) {
     throw new Error(`${notesPath} has nothing under Features:.`);
   }
 
-  const ghArgs = ghReleaseArgs(version, installer, releaseNotesBody(notes));
+  const ghArgs = ghReleaseArgs(version, zip, releaseNotesBody(notes));
   console.log(`Publishing omni_keypad_designer ${version} to GitHub Releases${dryRun ? ' [DRY RUN]' : ''}`);
   console.log(`  RUN: ${formatCommand('gh', ghArgs)}`);
   if (dryRun) { return; }

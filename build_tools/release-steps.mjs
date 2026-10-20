@@ -80,10 +80,10 @@ export function releaseNotesBody(text) {
 /** Arguments for `gh release create`. `--verify-tag` makes gh refuse when
  * the tag isn't on GitHub yet, instead of creating one from whatever the
  * default branch holds there -- which, before a push, is not the commit
- * this installer was built from. */
-export function ghReleaseArgs(version, installerPath, notesBody) {
+ * this release was built from. */
+export function ghReleaseArgs(version, assetPath, notesBody) {
   return [
-    'release', 'create', version, installerPath,
+    'release', 'create', version, assetPath,
     '--verify-tag',
     '--title', `OMNI Keypad Designer ${version}`,
     '--notes', notesBody,

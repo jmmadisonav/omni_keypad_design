@@ -139,9 +139,9 @@ describe('the GitHub release description', () => {
 });
 
 describe('the gh release command', () => {
-  it('uploads the installer against a tag that must already exist', () => {
-    expect(ghReleaseArgs('v0.2.5', 'output/setup.exe', 'Features:')).toEqual([
-      'release', 'create', 'v0.2.5', 'output/setup.exe',
+  it('uploads the release zip against a tag that must already exist', () => {
+    expect(ghReleaseArgs('v0.2.5', 'output/release.zip', 'Features:')).toEqual([
+      'release', 'create', 'v0.2.5', 'output/release.zip',
       '--verify-tag',
       '--title', 'OMNI Keypad Designer v0.2.5',
       '--notes', 'Features:',
