@@ -71,6 +71,7 @@ th { font-size: 12px; letter-spacing: .06em; text-transform: uppercase; color: v
     <li><a href="#bindings">OMNI bindings and script references</a></li>
     <li><a href="#library">The library</a></li>
     <li><a href="#backups">Backups</a></li>
+    <li><a href="#locate">Locate or reset a keypad</a></li>
     <li><a href="#hcontrol">Program the keypad from your own code</a></li>
     <li><a href="#files">Your files</a></li>
     <li><a href="#shortcuts">Keyboard shortcuts</a></li>
@@ -99,7 +100,8 @@ your most recent project.</p>
 <p>The window has four areas:</p>
 <ul>
   <li><b>The header</b> shows the project name, the keypad's IP address, and
-    the <b>Find</b>, <b>Import</b>, <b>Backups</b>, and <b>Deploy</b> buttons.</li>
+    the <b>Find</b>, <b>Import</b>, <b>Backups</b>, <b>Locate</b>, and
+    <b>Deploy</b> buttons.</li>
   <li><b>The keypad view</b> shows the page you're working on, with the page
     tabs above it and the keypad model just above the keypad.</li>
   <li><b>The States rail</b> shows the OFF, ON, and ALT images of the selected
@@ -115,6 +117,8 @@ your most recent project.</p>
   <li><b>Edit:</b> Undo and Redo, plus Cut, Copy, Paste, and Select All for
     text fields.</li>
   <li><b>View:</b> Reload, zoom, Full Screen, and Developer Tools.</li>
+  <li><b>Keypad:</b> Locate, Back Up Keypad Now, and Factory Reset, for the
+    keypad whose IP address is in the header.</li>
   <li><b>Help:</b> this guide, and About, which shows the app's version.</li>
 </ul>
 
@@ -351,12 +355,33 @@ Keypad Graphics.</p>
   <li>Every <b>Import</b> saves a copy of what it imported.</li>
   <li><b>Back up keypad now</b> in <b>Backups</b> saves a copy whenever you
     like.</li>
+  <li><b>Factory Reset</b> saves a copy first, unless you clear its
+    checkbox.</li>
 </ul>
 
 <p>To put a design back, click <b>Backups</b>, choose a backup, and click
 <b>Restore</b>. Restoring works even when the keypad has no design. If a
 deploy fails after its backup, the designer offers to restore that
 backup.</p>
+
+<h2 id="locate">Locate or reset a keypad</h2>
+
+<p>To see which keypad has the IP address in the header, click <b>Locate</b>.
+The keypad's LED ring cycles for about 8 minutes. To stop it sooner, click
+<b>Stop locating</b>. The button changes back by itself when the keypad
+stops. <b>Keypad &gt; Locate</b> does the same.</p>
+
+<p>To reset a keypad to its factory settings, do the following:</p>
+<ol>
+  <li>Enter the keypad's IP address in the header, or click <b>Find</b>.</li>
+  <li>Click <b>Keypad &gt; Factory Reset</b>.</li>
+  <li>To keep a copy of the keypad's design, leave <b>Back up the keypad's
+    design first</b> selected.</li>
+  <li>Click <b>Factory reset</b>.</li>
+</ol>
+<p>The keypad loses its design and restarts. If it had a fixed IP address, it
+might come back with another one; to find it, click <b>Find</b>. To put the
+design back, deploy a project or restore the backup.</p>
 
 <h2 id="hcontrol">Program the keypad from your own code</h2>
 

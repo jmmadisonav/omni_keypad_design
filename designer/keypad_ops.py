@@ -55,9 +55,12 @@ def wait_for_design(host: str, port: int, fingerprint: str, timeout: float = 90)
 
 
 _COLOUR = re.compile(r"#[0-9A-Fa-f]{6}")
-_BACKUP_NAME = re.compile(r"(backup|loaded|manual)_(\d{8}_\d{6})(_\d+)?\.cpio")
-# What made each kind of backup: a deploy, Import, or Back up keypad now.
-_BACKUP_KINDS = {"backup": "deploy", "loaded": "loaded", "manual": "manual"}
+_BACKUP_NAME = re.compile(r"(backup|loaded|manual|reset)_(\d{8}_\d{6})(_\d+)?\.cpio")
+# What made each kind of backup: a deploy, Import, Back up keypad now, or a factory reset.
+_BACKUP_KINDS = {"backup": "deploy", "loaded": "loaded", "manual": "manual", "reset": "reset"}
+
+# How long Locate runs, in seconds, unless you stop it: the same as AVX.
+LOCATE_SECONDS = 500
 
 
 class ConflictError(Exception):
@@ -312,6 +315,41 @@ class KeypadOps:
         """Save the keypad's design as manual_<time>.cpio, and return the file name."""
         return self._save(self._download(host), "manual").name
 
+    def locate(self, host: str, on: bool) -> dict:
+        """Start or stop Locate, which cycles the keypad's LED ring."""
+        with self._connect(host) as kp:
+            kp.locate(LOCATE_SECONDS if on else 0)
+        return {"locating": on}
+
+    def locating(self, host: str) -> bool:
+        """Return True while the keypad is locating."""
+        with self._connect(host) as kp:
+            return bool(kp.identify("locating").get("locating"))
+
+    def factory_reset(self, host: str, back_up: bool = True) -> dict:
+        """Reset the keypad to its factory settings, and return the backup's name.
+
+        If back_up, save the keypad's design as reset_<time>.cpio first. A
+        keypad with no design doesn't answer the download, so it's reset
+        without a backup. The keypad might restart before it replies, so a
+        dropped connection counts as done.
+        """
+        with self._exclusive():
+            backup = ""
+            if back_up:
+                try:
+                    backup = self._save(self._download(host), "reset").name
+                except TimeoutError:
+                    if not self._answers(host):
+                        raise TimeoutError(f"the keypad at {host} stopped responding while it "
+                                           "sent its design. It wasn't reset.") from None
+            with self._connect(host) as kp:
+                try:
+                    kp.factory_reset()
+                except ConnectionError:
+                    pass
+            return {"backup": backup}
+
     def keypad_model(self, host: str) -> str:
         """Return the model the keypad reports, such as OMNI-KP-8BV."""
         try:
@@ -421,6 +459,13 @@ class KeypadOps:
             raise TimeoutError(
                 f"the keypad at {host} didn't send its design. It might have no design "
                 "loaded, for example after a factory reset.") from None
+
+    def _connect(self, host: str) -> HControlClient:
+        """Connect for a quick request, or raise ConnectionError."""
+        try:
+            return HControlClient(host, self.port, timeout=min(self.timeout, 5))
+        except OSError as error:
+            raise ConnectionError(f"couldn't connect to the keypad at {host}: {error}") from None
 
     def _check_model(self, host: str, model: str, aliases: Collection[str]) -> None:
         """Raise ModelMismatch unless the keypad is model, or one of aliases."""

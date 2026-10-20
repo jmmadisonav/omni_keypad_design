@@ -129,6 +129,7 @@ select.field { padding: 0 8px; }
               font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
               white-space: nowrap; transition: background 200ms; }
 .device-btn:hover { background: var(--light); }
+.device-btn.on { color: var(--red); }
 .device-btn.chevron { display: grid; place-items: center; width: 28px; padding: 0; }
 .popover { position: absolute; top: 44px; left: 0; z-index: 5; width: 360px; max-width: calc(100vw - 40px);
            background: var(--white); border: 1px solid var(--control); box-shadow: 0 2px 4px -2px rgba(46, 60, 73, .4); }
@@ -535,6 +536,9 @@ label.btn-outline { cursor: pointer; }
 .backup-date { display: flex; align-items: center; gap: 8px; font-size: 14px; }
 .tag { padding: 1px 5px; background: var(--light); font-size: 10px; font-weight: 700; letter-spacing: .06em; }
 .tag.deploy { background: var(--slate); color: var(--white); }
+.tag.reset { background: var(--red); color: var(--white); }
+.check-row { display: flex; align-items: center; gap: 8px; font-size: 14px; cursor: pointer; }
+.check-row input { width: 16px; height: 16px; margin: 0; accent-color: var(--red); }
 .backup-file { font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .backup-size { flex: none; font-size: 12px; color: var(--grey); }
 .indeterminate { position: relative; height: 6px; overflow: hidden; background: var(--light); }

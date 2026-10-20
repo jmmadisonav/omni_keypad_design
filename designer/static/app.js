@@ -48,6 +48,7 @@ const state = {
   library: [],           // [{ name, thumbnail }]
   libQuery: "",
   keypads: [],           // The last Find result.
+  locating: false,       // The keypad at host() is locating: its LED ring cycles.
   dataDir: "",           // The folder that holds projects, backups, and the library.
   keypadModel: "",       // The model of the keypad at the address, when known.
   connected: false,
@@ -1224,6 +1225,8 @@ function updateHeader() {
   $("unsaved").hidden = !unsaved;
   $("find").textContent = state.busy === "find" ? "Finding…" : "Find";
   $("load").textContent = state.busy === "load" ? "Importing…" : "Import";
+  $("locate").textContent = state.locating ? "Stop locating" : "Locate";
+  $("locate").classList.toggle("on", state.locating);
   const chip = $("model-chip");
   chip.hidden = !open;
   if (open) {
@@ -1253,6 +1256,7 @@ function sendMenuState() {
   const menu = {
     open: Boolean(state.project), busy: Boolean(state.busy), unsaved: Boolean(state.project) && pendingChanges() > 0,
     canUndo: history.undo.length > 0, canRedo: history.redo.length > 0,
+    hasKeypad: Boolean(host()), locating: state.locating,
     projects: state.projects.map((p) => ({ name: p.name, model: p.model })),
   };
   const json = JSON.stringify(menu);
@@ -1561,6 +1565,7 @@ async function findKeypads() {
 
 function onHostInput() {
   remember("designer.host", host());
+  stopWatchingLocate();
   $("host").title = "";
   state.connected = false;
   state.keypadModel = state.keypads.find((k) => k.ip === host())?.model || "";
@@ -1807,7 +1812,7 @@ async function runDeploy(address, force) {
 
 // -- Backups ----------------------------------------------------------------------------
 
-const KIND_TAGS = { deploy: "Before deploy", loaded: "Imported", manual: "Manual" };
+const KIND_TAGS = { deploy: "Before deploy", loaded: "Imported", manual: "Manual", reset: "Before reset" };
 
 function formatSize(bytes) {
   return bytes >= 1e6 ? `${(bytes / 1e6).toFixed(1)} MB` : `${Math.max(1, Math.round(bytes / 1e3))} KB`;
@@ -1850,15 +1855,10 @@ async function openBackups(select = "") {
     error.replaceChildren();
     render();
     try {
-      const made = await sendJson("POST", "/api/backups", { host: host() });
+      selected = await backUpKeypad();
       backups = await getJson("/api/backups");
-      selected = made.name;
-      state.connected = true;
-      updateHeader();
-      setStatus(`Backed up ${host()} to ${made.name}.`);
     } catch (err) {
       error.replaceChildren(result(false, err.message));
-      setStatus(err.message, true);
     } finally {
       backingUp = false;
       render();
@@ -1868,12 +1868,117 @@ async function openBackups(select = "") {
   content.push(list, addLink, error);
   const view = {
     title: "Backups",
-    body: "Stored on this computer in designer/backups/. Deploy saves backup_ files. Import saves loaded_ files. Back up keypad now saves manual_ files.",
+    body: "Stored in the backups folder of your data folder. Deploy saves backup_ files, Import saves loaded_ files, Back up keypad now saves manual_ files, and Factory reset saves reset_ files.",
     content,
     secondary: { text: "Close", onClick: closeModal },
     primary: { text: "Restore", onClick: () => { if (selected && !needHost()) runRestore(selected, view); } },
   };
   showModal(view);
+}
+
+// Save the keypad's design as a manual backup, and return the file name.
+// Throws, after saying why in the status bar, if it fails.
+async function backUpKeypad() {
+  const address = host();
+  try {
+    const made = await sendJson("POST", "/api/backups", { host: address });
+    state.connected = true;
+    updateHeader();
+    setStatus(`Backed up ${address} to ${made.name}.`);
+    return made.name;
+  } catch (error) {
+    setStatus(error.message, true);
+    throw error;
+  }
+}
+
+// -- Locate and factory reset -------------------------------------------------------------
+
+// While the keypad locates, the page asks it every few seconds whether it
+// still is, so Locate turns itself off when the keypad stops by itself.
+const LOCATE_POLL_MS = 2000;
+let locateTimer = null;
+
+async function toggleLocate() {
+  if (needHost() || state.busy) return;
+  const address = host();
+  const on = !state.locating;
+  try {
+    await sendJson("POST", "/api/keypad/locate", { host: address, on });
+  } catch (error) {
+    return setStatus(error.message, true);
+  }
+  if (address !== host()) return;                 // You typed another address meanwhile.
+  state.connected = true;
+  if (on) {
+    state.locating = true;
+    locateTimer = setInterval(checkLocating, LOCATE_POLL_MS);
+    setStatus(`The LED ring on ${address} is cycling. To stop it, click Stop locating.`);
+  } else {
+    stopWatchingLocate();
+    setStatus(`Stopped locating ${address}.`);
+  }
+  updateHeader();
+}
+
+async function checkLocating() {
+  const address = host();
+  let locating;
+  try {
+    ({ locating } = await sendJson("POST", "/api/keypad/locating", { host: address }));
+  } catch {
+    locating = false;                             // Unreachable, so it isn't locating for you.
+  }
+  if (locating || !state.locating || address !== host()) return;
+  stopWatchingLocate();
+  setStatus(`${address} stopped locating.`);
+  updateHeader();
+}
+
+function stopWatchingLocate() {
+  clearInterval(locateTimer);
+  locateTimer = null;
+  state.locating = false;
+}
+
+async function factoryReset() {
+  if (needHost() || state.busy) return;
+  const address = host();
+  const keep = el("label", "check-row");
+  const box = el("input");
+  box.type = "checkbox";
+  box.checked = true;
+  keep.append(box, el("span", "", "Back up the keypad's design first"));
+  const reset = await new Promise((resolve) => {
+    const done = (value) => { closeModal(); resolve(value); };
+    showModal({
+      title: "Factory reset",
+      body: `This resets the keypad at ${address} to its factory settings. It loses its design and ` +
+            "restarts. If it had a fixed IP address, it might come back with another one: to find it, click Find.",
+      content: [keep],
+      secondary: { text: "Cancel", onClick: () => done(null) },
+      primary: { text: "Factory reset", onClick: () => done({ backUp: box.checked }) },
+    });
+  });
+  if (!reset) return;
+  stopWatchingLocate();
+  setBusy("reset");
+  showModal({ title: "Factory reset", body: reset.backUp ? `Backing up ${address}, and then resetting it.` : `Resetting ${address}.`,
+              content: running("Waiting for the keypad."), closable: false });
+  try {
+    const { backup } = await sendJson("POST", "/api/keypad/factory-reset", { host: address, backUp: reset.backUp });
+    state.connected = false;
+    const saved = backup ? ` Its design is saved as ${backup}: to put it back, click Backups.` : "";
+    showModal({ title: "Factory reset", content: [result(true, `The keypad at ${address} is resetting.${saved}`)],
+                secondary: { text: "Close", onClick: closeModal } });
+    setStatus(`Reset ${address} to its factory settings.${saved}`);
+  } catch (error) {
+    showModal({ title: "Factory reset failed", content: [result(false, error.message)],
+                secondary: { text: "Close", onClick: closeModal } });
+    setStatus(error.message, true);
+  } finally {
+    setBusy(null);
+  }
 }
 
 async function runRestore(backup, listView) {
@@ -1965,7 +2070,10 @@ async function onMenuCommand(command, arg) {
     return;
   }
   if (!$("modal").hidden || state.busy) return;
-  if (command === "new") newProject();
+  if (command === "locate") toggleLocate();
+  else if (command === "back-up-keypad") { if (!needHost()) backUpKeypad().catch(() => {}); }
+  else if (command === "factory-reset") factoryReset();
+  else if (command === "new") newProject();
   else if (command === "open" && arg) openProject(arg);
   else if (command === "save" && state.project) onSave();
   else if (command === "save-as" && state.project) saveAs();
@@ -1976,6 +2084,7 @@ function wire() {
   wireDesktop();
   $("host").addEventListener("input", onHostInput);
   $("find").addEventListener("click", findKeypads);
+  $("locate").addEventListener("click", toggleLocate);
   $("find-list").addEventListener("click", () => {
     renderFindPopover();
     $("find-popover").hidden = !$("find-popover").hidden;

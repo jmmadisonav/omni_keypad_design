@@ -179,6 +179,27 @@ class HControlClient:
             params["arguments"] = arguments
         return self._request("exec", params)
 
+    # -- The keypad itself -------------------------------------------------
+
+    def identify(self, *params: str) -> dict:
+        """Return what discovery reports about this keypad, such as its guid,
+        mac, name, and whether it's locating. Pass parameter names to ask for
+        those only.
+        """
+        return self._request("disco", {"params": list(params or DISCO_PARAMS + ["locating"])})
+
+    def locate(self, timeout: int) -> dict:
+        """Make the keypad show where it is: its LED ring cycles for timeout
+        seconds. Pass 0 to stop. The keypad wants its own guid, mac, and name.
+        """
+        identity = self.identify("guid", "mac", "name")
+        return self._request("locate", {**{key: identity.get(key, "") for key in ("guid", "mac", "name")},
+                                        "timeout": timeout})
+
+    def factory_reset(self) -> None:
+        """Reset the keypad to its factory settings. It loses its design."""
+        self.exec("/configuration/commands", "reset", level="Factory")
+
     # -- Files -------------------------------------------------------------
 
     def get_file(self, path: str) -> bytes:

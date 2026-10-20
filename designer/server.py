@@ -194,6 +194,16 @@ class _Handler(BaseHTTPRequestHandler):
                                for info in self.ops.backup_info()])
         if route == ("POST", "backups"):
             return self._json({"name": self.ops.back_up(self._host_from(self._body()))})
+        if route == ("POST", "keypad", "locate"):
+            body = self._body()
+            host = self._host_from(body)
+            return self._json(self.ops.locate(host, _flag(body, "on")))
+        if route == ("POST", "keypad", "locating"):
+            return self._json({"locating": self.ops.locating(self._host_from(self._body()))})
+        if route == ("POST", "keypad", "factory-reset"):
+            body = self._body()
+            host = self._host_from(body)
+            return self._json(self.ops.factory_reset(host, back_up=_flag(body, "backUp")))
         if route == ("POST", "design", "restore"):
             body = self._body()
             host = self._host_from(body)
@@ -454,6 +464,14 @@ def _field(body: dict, key: str, kind: type):
         raise ValueError(f"the request needs \"{key}\" ({kind.__name__})")
     return value
 
+
+
+def _flag(body: dict, key: str) -> bool:
+    """Return body[key], or raise ValueError unless it's true or false."""
+    value = body.get(key)
+    if not isinstance(value, bool):
+        raise ValueError(f"{key} must be true or false")
+    return value
 
 def _exit_when_stdin_closes() -> None:
     """Exit once standard input reaches its end.

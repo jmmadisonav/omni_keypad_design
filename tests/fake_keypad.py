@@ -10,6 +10,8 @@ requests the way the real keypad (firmware 1.1.4.0) does:
 - Enums are returned as indexes unless the request asks for "format":"string".
 - Error replies use the keypad's own messages, such as "unknown path".
 - getfile and putfile use 1000-character base64 blocks and an MD5 check.
+- disco on the connection answers with the keypad's identity, and locate
+  makes it report locating for timeout seconds (0 stops it).
 """
 
 from __future__ import annotations
@@ -62,6 +64,9 @@ class FakeKeypad:
         self.params = copy.deepcopy(params if params is not None else default_params())
         self.files: dict[str, bytes] = {}
         self.commands = {"/configuration/commands": {"reset"}}
+        self.identity = {"guid": "407dcbc9-fe99-92d6-f7b5-00609FAC50AA", "mac": "00:60:9F:AC:50:AA",
+                         "name": "DynamicKeypad-AC50AA", "model": "OMNI-KP-8BV"}
+        self.locating_until = 0.0         # time.monotonic() when locating stops.
         self.block_chars = 1000
         self.ignore: set[str] = set()     # Commands to leave unanswered.
         self.delay: dict[str, float] = {} # Seconds to wait before answering a command.
@@ -260,6 +265,17 @@ class _Session:
             self.send("@exec")
         else:
             self.send("@exec", {"path": params.get("path"), "error": UNKNOWN_PATH})
+
+    def on_disco(self, params) -> None:
+        keypad = self.keypad
+        info = {**keypad.identity, "locating": time.monotonic() < keypad.locating_until}
+        wanted = (params or {}).get("params")
+        self.send("@disco", {k: v for k, v in info.items() if not wanted or k in wanted})
+
+    def on_locate(self, params) -> None:
+        timeout = params.get("timeout", 0)
+        self.keypad.locating_until = time.monotonic() + timeout if timeout else 0.0
+        self.send("@locate", {**params, "ip": "127.0.0.1", "port": self.keypad.port})
 
     # -- File transfer -------------------------------------------------------
 

@@ -1,8 +1,8 @@
 // electron/app-menu.ts
 //
 // The app's menu bar, laid out the way Windows apps usually are: File, Edit,
-// View, and Help. The designer page (designer/static/app.js) carries out the
-// project commands and its own undo: the main process only passes on which
+// View, the app's own Keypad menu, and Help. The designer page (designer/static/app.js) carries out the
+// project and keypad commands and its own undo: the main process only passes on which
 // one you picked. The page reports what the menu needs to know, such as the
 // saved projects and whether you can save, whenever it changes.
 //
@@ -12,7 +12,8 @@
 import type { MenuItemConstructorOptions } from 'electron';
 import type { Shortcut } from './shortcuts';
 
-export type MenuCommand = 'new' | 'open' | 'save' | 'save-as' | 'open-data-folder' | 'undo' | 'redo';
+export type MenuCommand = 'new' | 'open' | 'save' | 'save-as' | 'open-data-folder' | 'undo' | 'redo'
+  | 'locate' | 'back-up-keypad' | 'factory-reset';
 
 /** What the page reports to the menu. */
 export interface MenuState {
@@ -24,15 +25,20 @@ export interface MenuState {
   unsaved: boolean;
   canUndo: boolean;
   canRedo: boolean;
+  /** A keypad's IP address is entered. */
+  hasKeypad: boolean;
+  /** That keypad is locating. */
+  locating: boolean;
   /** The saved projects, in the order the page lists them. */
   projects: { name: string; model: string }[];
 }
 
 export const INITIAL_MENU_STATE: MenuState = {
-  open: false, busy: true, unsaved: false, canUndo: false, canRedo: false, projects: [],
+  open: false, busy: true, unsaved: false, canUndo: false, canRedo: false, hasKeypad: false, locating: false,
+  projects: [],
 };
 
-const FLAGS = ['open', 'busy', 'unsaved', 'canUndo', 'canRedo'] as const;
+const FLAGS = ['open', 'busy', 'unsaved', 'canUndo', 'canRedo', 'hasKeypad', 'locating'] as const;
 
 /** Reads a menu state the page sent, or null if it isn't one. */
 export function parseMenuState(value: unknown): MenuState | null {
@@ -44,6 +50,7 @@ export function parseMenuState(value: unknown): MenuState | null {
   return {
     open: v.open as boolean, busy: v.busy as boolean, unsaved: v.unsaved as boolean,
     canUndo: v.canUndo as boolean, canRedo: v.canRedo as boolean,
+    hasKeypad: v.hasKeypad as boolean, locating: v.locating as boolean,
     projects: projects.map(p => ({ name: p.name, model: p.model })),
   };
 }
@@ -107,6 +114,16 @@ export function menuTemplate(state: MenuState, actions: MenuActions, appName: st
         { type: 'separator' },
         { label: '&Full Screen', ...shown('F11'), click: () => view('fullscreen') },
         { label: '&Developer Tools', ...shown('F12'), click: () => view('devtools') },
+      ],
+    },
+    {
+      label: '&Keypad',
+      submenu: [
+        { label: '&Locate', type: 'checkbox', checked: state.locating, enabled: ready && state.hasKeypad,
+          click: () => send('locate') },
+        { label: '&Back Up Keypad Now', enabled: ready && state.hasKeypad, click: () => send('back-up-keypad') },
+        { type: 'separator' },
+        { label: '&Factory Reset…', enabled: ready && state.hasKeypad, click: () => send('factory-reset') },
       ],
     },
     {

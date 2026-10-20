@@ -12,13 +12,13 @@ const item = (items: MenuItemConstructorOptions[], label: string) =>
 const click = (i: MenuItemConstructorOptions) => (i.click as () => void)();
 
 const ready: MenuState = {
-  open: true, busy: false, unsaved: true, canUndo: true, canRedo: true,
+  open: true, busy: false, unsaved: true, canUndo: true, canRedo: true, hasKeypad: true, locating: false,
   projects: [{ name: 'Lobby', model: 'OMNI-KP-8BV' }],
 };
 
 describe('menuTemplate', () => {
   it('has the usual Windows menus, in order', () => {
-    expect(menus(ready).map(m => m.label)).toEqual(['&File', '&Edit', '&View', '&Help']);
+    expect(menus(ready).map(m => m.label)).toEqual(['&File', '&Edit', '&View', '&Keypad', '&Help']);
   });
 
   it('passes the project and undo commands you pick to the page', () => {
@@ -37,6 +37,25 @@ describe('menuTemplate', () => {
     expect(a.send).toHaveBeenLastCalledWith('undo');
     click(item(edit, 'Redo'));
     expect(a.send).toHaveBeenLastCalledWith('redo');
+  });
+
+  it('passes the keypad commands to the page', () => {
+    const a = actions();
+    const keypad = submenu(ready, '&Keypad', a);
+    for (const [label, command] of [['Locate', 'locate'], ['Back Up Keypad Now', 'back-up-keypad'], ['Factory Reset…', 'factory-reset']]) {
+      click(item(keypad, label));
+      expect(a.send).toHaveBeenLastCalledWith(command);
+    }
+  });
+
+  it('ticks Locate while the keypad is locating', () => {
+    expect(item(submenu(ready, '&Keypad'), 'Locate').checked).toBe(false);
+    expect(item(submenu({ ...ready, locating: true }, '&Keypad'), 'Locate').checked).toBe(true);
+  });
+
+  it('turns off the keypad commands until you enter an IP address', () => {
+    const keypad = submenu({ ...ready, hasKeypad: false }, '&Keypad');
+    expect(keypad.filter(i => i.label).map(i => i.enabled)).toEqual([false, false, false]);
   });
 
   it('runs the View shortcuts and the Help items', () => {

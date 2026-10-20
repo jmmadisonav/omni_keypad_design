@@ -270,6 +270,32 @@ class ServerTests(unittest.TestCase):
         self.assertEqual([b["name"] for b in self.json_request("GET", "/api/backups")[1]],
                          [result["name"]])
 
+    def test_locate_starts_reports_and_stops(self):
+        self.assertEqual(self.json_request("POST", "/api/keypad/locate", {"host": "127.0.0.1", "on": True}),
+                         (200, {"locating": True}))
+        self.assertEqual(self.json_request("POST", "/api/keypad/locating", {"host": "127.0.0.1"}),
+                         (200, {"locating": True}))
+        self.json_request("POST", "/api/keypad/locate", {"host": "127.0.0.1", "on": False})
+        self.assertEqual(self.json_request("POST", "/api/keypad/locating", {"host": "127.0.0.1"}),
+                         (200, {"locating": False}))
+
+    def test_locate_needs_on_as_true_or_false(self):
+        status, result = self.json_request("POST", "/api/keypad/locate", {"host": "127.0.0.1", "on": "yes"})
+        self.assertEqual(status, 400)
+        self.assertIn("on must be true or false", result["error"])
+
+    def test_factory_reset_backs_up_and_resets(self):
+        status, result = self.json_request("POST", "/api/keypad/factory-reset",
+                                           {"host": "127.0.0.1", "backUp": True})
+        self.assertEqual(status, 200, result)
+        self.assertTrue(result["backup"].startswith("reset_"))
+        self.assertIn('"level":"Factory"', self.keypad.received[-1])
+
+    def test_factory_reset_needs_back_up_as_true_or_false(self):
+        status, result = self.json_request("POST", "/api/keypad/factory-reset", {"host": "127.0.0.1"})
+        self.assertEqual(status, 400)
+        self.assertNotIn('"level":"Factory"', "".join(self.keypad.received))
+
     def test_back_up_now_needs_a_host(self):
         status, result = self.json_request("POST", "/api/backups", {})
         self.assertEqual(status, 400, result)

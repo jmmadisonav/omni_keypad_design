@@ -14,3 +14,15 @@ designer/library/
 
 # Signing secret -- see .env.example. NEVER commit the real file.
 .env
+locate.pcapng
+keypad_images.zip
+todo.txt
+keypad_images/OMNI-KP-6B.webp
+keypad_images/OMNI-KP-6BV.webp
+keypad_images/OMNI-KP-8BV.webp
+keypad_images/OMNI-KP-T6B.webp
+keypad_images/OMNI-KP-T6BV.webp
+keypad_images/OMNI-KP-T8BV.webp
+keypad_images/white.jpg
+OMNI keypad UI redesign (1).zip
+OMNI keypad UI redesign (2).zip

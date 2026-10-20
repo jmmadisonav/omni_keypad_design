@@ -144,6 +144,27 @@ class RequestTests(KeypadTestCase):
         self.assertEqual(kp.get("/settings/brightness"), 77)
 
 
+class DeviceTests(KeypadTestCase):
+    def test_identify_asks_over_the_connection(self):
+        info = self.kp.identify()
+        self.assertEqual(info["mac"], "00:60:9F:AC:50:AA")
+        self.assertIs(info["locating"], False)
+
+    def test_locate_starts_and_stops(self):
+        reply = self.kp.locate(500)
+        self.assertEqual(reply["timeout"], 500)
+        self.assertIn('"guid":"407dcbc9-fe99-92d6-f7b5-00609FAC50AA"', self.keypad.received[-1])
+        self.assertIs(self.kp.identify()["locating"], True)
+        self.kp.locate(0)
+        self.assertIs(self.kp.identify()["locating"], False)
+
+    def test_factory_reset_runs_the_reset_command(self):
+        self.kp.factory_reset()
+        self.assertEqual(self.keypad.received[-1],
+                         'exec {"path":"/configuration/commands","command":"reset",'
+                         '"arguments":{"level":"Factory"}}')
+
+
 class SubscriptionTests(KeypadTestCase):
     def setUp(self):
         super().setUp()
