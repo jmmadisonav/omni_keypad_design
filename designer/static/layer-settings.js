@@ -125,7 +125,7 @@ export function createLayerSettings({ form, catalog, iconTags, onChange, onStatu
 
   function imageFields() {
     const name = layer.source?.kind === "library" ? `Ready-made · ${escapeHtml(layer.source.name)}`
-      : layer.source?.kind === "keypad" ? "Loaded from keypad" : escapeHtml(layer.file || (layer.src ? "Uploaded image" : "PNG or SVG"));
+      : layer.source?.kind === "keypad" ? "Imported from keypad" : escapeHtml(layer.file || (layer.src ? "Uploaded image" : "PNG or SVG"));
     return `<div class="image-row">
         <div class="image-thumb">${layer.src ? `<img alt="" src="${layer.src}">` : ""}</div>
         <div class="image-text"><span class="sub">${name}</span></div>

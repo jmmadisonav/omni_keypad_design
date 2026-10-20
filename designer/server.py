@@ -256,8 +256,12 @@ class _Handler(BaseHTTPRequestHandler):
                 separator = body.get("separatorColor")
                 if separator is not None and not isinstance(separator, str):
                     raise ValueError("separatorColor must be a colour such as #000000")
+                unbind = body.get("removeOmniBindings", False)
+                if not isinstance(unbind, bool):
+                    raise ValueError("removeOmniBindings must be true or false")
                 return self._json(self.projects.save(name, buttons, layout,
-                                                     _field(body, "recipes", dict), separator))
+                                                     _field(body, "recipes", dict), separator,
+                                                     remove_omni_bindings=unbind))
         if len(route) == 4 and route[1] == "projects" and method == "POST":
             name, action = route[2], route[3]
             body = self._body()

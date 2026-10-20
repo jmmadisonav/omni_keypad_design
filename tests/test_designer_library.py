@@ -1,4 +1,5 @@
 import base64
+import json
 import tempfile
 import unittest
 from pathlib import Path
@@ -6,8 +7,9 @@ from pathlib import Path
 from designer.library import Library, validate_name
 from tests.helpers import make_png
 
-RECIPE = {"version": 1, "name": "", "layers": [{"type": "shape", "set": "Squared",
-                                                 "colour": "Blue", "visible": True}]}
+RECIPE = {"version": 2, "name": "", "states": {
+    "off": {"layers": [{"type": "shape", "set": "Squared", "colour": "Blue", "art": "off", "visible": True}]},
+    "on": {"layers": []}}}
 RECIPE_V2 = {"version": 2, "name": "", "states": {"off": {"layers": []}, "on": {"layers": []}}}
 
 
@@ -31,7 +33,7 @@ class LibraryTests(unittest.TestCase):
         self.library.save("HDMI 1", dict(RECIPE), make_png())
         recipe = self.library.get("HDMI 1")
         self.assertEqual(recipe["name"], "HDMI 1")
-        self.assertEqual(recipe["layers"], RECIPE["layers"])
+        self.assertEqual(recipe["states"], RECIPE["states"])
         self.assertTrue((self.folder / "HDMI 1.png").exists())
 
     def test_list_is_sorted_with_thumbnails(self):
@@ -45,8 +47,8 @@ class LibraryTests(unittest.TestCase):
 
     def test_save_overwrites_existing(self):
         self.library.save("x", dict(RECIPE), make_png())
-        self.library.save("x", {"version": 1, "layers": []}, make_png())
-        self.assertEqual(self.library.get("x")["layers"], [])
+        self.library.save("x", dict(RECIPE_V2), make_png())
+        self.assertEqual(self.library.get("x")["states"], RECIPE_V2["states"])
 
     def test_delete_removes_both_files(self):
         self.library.save("x", dict(RECIPE), make_png())
@@ -78,9 +80,16 @@ class LibraryTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             self.library.save("x", {"version": 3, "layers": []}, make_png())
         with self.assertRaises(ValueError):
-            self.library.save("x", {"version": 1, "layers": "no"}, make_png())
+            self.library.save("x", {"version": 1, "layers": []}, make_png())
         with self.assertRaises(ValueError):
             self.library.save("x", dict(RECIPE), b"not a png")
+
+    def test_get_refuses_a_recipe_from_an_older_designer(self):
+        self.folder.joinpath("old.json").write_text(json.dumps({"version": 1, "layers": []}),
+                                                    encoding="utf-8")
+        with self.assertRaisesRegex(ValueError, "older version"):
+            self.library.get("old")
+        self.library.delete("old")
 
     def test_unsafe_name_never_touches_the_filesystem(self):
         with self.assertRaises(ValueError):

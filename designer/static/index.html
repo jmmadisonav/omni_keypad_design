@@ -35,7 +35,7 @@
           <input id="host" class="host" placeholder="IP address" spellcheck="false" aria-label="Keypad IP address">
           <button id="find-list" type="button" class="device-btn chevron" title="Keypads found" aria-label="Keypads found" hidden></button>
           <button id="find" type="button" class="device-btn">Find</button>
-          <button id="load" type="button" class="device-btn">Load</button>
+          <button id="load" type="button" class="device-btn">Import</button>
           <button id="backups" type="button" class="device-btn">Backups</button>
         </div>
         <div id="find-popover" class="popover" hidden></div>
@@ -55,6 +55,14 @@
         <span class="chip-error">Error</span>
         <span id="model-banner-text"></span>
       </div>
+      <div id="binding-banner" class="banner binding-banner" role="status" hidden>
+        <span class="chip-error">OMNI</span>
+        <div class="binding-body">
+          <div id="binding-text"></div>
+          <button id="unbind" type="button" class="btn-outline">Remove OMNI bindings</button>
+        </div>
+      </div>
+      <div id="reference-note" class="reference-note" hidden></div>
       <div class="tabs-wrap lockable">
         <nav id="page-tabs" class="page-tabs" aria-label="Pages"></nav>
         <div id="rename-error" class="rename-error" role="alert" hidden></div>
@@ -79,6 +87,13 @@
             <span class="colour-field">
               <input id="separator-picker" type="color" value="#000000" aria-label="Line colour">
               <input id="separator-hex" class="hex" value="#000000" maxlength="7" spellcheck="false" aria-label="Line colour, hex">
+            </span>
+          </label>
+          <label class="lines-field" title="This page's background colour on the keypad. It shows around the outside of the buttons and behind blank or transparent ones.">
+            <span class="label">Background</span>
+            <span class="colour-field">
+              <input id="background-picker" type="color" value="#000000" aria-label="Page background colour">
+              <input id="background-hex" class="hex" value="#000000" maxlength="7" spellcheck="false" aria-label="Page background colour, hex">
             </span>
           </label>
           <div class="legend"><span class="unsaved-mark" aria-hidden="true"></span>Unsaved changes. Drag buttons to swap artwork and page links. Ctrl+Z undoes.</div>        </div>

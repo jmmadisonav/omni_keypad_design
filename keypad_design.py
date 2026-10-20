@@ -21,6 +21,7 @@ import json
 import secrets
 import struct
 import warnings
+from collections.abc import Iterator
 from pathlib import Path
 
 DESIGN_PATH = "/project/project.cpio"
@@ -206,6 +207,48 @@ class Design:
                 control["path"] = ""
                 if "destination" in control:
                     control["destination"] = ""
+
+    def _controls(self) -> Iterator[tuple[int, str, dict]]:
+        """Yield (page number, control name, control) for every control that can be bound."""
+        for number, page in enumerate(self.pages, 1):
+            for key in ("dial", "ledring", "dial_button"):
+                if page.get(key):
+                    yield number, key, page[key]
+            for index, button in enumerate(page.get("buttons", []), 1):
+                yield number, f"button{index}", button
+
+    def bindings(self) -> list[dict]:
+        """List every bound control: {page, control, kind, remote, path}.
+
+        kind is "omni" for a control bound to an OMNI device: remote names
+        the device, and path is a device path such as /Audio/P2/Ch-1/Gain.
+        A bound control isn't available over HControl. kind is "reference"
+        for a control that uses an AVX script reference, such as
+        Category_1/Reference_1: it has no remote, and it's available over
+        HControl at the reference's path.
+        """
+        found = []
+        for page, name, control in self._controls():
+            remote, path = control.get("remote") or "", control.get("path") or ""
+            if remote or path:
+                kind = "omni" if remote or path.startswith("/") else "reference"
+                found.append({"page": page, "control": name, "kind": kind,
+                              "remote": remote, "path": path})
+        return found
+
+    def remove_omni_bindings(self) -> None:
+        """Unbind every control bound to an OMNI device.
+
+        Script references and page links stay. An unbound dial and LED ring
+        have no range, as in AVX 2026.03.0.28, so the keypad uses its own.
+        """
+        for _, name, control in self._controls():
+            remote, path = control.get("remote") or "", control.get("path") or ""
+            if remote or path.startswith("/"):
+                control["remote"] = control["path"] = ""
+                if name in ("dial", "ledring"):
+                    control.pop("min", None)
+                    control.pop("max", None)
 
     def set_dial_range(self, page: int, minimum: float, maximum: float) -> None:
         """Set the value range of a page's dial and LED ring."""

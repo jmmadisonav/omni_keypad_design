@@ -1,8 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
-  SIZE, CENTRE, buttonKey, newRecipe, defaultLayer, addLayer, updateLayer, removeLayer,
-  moveLayer, shapeFiles, recipeFromImages, searchIcons, fitWithin, gridFor,
+  SIZE, CENTRE, buttonKey, shapeFiles, recipeFromImages, searchIcons, fitWithin, gridFor,
 } from "./model.js";
 
 const catalog = {
@@ -18,34 +17,6 @@ test("buttonKey joins page and button", () => {
   assert.equal(buttonKey(1, 3), "1-3");
 });
 
-test("defaultLayer builds each type", () => {
-  assert.deepEqual(defaultLayer("shape", catalog),
-    { type: "shape", set: "Bubble", colour: "Blue", visible: true });
-  const icon = defaultLayer("icon", catalog);
-  assert.equal(icon.type, "icon");
-  assert.equal(icon.x, CENTRE);
-  assert.deepEqual(Object.keys(icon.colour), ["off", "on"]);
-  assert.equal(defaultLayer("text", catalog).lines[0], "Label");
-  assert.equal(defaultLayer("image", catalog).size, SIZE);
-  assert.throws(() => defaultLayer("video", catalog));
-});
-
-test("layer operations return new recipes", () => {
-  const empty = newRecipe("x");
-  const one = addLayer(empty, defaultLayer("shape", catalog));
-  const two = addLayer(one, defaultLayer("text", catalog));
-  assert.equal(empty.layers.length, 0);
-  assert.equal(two.layers.length, 2);
-  const moved = moveLayer(two, 1, -1);
-  assert.equal(moved.layers[0].type, "text");
-  assert.equal(two.layers[0].type, "shape");
-  assert.equal(moveLayer(two, 0, -1), two);           // Out of range: unchanged.
-  const updated = updateLayer(two, 1, { size: 40 });
-  assert.equal(updated.layers[1].size, 40);
-  assert.notEqual(two.layers[1].size, 40);
-  assert.equal(removeLayer(two, 0).layers[0].type, "text");
-});
-
 test("shapeFiles finds files or returns null", () => {
   assert.deepEqual(shapeFiles(catalog, "Bubble", "Aqua"),
     { off: "Bubble/A_OFF.png", on: "Bubble/A_ON.png" });
@@ -53,11 +24,20 @@ test("shapeFiles finds files or returns null", () => {
   assert.equal(shapeFiles(catalog, "Nope", "Aqua"), null);
 });
 
-test("recipeFromImages makes one full-size image layer", () => {
+test("recipeFromImages gives each state one full-size image layer with its own image", () => {
   const recipe = recipeFromImages("data:a", "data:b", "HDMI");
+  assert.equal(recipe.version, 2);
   assert.equal(recipe.name, "HDMI");
-  assert.deepEqual(recipe.layers, [{ type: "image", off: "data:a", on: "data:b",
+  assert.deepEqual(Object.keys(recipe.states), ["off", "on"]);
+  assert.deepEqual(recipe.states.off.layers, [{ type: "image", src: "data:a", file: "",
     size: SIZE, x: CENTRE, y: CENTRE, visible: true }]);
+  assert.equal(recipe.states.on.layers[0].src, "data:b");
+});
+
+test("recipeFromImages leaves a state without an image empty", () => {
+  const recipe = recipeFromImages("", "data:on", "Logo", { kind: "keypad" });
+  assert.deepEqual(recipe.states.off.layers, []);
+  assert.equal(recipe.states.on.layers[0].src, "data:on");
 });
 
 test("searchIcons ranks name matches before tag matches", () => {
@@ -119,39 +99,21 @@ test("nameFromImage recovers a button name from its image file", async () => {
 test("recipeFromImages records where the artwork came from", () => {
   const recipe = recipeFromImages("data:off", "data:on", "Cast", { kind: "library", name: "Cast_Squared" });
   assert.equal(recipe.name, "Cast");
-  assert.deepEqual(recipe.layers[0].source, { kind: "library", name: "Cast_Squared" });
-  assert.equal(recipeFromImages("a", "b").layers[0].source, undefined);
+  for (const state of ["off", "on"]) {
+    assert.deepEqual(recipe.states[state].layers[0].source, { kind: "library", name: "Cast_Squared" });
+  }
+  assert.notEqual(recipe.states.off.layers[0].source, recipe.states.on.layers[0].source);
+  assert.equal(recipeFromImages("a", "b").states.off.layers[0].source, undefined);
 });
 
 test("isBlank is true when no layer is visible", async () => {
   const { isBlank } = await import("./model.js");
-  assert.equal(isBlank(newRecipe()), true);
-  const icon = defaultLayer("icon", catalog);
-  assert.equal(isBlank(addLayer(newRecipe(), icon)), false);
-  assert.equal(isBlank(addLayer(newRecipe(), { ...icon, visible: false })), true);
-  assert.equal(isBlank(addLayer(newRecipe(), defaultLayer("image", catalog))), true);
-});
-
-test("layerSummary describes each layer for the layer list", async () => {
-  const { layerSummary } = await import("./model.js");
-  assert.equal(layerSummary({ type: "shape", set: "Squared", colour: "Red" }), "Squared · Red");
-  assert.equal(layerSummary({ type: "icon", icon: "house" }), "house");
-  assert.equal(layerSummary({ type: "text", lines: ["HDMI", "1"] }), "\"HDMI / 1\"");
-  assert.equal(layerSummary({ type: "image", off: "x", source: { kind: "keypad" } }), "Loaded from keypad");
-  assert.equal(layerSummary({ type: "image", off: "x", source: { kind: "library", name: "Cast_Squared" } }), "Cast_Squared");
-  assert.equal(layerSummary({ type: "image", off: "x", offFile: "logo.png" }), "logo.png");
-  assert.equal(layerSummary({ type: "image", off: "" }), "No image");
-});
-
-test("quickRecipe builds a shape, an icon, and a label", async () => {
-  const { quickRecipe } = await import("./model.js");
-  const recipe = quickRecipe({ label: "Home", icon: "house", colour: "Blue" }, "Home");
-  assert.deepEqual(recipe.layers.map((l) => l.type), ["shape", "icon", "text"]);
-  assert.equal(recipe.layers[0].set, "Squared");
-  assert.equal(recipe.layers[0].colour, "Blue");
-  assert.equal(recipe.layers[1].icon, "house");
-  assert.deepEqual(recipe.layers[2].lines, ["Home"]);
-  assert.equal(recipe.name, "Home");
+  const icon = { type: "icon", icon: "tv", visible: true };
+  const image = { type: "image", src: "", visible: true };
+  assert.equal(isBlank({ version: 2, name: "", states: { off: { layers: [] }, on: { layers: [] } } }), true);
+  assert.equal(isBlank({ version: 2, name: "", states: { off: { layers: [icon] }, on: { layers: [] } } }), false);
+  assert.equal(isBlank({ version: 2, name: "", states: { off: { layers: [{ ...icon, visible: false }] }, on: { layers: [] } } }), true);
+  assert.equal(isBlank({ version: 2, name: "", states: { off: { layers: [image] }, on: { layers: [] } } }), true);
 });
 
 test("clampPosition keeps a layer centre on the canvas", async () => {
@@ -173,12 +135,6 @@ test("tintPixels recolours white artwork and keeps its shading", async () => {
   assert.deepEqual([...data.slice(8, 11)], [0, 0, 0]);               // Black stays black.
 });
 
-test("layerSummary names a custom shape colour", async () => {
-  const { layerSummary } = await import("./model.js");
-  assert.equal(layerSummary({ type: "shape", set: "Bubble", colour: "White", tint: { off: "#112233", on: "#445566" } }),
-    "Bubble · Custom");
-});
-
 test("tintSource prefers crisp grey artwork", async () => {
   const { tintSource } = await import("./model.js");
   const shapes = { shapes: { A: { White: { off: "w" }, Grey: { off: "g" } }, B: { White: { off: "w" }, LtGrey: { off: "l" } }, C: { Red: {} } } };
@@ -194,65 +150,16 @@ test("imageSizeFor uses the model's size, or guesses from the button count", asy
   assert.equal(imageSizeFor(undefined, 8), SIZE);
 });
 
-test("textLines uses each OFF line for ON unless that ON line has its own text", async () => {
-  const { textLines } = await import("./model.js");
-  const same = { type: "text", lines: ["Mute"] };
-  assert.deepEqual(textLines(same, "off"), ["Mute"]);
-  assert.deepEqual(textLines(same, "on"), ["Mute"]);
-  const split = { type: "text", lines: ["Mute"], onLines: ["Unmute", "Mic"] };
-  assert.deepEqual(textLines(split, "off"), ["Mute"]);
-  assert.deepEqual(textLines(split, "on"), ["Unmute", "Mic"]);
-  // null keeps the OFF line, so only line 1 changes here.
-  assert.deepEqual(textLines({ type: "text", lines: ["Mic", "Muted"], onLines: ["Live", null] }, "on"), ["Live", "Muted"]);
-  // An empty string blanks the line on ON only.
-  assert.deepEqual(textLines({ type: "text", lines: ["Mic", "Muted"], onLines: [null, ""] }, "on"), ["Mic"]);
-  assert.deepEqual(textLines({ type: "text", lines: ["Mic"], onLines: ["", null] }, "on"), [""]);
-  assert.deepEqual(textLines({ type: "text", lines: ["A", "B", "C"] }, "off"), ["A", "B"]);
-  assert.deepEqual(textLines({ type: "text", lines: ["Mute"], onLines: [] }, "on"), ["Mute"]);
-});
-
-test("setOwnLine overrides one ON or ALT line, and drops the lines when both follow OFF", async () => {
-  const { setOwnLine } = await import("./model.js");
-  assert.deepEqual(setOwnLine({ lines: ["Mute"] }, "on", 0, "Unmute"), { onLines: ["Unmute", null] });
-  assert.deepEqual(setOwnLine({ lines: ["Mute"], onLines: ["Unmute", null] }, "on", 1, ""), { onLines: ["Unmute", ""] });
-  assert.deepEqual(setOwnLine({ lines: ["Mute"], onLines: ["Unmute", ""] }, "on", 0, null), { onLines: [null, ""] });
-  assert.deepEqual(setOwnLine({ lines: ["Mute"], onLines: ["Unmute", null] }, "on", 0, null), { onLines: undefined });
-  assert.deepEqual(setOwnLine({ lines: ["Mute"], onLines: ["Unmute", null] }, "alt", 0, "Wait"), { altLines: ["Wait", null] });
-});
-
-test("ALT follows OFF unless a layer has its own ALT text, colour, artwork or image", async () => {
-  const { textLines, colourFor, shapeArt } = await import("./model.js");
-  const text = { type: "text", lines: ["Mic"], onLines: ["Live", null], colour: { off: "#111111", on: "#222222" } };
-  assert.deepEqual(textLines(text, "alt"), ["Mic"]);
-  assert.deepEqual(textLines({ ...text, altLines: ["Wait", "Muted"] }, "alt"), ["Wait", "Muted"]);
-  assert.equal(colourFor(text.colour, "alt"), "#111111");
-  assert.equal(colourFor({ ...text.colour, alt: "#333333" }, "alt"), "#333333");
-  assert.equal(colourFor(text.colour, "on"), "#222222");
-  const shape = { type: "shape", set: "Squared", colour: "Blue" };
-  assert.deepEqual(shapeArt(shape, "off"), { colour: "Blue", art: "off" });
-  assert.deepEqual(shapeArt(shape, "on"), { colour: "Blue", art: "on" });
-  assert.deepEqual(shapeArt(shape, "alt"), { colour: "Blue", art: "off" });
-  assert.deepEqual(shapeArt({ ...shape, altArt: { colour: "Red", art: "on" } }, "alt"), { colour: "Red", art: "on" });
-});
-
 test("statesOf adds ALT only for buttons with an ALT state", async () => {
   const { statesOf } = await import("./model.js");
-  assert.deepEqual(statesOf({ layers: [] }), ["off", "on"]);
-  assert.deepEqual(statesOf({ alt: true, layers: [] }), ["off", "on", "alt"]);
+  assert.deepEqual(statesOf({ states: { off: { layers: [] }, on: { layers: [] } } }), ["off", "on"]);
+  assert.deepEqual(statesOf({ states: { off: { layers: [] }, on: { layers: [] }, alt: { layers: [] } } }),
+                   ["off", "on", "alt"]);
 });
 
 test("recipeFromImages keeps a keypad button's ALT image", async () => {
   const { recipeFromImages } = await import("./model.js");
-  assert.equal(recipeFromImages("a", "b", "X").alt, undefined);
+  assert.equal(recipeFromImages("a", "b", "X").states.alt, undefined);
   const recipe = recipeFromImages("a", "b", "X", { kind: "keypad" }, "c");
-  assert.equal(recipe.alt, true);
-  assert.equal(recipe.layers[0].alt, "c");
-});
-
-test("layerSummary shows both texts when ON differs", async () => {
-  const { layerSummary } = await import("./model.js");
-  assert.equal(layerSummary({ type: "text", lines: ["Mute"], onLines: ["Unmute"] }), "\"Mute\" → \"Unmute\"");
-  assert.equal(layerSummary({ type: "text", lines: ["Mute"], onLines: ["Mute"] }), "\"Mute\"");
-  assert.equal(layerSummary({ type: "text", lines: ["Test", "Off"], onLines: [null, "On"] }), "\"Test / Off\" → \"Test / On\"");
-  assert.equal(layerSummary({ type: "text", lines: ["Mic"], altLines: ["Wait"] }), "\"Mic\" · ALT \"Wait\"");
+  assert.equal(recipe.states.alt.layers[0].src, "c");
 });

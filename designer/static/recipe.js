@@ -5,7 +5,7 @@
 // { version: 2, name, editor?, states: { off, on, alt? } }, where each state
 // is { layers: [...] } and alt is present only when the button has an ALT state.
 
-import { SIZE, CENTRE, FONTS, STATES, textLines, colourFor, shapeArt } from "./model.js";
+import { SIZE, CENTRE, FONTS, STATES } from "./model.js";
 
 export const BACK = ["shape", "image"];
 const WHITE = "#FFFFFF";
@@ -50,78 +50,6 @@ export function layerNames(layers) {
   });
 }
 
-// Moves Back layers before Front layers, keeping the order within each group.
-// moved lists each Back layer that was above a Front layer, by display name.
-export function sortBackFront(layers) {
-  const order = [...layers.keys()].sort((a, b) =>
-    (isBack(layers[b]) - isBack(layers[a])) || a - b);
-  const sorted = order.map((i) => layers[i]);
-  const names = layerNames(sorted);
-  const nameOf = new Map(order.map((original, at) => [original, names[at]]));
-  const moved = [];
-  layers.forEach((layer, i) => {
-    if (!isBack(layer)) return;
-    for (let below = 0; below < i; below++) {
-      if (!isBack(layers[below])) moved.push({ layer: nameOf.get(i), behind: nameOf.get(below) });
-    }
-  });
-  return { layers: sorted, moved };
-}
-
-// A version 1 layer with its values for one state.
-function layerForState(layer, state) {
-  const { type, visible } = layer;
-  switch (type) {
-    case "shape": {
-      const { colour, art } = shapeArt(layer, state);
-      const shape = { type, set: layer.set, colour, art, visible };
-      if (layer.tint) {
-        // Version 1 recoloured the OFF grey for ALT and ignored altArt on a tinted shape.
-        shape.tint = colourFor(layer.tint, state);
-        shape.art = state === "on" ? "on" : "off";
-      }
-      return shape;
-    }
-    case "icon":
-      return { type, icon: layer.icon, colour: colourFor(layer.colour, state), stroke: layer.stroke,
-               size: layer.size, x: layer.x, y: layer.y, visible };
-    case "text":
-      return { type, lines: textLines(layer, state), colour: colourFor(layer.colour, state),
-               font: layer.font, weight: layer.weight, size: layer.size, align: layer.align,
-               x: layer.x, y: layer.y, visible };
-    case "image": {
-      const from = layer[state] ? state : layer.off ? "off" : "on";
-      const image = { type, src: layer[from] || "", file: layer[`${from}File`] || "",
-                      size: layer.size, x: layer.x, y: layer.y, visible };
-      if (layer.source) image.source = { ...layer.source };
-      return image;
-    }
-    default:
-      return { ...layer };
-  }
-}
-
-// The sentence that tells you migration moved a layer, naming the first one, or "".
-export function movedText(moved) {
-  return moved.length ? `${moved[0].layer} moved behind ${moved[0].behind} to keep Back layers behind Front ones.` : "";
-}
-
-// Any recipe as version 2. A version 1 recipe is split into a layer list per
-// state, each holding exactly what that state showed. moved lists the Back
-// layers that had to move behind Front layers, which changes how they look.
-export function upgradeRecipe(recipe) {
-  if (!recipe) return { recipe: blankRecipe(), moved: [] };
-  if (recipe.version === 2) return { recipe, moved: [] };
-  const states = {};
-  const moved = [];
-  for (const state of recipe.alt ? STATES : ["off", "on"]) {
-    const sorted = sortBackFront(recipe.layers.map((layer) => layerForState(layer, state)));
-    states[state] = { layers: sorted.layers };
-    moved.push(...sorted.moved.map((m) => ({ state, ...m })));
-  }
-  return { recipe: { version: 2, name: recipe.name || "", states }, moved };
-}
-
 // -- Simple parts -----------------------------------------------------------------------
 
 // Simple's four parts, back to front, and the names it shows for them.
@@ -155,10 +83,10 @@ export function fitsSimple(recipe) {
   return { ok: true };
 }
 
-// The view a button opens in: Layers when you chose it, when a state doesn't
-// fit Simple, or when migration moved a layer; otherwise Simple.
-export function viewFor(recipe, moved = []) {
-  return moved.length || recipe.editor === "layers" || !fitsSimple(recipe).ok ? "layers" : "simple";
+// The view a button opens in: Layers when you chose it or when a state doesn't
+// fit Simple; otherwise Simple.
+export function viewFor(recipe) {
+  return recipe.editor === "layers" || !fitsSimple(recipe).ok ? "layers" : "simple";
 }
 
 // A state's parts: { shape, image, icon, text }, each { layer, index } or null.
@@ -204,7 +132,7 @@ export function differsFromOff(recipe, state, type) {
 
 function imageName(layer) {
   if (layer.source?.kind === "library") return `Ready-made · ${layer.source.name}`;
-  if (layer.source?.kind === "keypad") return "Loaded from keypad";
+  if (layer.source?.kind === "keypad") return "Imported from keypad";
   return layer.file || (layer.src ? "Uploaded image" : "No image");
 }
 

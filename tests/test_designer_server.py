@@ -28,7 +28,7 @@ def b64(data: bytes) -> str:
     return base64.b64encode(data).decode("ascii")
 
 
-RECIPE = {"version": 1, "name": "", "layers": []}
+RECIPE = {"version": 2, "name": "", "states": {"off": {"layers": []}, "on": {"layers": []}}}
 
 
 class ServerTests(unittest.TestCase):
@@ -194,6 +194,17 @@ class ServerTests(unittest.TestCase):
                      {"buttons": [], "recipes": {}, "layout": {"pages": []}}):
             with self.subTest(body=body):
                 self.assertEqual(self.json_request("PUT", "/api/projects/Lobby", body)[0], 400)
+
+    def test_save_can_remove_omni_bindings(self):
+        project = self.from_keypad()
+        self.assertTrue(project["bindings"])
+        url = "/api/projects/" + project["name"].replace(" ", "%20")
+        status, saved = self.json_request("PUT", url, {"buttons": [], "recipes": {},
+                                                       "removeOmniBindings": True})
+        self.assertEqual((status, saved["bindings"]), (200, []), saved)
+        status, body = self.json_request("PUT", url, {"buttons": [], "recipes": {},
+                                                      "removeOmniBindings": "yes"})
+        self.assertEqual(status, 400, body)
 
     def test_load_from_keypad_makes_a_project(self):
         project = self.from_keypad()

@@ -64,7 +64,7 @@ anything you saved in the meantime across.
 1. The designer opens your most recent project, or a new project called
    "Untitled" the first time. To start another, click **New**, and choose its
    name and keypad model. To work on a keypad's current design, enter its IP
-   address, or click **Find**, and click **Load**. That saves the design as a
+   address, or click **Find**, and click **Import**. That saves the design as a
    new project named after the keypad, for example `172-17-0-55 2026-10-06`.
 1. Click a button on the keypad view. Until you do, the keypad has the whole
    window. The **States** rail next to the keypad
@@ -125,7 +125,7 @@ To give a button an ALT state, do the following:
 
 A button gets an ALT image on the keypad only once it has an ALT state, even
 a blank one. To take a button's ALT image off the keypad, click **Remove ALT**
-under its ALT image, and save. **Load** keeps the ALT images a keypad already
+under its ALT image, and save. **Import** keeps the ALT images a keypad already
 has.
 
 ### Layers
@@ -145,16 +145,32 @@ switch back to **Simple** when every state has at most one of each part.
 
 ### Projects from earlier versions
 
-Projects made before the States rail open without changes. Each button is
-split into its OFF, ON, and ALT states only when you edit it, and its images
-on the keypad stay as they are until then. If a button had a shape above its
-text, it opens in Layers with a note: the shape moves behind the text when you
-edit the button.
+The designer only opens buttons made since the States rail, where each state
+has its own layers. A button saved by an earlier version opens with the images
+it has on the keypad, as an image layer in each state, and its old layers are
+dropped. A library recipe from an earlier version can't be applied. To remove
+it, delete it from the library.
+
+### OMNI bindings and script references
+
+A design made in AVX can bind controls to an OMNI device. A bound control
+isn't available over HControl. When you open a project with bound controls, a
+warning lists them by page and device. To use them over HControl, click
+**Remove OMNI bindings**, save, and deploy. Removing the bindings leaves page
+links and script references alone, and the dial and LED ring go back to the
+keypad's own range. To undo it before you save, press Ctrl+Z.
+
+A control can also use an AVX script reference, such as
+`Category_1/Reference_1`. It's still available over HControl, but at the
+reference's path instead of its page's path. For example, a dial on that
+reference is at `/Category_1/Reference_1/level` instead of
+`/page1/dial/level`. The designer notes each script reference under the
+warning area.
 
 ### Backups
 
 Every deploy saves the design that was running as
-`designer/backups/backup_<date>_<time>.cpio`, every **Load** saves a copy as
+`designer/backups/backup_<date>_<time>.cpio`, every **Import** saves a copy as
 `loaded_<date>_<time>.cpio`, and **Back up keypad now** in **Backups** saves
 `manual_<date>_<time>.cpio`. If a deploy fails after its backup, the designer
 offers to restore that backup.
@@ -209,12 +225,12 @@ Buttons are numbered along the top row first, then the next row.
 The designer doesn't support the OMNI-KP-V yet.
 
 Each project is for one model. To choose it, click **New** and pick the
-model. **Load** uses the model the keypad reports. You can't change a
+model. **Import** uses the model the keypad reports. You can't change a
 project's model later. The model appears next to the project name.
 
 A tabletop keypad is the same model as its wall unit. A project for the
 OMNI-KP-8BV loads from and deploys to an OMNI-KP-T8BV, and the other way
-around. Loading from a tabletop keypad makes a project for its wall-unit
+around. Importing from a tabletop keypad makes a project for its wall-unit
 model, with the tabletop housing.
 
 ### Housing, finish, and lines
@@ -228,8 +244,14 @@ Under the keypad view, three controls set how the keypad looks:
   changes the preview.
 - **Lines** sets the colour of the lines between buttons on the keypad. It's
   part of the design: it's saved with the project, deployed, and undone with
-  Ctrl+Z. New projects use black. A project loaded from a keypad keeps the
+  Ctrl+Z. New projects use black. A project imported from a keypad keeps the
   keypad's colour.
+- **Background** sets the background colour of the page you're viewing. Each
+  page has its own. The keypad shows it as a thin border around the outside
+  of the buttons, and behind blank buttons and the transparent parts of
+  button images. Like **Lines**, it's saved with the project, deployed, and
+  undone with Ctrl+Z. A page you add starts with page 1's colour. A page with
+  no colour uses black.
 
 The housing and finish are saved with the project straight away.
 
@@ -312,8 +334,13 @@ The log shows every line sent (`→`) and received (`←`), plus notes such as
 `Page 1 dial: 40`. A green dot on the **Debug** tab shows that you're
 connected.
 
-Only controls that aren't bound to an OMNI device are available. Deploying a
-design closes the connection. To start again, click **Connect**.
+When you connect, the log warns you about controls the keypad doesn't make
+available, page by page. They might be bound to an OMNI device. To check,
+import the design: the project warning names the device. A dial that uses a
+script reference is found at the reference's path, and the log shows its
+turns as `Dial on Category_1/Reference_1: 40`. Debug doesn't copy those to an
+LED ring. Deploying a design closes the connection. To start again, click
+**Connect**.
 
 ## Build the desktop app
 
@@ -428,10 +455,10 @@ app and its build scripts.
 
 To check the designer against a keypad, do the following:
 
-1. Load the design with **Load**, and check that the keypad view matches the keypad's
+1. Click **Import**, and check that the keypad view matches the keypad's
    screen: the same images in the same positions, on the same page.
 1. Edit button 1 with a shape, an icon, and text, and button 2 with an image.
 1. Deploy, and check both buttons on the keypad in both states. To switch a
    button to ON, run `python 01_buttons_dial_feedback.py` and press it.
-1. Click **Load** again, and check that the designer shows the deployed images.
+1. Click **Import** again, and check that the designer shows the deployed images.
 1. In **Backups**, restore the backup, and check that the keypad shows the original design.

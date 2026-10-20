@@ -171,6 +171,24 @@ class LayoutTests(unittest.TestCase):
             with self.subTest(item=item), self.assertRaises(ValueError):
                 Layout.from_json(item)
 
+    def test_sets_each_page_background(self):
+        design = original()
+        apply_layout(design, Layout.from_json({"pages": [
+            {"name": "Page 1", "source": 1, "background": "#e772bd"},
+            {"name": "Page 2", "source": 2, "background": "#E9F91E"}]}))
+        self.assertEqual([p["background"] for p in design.pages], ["#E772BD", "#E9F91E"])
+
+    def test_page_without_a_background_keeps_its_own_and_a_new_page_copies_page_1(self):
+        design = original()
+        design.page(1)["background"], design.page(2)["background"] = "#111111", "#222222"
+        apply_layout(design, self.layout([("Page 2", 2), ("Page 1", 1), ("New", None)]))
+        self.assertEqual([p["background"] for p in design.pages], ["#222222", "#111111", "#111111"])
+
+    def test_from_json_rejects_a_bad_background(self):
+        for background in ("red", "#12345", 7):
+            with self.subTest(background=background), self.assertRaises(ValueError):
+                Layout.from_json({"pages": [{"name": "A", "source": 1, "background": background}]})
+
     def test_images_go_to_the_new_page_numbers(self):
         design = original()
         apply_layout(design, self.layout([("Page 1", 1), ("Page 2", 2), ("Page 3", None)]))

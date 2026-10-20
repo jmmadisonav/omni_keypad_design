@@ -4,7 +4,7 @@
 // that state is the one the keypad shows.
 
 import { STATES } from "./model.js";
-import { fitsSimple, viewFor, copyState, startAlt, removeAlt, movedText } from "./recipe.js";
+import { fitsSimple, viewFor, copyState, startAlt, removeAlt } from "./recipe.js";
 import { renderRecipe } from "./render.js";
 import { createRail } from "./rail.js";
 import { createSimple } from "./simple.js";
@@ -18,7 +18,6 @@ export function createEditor({ root, railRoot, catalog, iconTags, onChange, onSt
   let recipe = null;
   let state = "off";
   let mode = "simple";
-  let moved = [];
   let menuOpen = false;
   const imageSizes = new Map();      // src -> { width, height }, or null while it loads.
 
@@ -42,7 +41,6 @@ export function createEditor({ root, railRoot, catalog, iconTags, onChange, onSt
         </div>
       </div>
     </div>
-    <div class="moved-note" hidden></div>
     <div class="ed-view" data-view="simple"></div>
     <div class="ed-view" data-view="layers" hidden></div>
     <div class="empty-alt" hidden>
@@ -79,8 +77,6 @@ export function createEditor({ root, railRoot, catalog, iconTags, onChange, onSt
 
   function accept(next, label) {
     recipe = next;
-    moved = [];
-    $(".moved-note").hidden = true;
     onChange(recipe, label);
   }
 
@@ -235,20 +231,12 @@ export function createEditor({ root, railRoot, catalog, iconTags, onChange, onSt
 
   return {
     getRecipe: () => recipe,
-    // moved lists layers that migration moved behind Front layers; the button
-    // opens in Layers with a note naming the first. keep holds on to the open
-    // part or selected layer, as after an undo.
-    setRecipe(next, { moved: nextMoved = [], keep = false } = {}) {
+    // keep holds on to the open part or selected layer, as after an undo.
+    setRecipe(next, { keep = false } = {}) {
       recipe = next;
-      moved = nextMoved;
       closeMenu();
       if (!keep) Object.values(views).forEach((view) => view.reset());
-      if (recipe) mode = viewFor(recipe, moved);
-      const note = $(".moved-note");
-      note.hidden = !moved.length;
-      if (moved.length) {
-        note.textContent = `${movedText(moved)} The keypad shows the old order until you change this button.`;
-      }
+      if (recipe) mode = viewFor(recipe);
       renderView();
     },
     setHeader(overline, name, changed) {

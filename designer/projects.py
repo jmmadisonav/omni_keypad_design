@@ -17,6 +17,7 @@ import shutil
 import threading
 from pathlib import Path
 
+from designer.bindings import describe_omni_bindings, describe_references
 from designer.keypad_ops import ButtonImages, Layout, apply_buttons, apply_layout
 from designer.library import valid_recipe, validate_name
 from designer.models import DEFAULT_MODEL, Model, load_models
@@ -85,12 +86,17 @@ class ProjectStore:
         design = self.design(name)
         meta = self._meta(name)
         used = design.referenced_images()
+        bindings = design.bindings()
         return {
             "name": name,
             "config": design.config,
             "images": {image: base64.b64encode(body).decode("ascii")
                        for image, body in design.images.items() if image in used},
-            "recipes": meta["recipes"],
+            # Recipes from an older designer are dropped: those buttons show their keypad images.
+            "recipes": {key: r for key, r in meta["recipes"].items() if valid_recipe(r)},
+            "bindings": bindings,
+            "bindingWarnings": describe_omni_bindings(bindings),
+            "referenceNotes": describe_references(bindings),
             "baseFingerprint": meta["baseFingerprint"],
             "model": meta["model"],
             "lastDeployed": meta["lastDeployed"],
@@ -114,22 +120,26 @@ class ProjectStore:
         return self._meta(name)["model"]
 
     def save(self, name: str, buttons: list[ButtonImages], layout: Layout | None,
-             recipes: dict, separator: str | None = None) -> dict:
+             recipes: dict, separator: str | None = None,
+             remove_omni_bindings: bool = False) -> dict:
         """Save changes. separator, when given, is the #RRGGBB colour of the
-        lines between buttons on the keypad."""
+        lines between buttons on the keypad. remove_omni_bindings unbinds every
+        control bound to an OMNI device, on every page."""
         if separator is not None and not _COLOUR.fullmatch(separator):
             raise ValueError(f"the separator colour must be #RRGGBB, not {separator!r}")
         with self._lock:
-            return self._save(name, buttons, layout, recipes, separator)
+            return self._save(name, buttons, layout, recipes, separator, remove_omni_bindings)
 
     def _save(self, name: str, buttons: list[ButtonImages], layout: Layout | None,
-              recipes: dict, separator: str | None) -> dict:
+              recipes: dict, separator: str | None, remove_omni_bindings: bool) -> dict:
         design = self.design(name)
         meta = self._meta(name)
         if separator is not None:
             design.config.setdefault("display", {})["panel_separator_color"] = separator.upper()
         if layout is not None:
             apply_layout(design, layout)          # Image page numbers use the new layout.
+        if remove_omni_bindings:
+            design.remove_omni_bindings()         # After the layout, so new pages are covered.
         try:
             apply_buttons(design, buttons)
         except IndexError as error:

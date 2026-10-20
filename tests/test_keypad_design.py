@@ -83,6 +83,38 @@ class DesignTests(unittest.TestCase):
                 self.assertEqual(control["path"], "")
                 self.assertEqual(control.get("destination", ""), "")
 
+    def test_bindings_lists_omni_bindings_with_their_device(self):
+        bindings = self.design.bindings()
+        self.assertTrue(bindings)
+        self.assertTrue(all(b["kind"] == "omni" for b in bindings))
+        dial = next(b for b in bindings if b["page"] == 1 and b["control"] == "dial")
+        self.assertEqual(dial, {"page": 1, "control": "dial", "kind": "omni",
+                                "remote": "BSS OMNI256P 1", "path": "/Audio/P79/Master Gain"})
+        buttons = [b["control"] for b in bindings if b["control"].startswith("button")]
+        self.assertTrue(all(name[len("button"):].isdigit() for name in buttons))
+
+    def test_bindings_tells_a_script_reference_from_an_omni_binding(self):
+        self.design.unbind_all()
+        self.design.page(1)["dial"]["path"] = "Category_1/Reference_1"
+        self.assertEqual(self.design.bindings(), [
+            {"page": 1, "control": "dial", "kind": "reference", "remote": "",
+             "path": "Category_1/Reference_1"}])
+
+    def test_remove_omni_bindings_keeps_script_references_and_page_links(self):
+        self.design.page(2)["dial"].update(path="Category_1/Reference_1", remote="")
+        destinations = [b["destination"] for p in self.design.pages for b in p["buttons"]]
+        self.design.remove_omni_bindings()
+        self.assertEqual([b["kind"] for b in self.design.bindings()], ["reference"])
+        self.assertEqual([b["destination"] for p in self.design.pages for b in p["buttons"]],
+                         destinations)
+
+    def test_remove_omni_bindings_leaves_the_dial_and_ring_range_blank(self):
+        self.design.remove_omni_bindings()
+        page = self.design.page(1)
+        for key in ("dial", "ledring"):
+            self.assertNotIn("min", page[key])
+            self.assertNotIn("max", page[key])
+
     def test_set_dial_range_sets_dial_and_ledring(self):
         self.design.set_dial_range(2, 0, 100)
         page = self.design.page(2)

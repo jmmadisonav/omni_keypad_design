@@ -12,8 +12,9 @@ from designer.projects import ProjectStore, project_name_for
 from keypad_design import Design
 from tests.helpers import FIXTURES, make_png
 
-RECIPE = {"version": 1, "name": "", "layers": [{"type": "shape", "set": "Squared",
-                                                 "colour": "Blue", "visible": True}]}
+RECIPE = {"version": 2, "name": "", "states": {
+    "off": {"layers": [{"type": "shape", "set": "Squared", "colour": "Blue", "art": "off", "visible": True}]},
+    "on": {"layers": []}}}
 
 
 def layout(pages, destinations=()):
@@ -54,6 +55,28 @@ class ProjectStoreTests(unittest.TestCase):
         self.assertEqual(project["recipes"], {"2-1": RECIPE})
         self.assertEqual(sorted(p.name for p in (self.folder / "Lobby" / "images").iterdir()),
                          ["Mute_OFF.png", "Mute_ON.png"])
+
+    def test_open_lists_bindings_and_save_can_remove_the_omni_ones(self):
+        self.store.import_design("Bound", self.data, Design.from_cpio(self.data).fingerprint)
+        bindings = self.store.open("Bound")["bindings"]
+        self.assertTrue(bindings)
+        self.assertTrue(all(b["kind"] == "omni" for b in bindings))
+        warnings = self.store.open("Bound")["bindingWarnings"]
+        self.assertTrue(warnings[0].startswith("Page 1: dial, LED ring, dial button"), warnings)
+        self.store.save("Bound", [], None, {})
+        self.assertEqual(self.store.open("Bound")["bindings"], bindings)     # Kept by default.
+        project = self.store.save("Bound", [], None, {}, remove_omni_bindings=True)
+        self.assertEqual((project["bindings"], project["bindingWarnings"]), ([], []))
+        self.assertEqual(self.store.new("Fresh")["bindings"], [])
+
+    def test_open_drops_recipes_from_an_older_designer(self):
+        self.store.new("Lobby")
+        self.store.save("Lobby", [], None, {"1-1": RECIPE})
+        meta_path = self.folder / "Lobby" / "designer.json"
+        meta = json.loads(meta_path.read_text(encoding="utf-8"))
+        meta["recipes"]["1-2"] = {"version": 1, "name": "", "layers": []}
+        meta_path.write_text(json.dumps(meta), encoding="utf-8")
+        self.assertEqual(self.store.open("Lobby")["recipes"], {"1-1": RECIPE})
 
     def test_show_alt_is_off_until_set_and_survives_a_save(self):
         self.assertFalse(self.store.new("Lobby")["showAlt"])

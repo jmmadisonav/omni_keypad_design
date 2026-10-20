@@ -1,7 +1,5 @@
-// Recipes and layers: plain data, no DOM. A recipe is
-// { version: 1, name, layers: [...] }, drawn bottom to top. A recipe with
-// alt: true also has an ALT image; each layer's ALT settings follow OFF
-// unless the layer has its own.
+// Keypad geometry, button names, and helpers for button recipes: plain data,
+// no DOM. recipe.js describes the recipe format.
 
 export const SIZE = 188;
 export const CENTRE = SIZE / 2;
@@ -29,108 +27,38 @@ export const FONTS = ["Titillium Web", "Inter", "Roboto", "Oswald"];
 export const STATES = ["off", "on", "alt"];
 
 // The images a button has: OFF and ON, plus ALT when it has an ALT state.
-// Takes a version 1 or version 2 recipe.
 export function statesOf(recipe) {
-  if (recipe?.states) return STATES.filter((state) => recipe.states[state]);
-  return recipe?.alt ? STATES : ["off", "on"];
+  return STATES.filter((state) => recipe?.states?.[state]);
 }
-
-// An icon or text colour, or a shape tint, for a state. ALT uses OFF's unless it has its own.
-export function colourFor(colours, state) {
-  return colours[state] ?? colours.off;
-}
-
-// The shape artwork a state shows: the colour's OFF or ON file. ALT shows
-// the OFF artwork unless the layer picks its own (altArt).
-export function shapeArt(layer, state) {
-  if (state === "alt") return layer.altArt ?? { colour: layer.colour, art: "off" };
-  return { colour: layer.colour, art: state };
-}
-
-const OFF_GREY = "#9AA0A6";
-const ON_WHITE = "#FFFFFF";
 
 export function buttonKey(page, button) {
   return `${page}-${button}`;
-}
-
-export function newRecipe(name = "") {
-  return { version: 1, name, layers: [] };
-}
-
-export function defaultLayer(type, catalog) {
-  switch (type) {
-    case "shape": {
-      const set = Object.keys(catalog.shapes)[0];
-      const colours = Object.keys(catalog.shapes[set] || {});
-      return { type, set, colour: colours.includes("Blue") ? "Blue" : colours[0], visible: true };
-    }
-    case "icon":
-      return { type, icon: "circle", size: 80, x: CENTRE, y: CENTRE, stroke: 2,
-               colour: { off: OFF_GREY, on: ON_WHITE }, visible: true };
-    case "text":
-      return { type, lines: ["Label"], font: FONTS[0], weight: 700, size: 24,
-               x: CENTRE, y: CENTRE, align: "center",
-               colour: { off: OFF_GREY, on: ON_WHITE }, visible: true };
-    case "image":
-      return { type, off: "", on: "", size: SIZE, x: CENTRE, y: CENTRE, visible: true };
-    default:
-      throw new Error(`unknown layer type ${type}`);
-  }
-}
-
-export function addLayer(recipe, layer) {
-  return { ...recipe, layers: [...recipe.layers, layer] };
-}
-
-export function updateLayer(recipe, index, changes) {
-  return { ...recipe, layers: recipe.layers.map((l, i) => (i === index ? { ...l, ...changes } : l)) };
-}
-
-export function removeLayer(recipe, index) {
-  return { ...recipe, layers: recipe.layers.filter((_, i) => i !== index) };
-}
-
-export function moveLayer(recipe, index, delta) {
-  const target = index + delta;
-  if (target < 0 || target >= recipe.layers.length) return recipe;
-  const layers = [...recipe.layers];
-  [layers[index], layers[target]] = [layers[target], layers[index]];
-  return { ...recipe, layers };
 }
 
 export function shapeFiles(catalog, set, colour) {
   return catalog.shapes[set]?.[colour] ?? null;
 }
 
-// source says where finished artwork came from: { kind: "keypad" } for a
-// button loaded from a keypad, or { kind: "library", name } for ready-made art.
+// A button made of finished artwork: each state with an image gets one
+// full-size image layer holding that image, and a state without one is empty.
+// source says where the artwork came from: { kind: "keypad" } for a button
+// imported from a keypad, or { kind: "library", name } for ready-made art.
 // With an alt image, the button has an ALT state.
 export function recipeFromImages(off, on, name = "", source = undefined, alt = "") {
-  const layer = { type: "image", off, on, size: SIZE, x: CENTRE, y: CENTRE, visible: true };
-  if (source) layer.source = source;
-  if (alt) layer.alt = alt;
-  return { ...newRecipe(name), ...(alt ? { alt: true } : {}), layers: [layer] };
+  const images = alt ? { off, on, alt } : { off, on };
+  const states = Object.fromEntries(Object.entries(images).map(([state, src]) => {
+    if (!src) return [state, { layers: [] }];
+    const layer = { type: "image", src, file: "", size: SIZE, x: CENTRE, y: CENTRE, visible: true };
+    if (source) layer.source = { ...source };
+    return [state, { layers: [layer] }];
+  }));
+  return { version: 2, name, states };
 }
 
-// A Squared shape, an icon, and a label: the Quick button shortcut.
-export function quickRecipe({ label, icon, colour }, name = "") {
-  return { ...newRecipe(name), layers: [
-    { type: "shape", set: "Squared", colour, visible: true },
-    { type: "icon", icon, size: 72, x: CENTRE, y: 80, stroke: 2,
-      colour: { off: ON_WHITE, on: ON_WHITE }, visible: true },
-    { type: "text", lines: [label || "Label"], font: FONTS[0], weight: 700, size: 20,
-      x: CENTRE, y: 150, align: "center", colour: { off: ON_WHITE, on: ON_WHITE }, visible: true },
-  ] };
-}
-
-// Whether a button shows nothing in any state. Takes a version 1 or version 2 recipe.
+// Whether a button shows nothing in any state.
 export function isBlank(recipe) {
-  if (recipe.states) {
-    return !Object.values(recipe.states).some((s) =>
-      s.layers.some((l) => l.visible && (l.type !== "image" || l.src)));
-  }
-  return !recipe.layers.some((l) => l.visible && (l.type !== "image" || l.off || l.on));
+  return !Object.values(recipe.states).some((s) =>
+    s.layers.some((l) => l.visible && (l.type !== "image" || l.src)));
 }
 
 // A custom shape colour recolours one of the set's grey artworks. The grey
@@ -159,40 +87,6 @@ export function tintPixels(data, base, hex) {
     }
   }
   return data;
-}
-
-// A text layer's lines for a state, at most two. onLines and altLines hold one
-// entry per line: null (or missing) uses the OFF line, and a string, even "",
-// replaces it. A blank second line is dropped, so one line stays centred.
-export function textLines(layer, state) {
-  const own = state === "off" ? null : layer[`${state}Lines`];
-  const lines = [0, 1].map((i) => own?.[i] ?? layer.lines[i] ?? "");
-  return lines[1] ? lines : [lines[0]];
-}
-
-// The layer change that sets ON or ALT line index to value (null to use the
-// OFF line again). The lines are dropped when both follow OFF.
-export function setOwnLine(layer, state, index, value) {
-  const key = `${state}Lines`;
-  const lines = [0, 1].map((i) => (i === index ? value : layer[key]?.[i] ?? null));
-  return { [key]: lines.some((line) => line !== null) ? lines : undefined };
-}
-
-export function layerSummary(layer) {
-  switch (layer.type) {
-    case "shape": return `${layer.set} · ${layer.tint ? "Custom" : layer.colour}`;
-    case "icon": return layer.icon;
-    case "text": {
-      const [off, on, alt] = STATES.map((state) => `"${textLines(layer, state).filter(Boolean).join(" / ")}"`);
-      return (off === on ? off : `${off} → ${on}`) + (alt === off ? "" : ` · ALT ${alt}`);
-    }
-    case "image":
-      if (!layer.off && !layer.on) return "No image";
-      if (layer.source?.kind === "keypad") return "Loaded from keypad";
-      if (layer.source?.kind === "library") return layer.source.name;
-      return layer.offFile || layer.onFile || "Uploaded image";
-  }
-  return "";
 }
 
 export function clampPosition(value) {

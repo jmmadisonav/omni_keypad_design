@@ -1,14 +1,18 @@
 // The design's pages and where each button switches to: plain data, no DOM.
 // Pages have stable ids ("L2" for loaded page 2, "N1" for the first new
 // page), so edits and destinations survive pages being added or deleted.
-// A layout is { pages: [{ id, name, source }], destinations: { "<id>-<button>": id }, next }.
+// A layout is { pages: [{ id, name, source, background }], destinations: { "<id>-<button>": id }, next }.
+// background is the page's #RRGGBB colour, which shows around the buttons and
+// behind blank or transparent ones.
 
 export const MAX_PAGES = 9;
+const BLACK = "#000000";
 
 const key = (pageId, button) => `${pageId}-${button}`;
 
 export function layoutFromConfig(config) {
-  const pages = config.pages.map((page, i) => ({ id: `L${i + 1}`, name: page.name, source: i + 1 }));
+  const pages = config.pages.map((page, i) => ({ id: `L${i + 1}`, name: page.name, source: i + 1,
+                                                 background: (page.background || BLACK).toUpperCase() }));
   const byName = new Map(pages.map((p) => [p.name, p.id]));
   const destinations = {};
   config.pages.forEach((page, i) => {
@@ -35,7 +39,8 @@ export function addPage(layout) {
   const taken = new Set(layout.pages.map((p) => p.name.toLowerCase()));
   let n = layout.pages.length + 1;
   while (taken.has(`page ${n}`)) n++;
-  const page = { id: `N${layout.next}`, name: `Page ${n}`, source: null };
+  const page = { id: `N${layout.next}`, name: `Page ${n}`, source: null,
+                 background: layout.pages[0]?.background ?? BLACK };
   return { ...layout, pages: [...layout.pages, page], next: layout.next + 1 };
 }
 
@@ -46,6 +51,14 @@ export function renamePage(layout, id, name) {
     throw new Error(`There's already a page called ${clean}.`);
   }
   return { ...layout, pages: layout.pages.map((p) => (p.id === id ? { ...p, name: clean } : p)) };
+}
+
+export function backgroundOf(layout, id) {
+  return layout.pages.find((p) => p.id === id)?.background ?? BLACK;
+}
+
+export function setBackground(layout, id, colour) {
+  return { ...layout, pages: layout.pages.map((p) => (p.id === id ? { ...p, background: colour } : p)) };
 }
 
 export function deletePage(layout, id) {
@@ -84,10 +97,10 @@ export function swapDestinations(layout, a, b) {
   return { ...layout, destinations };
 }
 
-// The deploy request's "layout": current page numbers and names.
+// The deploy request's "layout": current page numbers, names, and backgrounds.
 export function layoutRequest(layout) {
   return {
-    pages: layout.pages.map((p) => ({ name: p.name, source: p.source })),
+    pages: layout.pages.map((p) => ({ name: p.name, source: p.source, background: p.background })),
     destinations: Object.entries(layout.destinations).map(([from, to]) => {
       const [pageId, button] = from.split("-");
       return { page: pageNumber(layout, pageId), button: Number(button), destination: pageName(layout, to) };

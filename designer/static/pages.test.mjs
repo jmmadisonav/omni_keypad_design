@@ -73,7 +73,8 @@ test("layoutRequest uses current numbers and names", () => {
   const extra = layout.pages[1].id;
   layout = setDestination(layout, extra, 1, "L2");
   assert.deepEqual(layoutRequest(layout), {
-    pages: [{ name: "Main", source: 2 }, { name: layout.pages[1].name, source: null }],
+    pages: [{ name: "Main", source: 2, background: "#000000" },
+            { name: layout.pages[1].name, source: null, background: "#000000" }],
     destinations: [{ page: 2, button: 1, destination: "Main" }],
   });
 });
@@ -107,4 +108,28 @@ test("swapDestinations drops a link that would point at its own page", async () 
   const swapped = swapDestinations(layout, { pageId: "L1", button: 2 }, { pageId: "L2", button: 2 });
   assert.equal(destinationOf(swapped, "L1", 2), null);
   assert.equal(destinationOf(swapped, "L2", 2), null);  // Its link went to L2 itself.
+});
+
+test("each page keeps its own background, black when the design has none", async () => {
+  const { setBackground, backgroundOf } = await import("./pages.js");
+  const layout = layoutFromConfig({ pages: [
+    { name: "Page 1", background: "#e772bd", buttons: [] }, { name: "Page 2", buttons: [] }] });
+  assert.equal(backgroundOf(layout, "L1"), "#E772BD");
+  assert.equal(backgroundOf(layout, "L2"), "#000000");
+  const changed = setBackground(layout, "L2", "#E9F91E");
+  assert.equal(backgroundOf(changed, "L2"), "#E9F91E");
+  assert.equal(backgroundOf(changed, "L1"), "#E772BD");
+  assert.equal(backgroundOf(layout, "L2"), "#000000");      // Unchanged: layouts are immutable.
+});
+
+test("addPage starts a new page with page 1's background", async () => {
+  const { setBackground, backgroundOf } = await import("./pages.js");
+  const layout = addPage(setBackground(layoutFromConfig(config), "L1", "#112233"));
+  assert.equal(backgroundOf(layout, layout.pages.at(-1).id), "#112233");
+});
+
+test("layoutRequest sends each page's background", async () => {
+  const { setBackground } = await import("./pages.js");
+  const layout = setBackground(layoutFromConfig(config), "L2", "#445566");
+  assert.deepEqual(layoutRequest(layout).pages.map((p) => p.background), ["#000000", "#445566"]);
 });

@@ -1,4 +1,4 @@
-"""Load designs from the keypad and deploy designs to it.
+"""Import designs from the keypad and deploy designs to it.
 
 Every deploy downloads the keypad's design first and saves it as a backup.
 A keypad with no design doesn't answer that download, so the deploy goes
@@ -54,8 +54,9 @@ def wait_for_design(host: str, port: int, fingerprint: str, timeout: float = 90)
     raise TimeoutError("the keypad didn't report the new design's fingerprint in time")
 
 
+_COLOUR = re.compile(r"#[0-9A-Fa-f]{6}")
 _BACKUP_NAME = re.compile(r"(backup|loaded|manual)_(\d{8}_\d{6})(_\d+)?\.cpio")
-# What made each kind of backup: a deploy, Load from keypad, or Back up keypad now.
+# What made each kind of backup: a deploy, Import, or Back up keypad now.
 _BACKUP_KINDS = {"backup": "deploy", "loaded": "loaded", "manual": "manual"}
 
 
@@ -134,12 +135,14 @@ class ButtonImages:
 class Layout:
     """The pages you want, in order, and where each button switches to.
 
-    Each page is (name, source): source is the number of the loaded page it
-    comes from, or None for a new, empty page. Destinations map
-    (page, button) in the new numbering to the name of a page.
+    Each page is (name, source, background): source is the number of the
+    loaded page it comes from, or None for a new, empty page. background is
+    the page's #RRGGBB colour, or None to keep the colour it comes with (a new
+    page has page 1's). Destinations map (page, button) in the new numbering
+    to the name of a page.
     """
 
-    pages: list[tuple[str, int | None]]
+    pages: list[tuple[str, int | None, str | None]]
     destinations: dict[tuple[int, int], str]
 
     @classmethod
@@ -152,7 +155,11 @@ class Layout:
             name, source = (page.get("name"), page.get("source")) if isinstance(page, dict) else (None, None)
             if not isinstance(name, str) or not (source is None or type(source) is int):
                 raise ValueError("each page needs a \"name\" and a page number or null as \"source\"")
-            result.pages.append((name.strip(), source))
+            background = page.get("background")
+            if background is not None and not (isinstance(background, str)
+                                               and _COLOUR.fullmatch(background)):
+                raise ValueError(f"a page background must be #RRGGBB, not {background!r}")
+            result.pages.append((name.strip(), source, background and background.upper()))
         for entry in destinations:
             try:
                 key = (int(entry["page"]), int(entry["button"]))
@@ -174,14 +181,14 @@ def apply_layout(design: Design, layout: Layout) -> None:
     """
     if not 1 <= len(layout.pages) <= MAX_PAGES:
         raise ValueError(f"a design needs 1 to {MAX_PAGES} pages; this one has {len(layout.pages)}")
-    names = [name for name, _ in layout.pages]
+    names = [name for name, _, _ in layout.pages]
     if any(not name for name in names):
         raise ValueError("every page needs a name")
     if len(set(names)) != len(names):
         raise ValueError("page names must be different from each other")
     old = design.pages
     pages = []
-    for name, source in layout.pages:
+    for name, source, background in layout.pages:
         if source is None:
             page = blank_page(old[0])
         elif 1 <= source <= len(old):
@@ -189,6 +196,8 @@ def apply_layout(design: Design, layout: Layout) -> None:
         else:
             raise ValueError(f"there's no loaded page {source} to copy")
         page["name"] = name
+        if background is not None:
+            page["background"] = background
         pages.append(page)
     for (page, button), target in layout.destinations.items():
         if not 1 <= page <= len(pages) or not 1 <= button <= len(pages[page - 1]["buttons"]):

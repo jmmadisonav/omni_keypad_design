@@ -7,11 +7,12 @@ import {
   statesOf,
 } from "./model.js";
 import { renderRecipe, toBase64, loadIcons } from "./render.js";
-import { upgradeRecipe, clearRecipe, copyStateFrom, copyAllStates, movedText } from "./recipe.js";
+import { clearRecipe, copyStateFrom, copyAllStates } from "./recipe.js";
 import { createEditor, icon } from "./editor.js";
 import {
   MAX_PAGES, layoutFromConfig, addPage, deletePage, setDestination, destinationOf,
   pageNumber, pageName, layoutRequest, recipesFromSaved, recipesRequest, swapDestinations,
+  backgroundOf, setBackground,
 } from "./pages.js";
 import { buttonGroups, pageControlGroups, HCONTROL_NOTES } from "./hcontrol.js";
 import { arrowFor, copyText, statusText, createLog, followAfterScroll } from "./debug.js";
@@ -31,12 +32,13 @@ const state = {
   projects: [],          // [{ name, model, saved }], newest first
   layout: null,          // Pages and page switching; see pages.js.
   layoutChanges: 0,      // Page and page-link changes not saved yet.
+  unbind: false,         // Whether saving removes the design's OMNI bindings.
   pagesChanged: false,   // Pages added or deleted since the last save, so numbers may move.
   separator: { saved: "#000000", value: "#000000" },  // The colour of the lines between buttons.
   pageId: "",            // The page shown in the keypad view.
   selected: null,        // { pageId, button }
-  recipes: new Map(),    // buttonKey(pageId, button) -> saved recipe, version 1 or 2, as stored
-  edits: new Map(),      // buttonKey(pageId, button) -> unsaved version 2 recipe
+  recipes: new Map(),    // buttonKey(pageId, button) -> saved recipe, as stored
+  edits: new Map(),      // buttonKey(pageId, button) -> unsaved recipe
   previews: new Map(),   // buttonKey(pageId, button) -> { off, on, alt? }: data URLs
   linkChanged: new Set(),// buttonKey(pageId, button) whose page link changed
   view: "off",           // The state shown on the keypad: "off", "on" or "alt".
@@ -120,22 +122,18 @@ function designImage(pageId, button, key) {
   return data ? `data:image/png;base64,${data}` : "";
 }
 
-// The button to edit, as version 2: unsaved edits, the saved recipe, or the
-// keypad's own artwork. moved lists layers that converting a saved version 1
-// recipe moved behind Front layers. The stored recipe stays as it is until
-// you edit the button, so the keypad keeps its images until then.
+// The button to edit: unsaved edits, the saved recipe, or the keypad's own
+// artwork, each state with only its own image.
 function openRecipe(pageId, button) {
   const key = keyOf(pageId, button);
-  if (state.edits.has(key)) return { recipe: state.edits.get(key), moved: [] };
-  if (state.recipes.has(key)) return upgradeRecipe(structuredClone(state.recipes.get(key)));
-  const off = designImage(pageId, button, "offImage");
-  const on = designImage(pageId, button, "onImage");
-  const name = nameFromImage(imageNames(pageId, button, "offImage")[0] || "");
-  if (!off && !on) return upgradeRecipe({ version: 1, name, layers: [] });
-  return upgradeRecipe(recipeFromImages(off, on, name, { kind: "keypad" }, designImage(pageId, button, "altImage")));
+  if (state.edits.has(key)) return state.edits.get(key);
+  if (state.recipes.has(key)) return structuredClone(state.recipes.get(key));
+  const file = ["offImage", "onImage", "altImage"].map((k) => imageNames(pageId, button, k)[0]).find(Boolean);
+  return recipeFromImages(designImage(pageId, button, "offImage"), designImage(pageId, button, "onImage"),
+                          nameFromImage(file || ""), { kind: "keypad" }, designImage(pageId, button, "altImage"));
 }
 
-const recipeFor = (pageId, button) => openRecipe(pageId, button).recipe;
+const recipeFor = openRecipe;
 
 function buttonName(pageId, button) {
   return recipeFor(pageId, button).name || "";
@@ -144,7 +142,8 @@ function buttonName(pageId, button) {
 function isKeyBlank(pageId, button) {
   const key = keyOf(pageId, button);
   const recipe = state.edits.get(key) ?? state.recipes.get(key);
-  return recipe ? isBlank(recipe) : !designImage(pageId, button, "offImage");
+  return recipe ? isBlank(recipe)
+    : !["offImage", "onImage", "altImage"].some((k) => designImage(pageId, button, k));
 }
 
 // A button's image for a state. A button with no ALT state has no ALT image.
@@ -186,6 +185,7 @@ function snapshot() {
   return {
     edits: new Map(state.edits), previews: new Map(state.previews), linkChanged: new Set(state.linkChanged),
     layout: state.layout, layoutChanges: state.layoutChanges, pagesChanged: state.pagesChanged,
+    unbind: state.unbind,
     pageId: state.pageId, selected: state.selected, separator: state.separator.value,
   };
 }
@@ -207,6 +207,7 @@ function restore(snap) {
   Object.assign(state, {
     edits: new Map(snap.edits), previews: new Map(snap.previews), linkChanged: new Set(snap.linkChanged),
     layout: snap.layout, layoutChanges: snap.layoutChanges, pagesChanged: snap.pagesChanged,
+    unbind: snap.unbind,
     pageId: snap.pageId, selected: snap.selected, renaming: null,
   });
   state.separator.value = snap.separator;
@@ -214,9 +215,7 @@ function restore(snap) {
   lastChange = { key: null, time: 0 };
   const sel = state.selected;
   if (sel) {
-    // Undoing back to an unedited old button brings its moved note back too.
-    const { recipe, moved } = openRecipe(sel.pageId, sel.button);
-    editor.setRecipe(structuredClone(recipe), { keep: true, moved });
+    editor.setRecipe(structuredClone(openRecipe(sel.pageId, sel.button)), { keep: true });
   }
   renderTabs();
   renderKeypad();
@@ -279,6 +278,7 @@ function renderFaceplate() {
   $("dial").hidden = !dial;
   face.style.setProperty("--cols", gridFor(m, page.buttons.length, state.project.housing).columns);
   face.style.setProperty("--sep", state.separator.value);
+  renderBackground();
 }
 
 function renderKeypad() {
@@ -393,6 +393,26 @@ function setSeparator(value) {
   updateHeader();
 }
 
+// Each page's background colour is part of the design too. It shows around the
+// outside of the buttons and behind blank or transparent ones.
+function setPageBackground(value) {
+  const colour = value.toUpperCase();
+  const pageId = state.pageId;
+  if (!HEX.test(colour) || colour === backgroundOf(state.layout, pageId)) return renderBackground();
+  record(`changing the background of ${pageName(state.layout, pageId)}`, `background ${pageId}`);
+  state.layout = setBackground(state.layout, pageId, colour);
+  state.layoutChanges++;
+  renderBackground();
+  updateHeader();
+}
+
+function renderBackground() {
+  const colour = backgroundOf(state.layout, state.pageId);
+  $("background-picker").value = colour.toLowerCase();
+  $("background-hex").value = colour;
+  $("faceplate").style.setProperty("--page-bg", colour);
+}
+
 function renderSeparator() {
   $("separator-picker").value = state.separator.value.toLowerCase();
   $("separator-hex").value = state.separator.value;
@@ -402,8 +422,8 @@ function renderSeparator() {
 async function swapKeys(a, b) {
   if (a.pageId === b.pageId && a.button === b.button) return;
   record(`swapping buttons ${a.button} and ${b.button}`);
-  const { recipe: ra, moved: movedA } = openRecipe(a.pageId, a.button);
-  const { recipe: rb, moved: movedB } = openRecipe(b.pageId, b.button);
+  const ra = openRecipe(a.pageId, a.button);
+  const rb = openRecipe(b.pageId, b.button);
   state.layout = swapDestinations(state.layout, a, b);
   state.layoutChanges++;
   state.linkChanged.add(keyOf(a.pageId, a.button)).add(keyOf(b.pageId, b.button));
@@ -414,10 +434,7 @@ async function swapKeys(a, b) {
   renderSelection();
   const where = a.pageId === b.pageId ? `buttons ${a.button} and ${b.button}`
     : `${pageName(state.layout, a.pageId)} button ${a.button} and ${pageName(state.layout, b.pageId)} button ${b.button}`;
-  // Swapping redraws both buttons, so say if an old button's layers moved.
-  const moved = [[movedA, b.button], [movedB, a.button]].filter(([m]) => m.length)
-    .map(([m, button]) => ` On button ${button}, ${movedText(m).replace(/^./, (c) => c.toLowerCase())}`).join("");
-  setStatus(`Swapped artwork and page link between ${where}. Control settings stay with each slot.${moved}`);
+  setStatus(`Swapped artwork and page link between ${where}. Control settings stay with each slot.`);
 }
 
 // -- Pages ------------------------------------------------------------------------------
@@ -600,8 +617,7 @@ function setTab(tab) {
 
 function selectButton(pageId, button) {
   state.selected = { pageId, button };
-  const { recipe, moved } = openRecipe(pageId, button);
-  editor.setRecipe(structuredClone(recipe), { moved });
+  editor.setRecipe(structuredClone(openRecipe(pageId, button)));
   setTab("button");
   renderKeypad();
   renderSelection();
@@ -1038,7 +1054,7 @@ async function applyRecipe(get, pageId, button) {
   }
   let recipe;
   try {
-    recipe = upgradeRecipe(structuredClone(await get())).recipe;
+    recipe = structuredClone(await get());
   } catch (error) {
     return setStatus(error.message, true);
   }
@@ -1113,7 +1129,31 @@ async function saveRecipe() {
 // -- Header -----------------------------------------------------------------------------
 
 function pendingChanges() {
-  return state.edits.size + state.layoutChanges + (separatorChanged() ? 1 : 0);
+  return state.edits.size + state.layoutChanges + (separatorChanged() ? 1 : 0) + (state.unbind ? 1 : 0);
+}
+
+// Controls bound to an OMNI device aren't available over HControl. The
+// warning offers to unbind them; the change applies when you save. Script
+// references work over HControl, so they only get a note.
+function renderBindings() {
+  const warnings = state.project?.bindingWarnings ?? [];
+  $("binding-banner").hidden = !warnings.length;
+  const lines = state.unbind
+    ? ["The OMNI bindings are removed when you save. Then deploy, so the controls work over HControl."]
+    : warnings;
+  $("binding-text").innerHTML = lines.map((line) => `<p>${escapeHtml(line)}</p>`).join("");
+  $("unbind").hidden = state.unbind;
+  const notes = state.project?.referenceNotes ?? [];
+  $("reference-note").hidden = !notes.length;
+  $("reference-note").innerHTML = notes.map((line) => `<p>${escapeHtml(line)}</p>`).join("");
+}
+
+function removeOmniBindings() {
+  if (!state.project || state.unbind) return;
+  record("removing the OMNI bindings");
+  state.unbind = true;
+  updateHeader();
+  setStatus("The OMNI bindings are removed when you save. Ctrl+Z undoes this.");
 }
 
 const separatorChanged = () => state.separator.value !== state.separator.saved;
@@ -1122,11 +1162,12 @@ function updateHeader() {
   const open = Boolean(state.project);
   const unsaved = pendingChanges() > 0;
   const m = model();
+  renderBindings();
   $("unsaved").hidden = !unsaved;
   $("save").classList.toggle("faded", !unsaved);
   $("save").textContent = state.busy === "save" ? "Saving…" : "Save";
   $("find").textContent = state.busy === "find" ? "Finding…" : "Find";
-  $("load").textContent = state.busy === "load" ? "Loading…" : "Load";
+  $("load").textContent = state.busy === "load" ? "Importing…" : "Import";
   const chip = $("model-chip");
   chip.hidden = !open;
   if (open) {
@@ -1172,6 +1213,7 @@ function showProject(project) {
   state.project = project;
   state.layout = layoutFromConfig(project.config);
   state.layoutChanges = 0;
+  state.unbind = false;
   state.pagesChanged = false;
   const separator = (project.config.display?.panel_separator_color || "#000000").toUpperCase();
   state.separator = { saved: separator, value: separator };
@@ -1322,6 +1364,7 @@ async function saveRequest() {
   const request = { buttons, recipes: recipesRequest(state.layout, new Map([...state.recipes, ...state.edits])) };
   if (state.layoutChanges) request.layout = layoutRequest(state.layout);
   if (separatorChanged()) request.separatorColor = state.separator.value;
+  if (state.unbind) request.removeOmniBindings = true;
   return request;
 }
 
@@ -1469,16 +1512,16 @@ function needHost() {
 }
 
 async function loadFromKeypad() {
-  if (needHost() || !(await guard("Loading from the keypad"))) return;
+  if (needHost() || !(await guard("Importing from the keypad"))) return;
   const address = host();
   setBusy("load");
-  setStatus(`Loading the design from ${address}…`);
+  setStatus(`Importing the design from ${address}…`);
   try {
     const project = await sendJson("POST", "/api/projects/from-keypad", { host: address });
     state.connected = true;
     state.keypadModel = project.model;
     showProject(project);
-    setStatus(`Loaded ${address} into new project "${project.name}". A copy is saved in Backups.`);
+    setStatus(`Imported ${address} into new project "${project.name}". A copy is saved in Backups.`);
   } catch (error) {
     setStatus(error.message, true);
   } finally {
@@ -1700,7 +1743,7 @@ async function runDeploy(address, force) {
 
 // -- Backups ----------------------------------------------------------------------------
 
-const KIND_TAGS = { deploy: "Before deploy", loaded: "Loaded", manual: "Manual" };
+const KIND_TAGS = { deploy: "Before deploy", loaded: "Imported", manual: "Manual" };
 
 function formatSize(bytes) {
   return bytes >= 1e6 ? `${(bytes / 1e6).toFixed(1)} MB` : `${Math.max(1, Math.round(bytes / 1e3))} KB`;
@@ -1761,7 +1804,7 @@ async function openBackups(select = "") {
   content.push(list, addLink, error);
   const view = {
     title: "Backups",
-    body: "Stored on this computer in designer/backups/. Deploy saves backup_ files. Load from keypad saves loaded_ files. Back up keypad now saves manual_ files.",
+    body: "Stored on this computer in designer/backups/. Deploy saves backup_ files. Import saves loaded_ files. Back up keypad now saves manual_ files.",
     content,
     secondary: { text: "Close", onClick: closeModal },
     primary: { text: "Restore", onClick: () => { if (selected && !needHost()) runRestore(selected, view); } },
@@ -1777,7 +1820,7 @@ async function runRestore(backup, listView) {
   try {
     await sendJson("POST", "/api/design/restore", { host: address, backup });
     state.connected = true;
-    showModal({ title: "Restored", content: [result(true, `Restored ${backup} to ${address}. The keypad has restarted. To edit it, click Load.`)],
+    showModal({ title: "Restored", content: [result(true, `Restored ${backup} to ${address}. The keypad has restarted. To edit it, click Import.`)],
                 secondary: { text: "Close", onClick: closeModal } });
     setStatus(`Restored ${backup}.`);
   } catch (error) {
@@ -1867,6 +1910,10 @@ function wire() {
   $("separator-picker").addEventListener("input", (e) => state.project && setSeparator(e.target.value));
   $("separator-hex").addEventListener("change", (e) => state.project && setSeparator(e.target.value.trim()));
   $("separator-hex").addEventListener("keydown", (e) => { if (e.key === "Enter") e.target.blur(); });
+  $("unbind").addEventListener("click", removeOmniBindings);
+  $("background-picker").addEventListener("input", (e) => state.project && setPageBackground(e.target.value));
+  $("background-hex").addEventListener("change", (e) => state.project && setPageBackground(e.target.value.trim()));
+  $("background-hex").addEventListener("keydown", (e) => { if (e.key === "Enter") e.target.blur(); });
   $("tab-button").addEventListener("click", () => setTab("button"));
   $("tab-library").addEventListener("click", () => setTab("library"));
   $("goto").addEventListener("change", onGoToChange);
