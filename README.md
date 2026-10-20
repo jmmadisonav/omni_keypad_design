@@ -22,7 +22,7 @@ switch the button to **Layers**.
 The designer runs on your computer and doesn't need internet access.
 
 The source code is on GitHub at
-[jmmadisonav/omni_keypad_design](https://github.com/jmmadisonav/omni_keypad_design).
+[jmmadisonav/omni_keypad_designer](https://github.com/jmmadisonav/omni_keypad_designer).
 
 ## Before you begin
 
