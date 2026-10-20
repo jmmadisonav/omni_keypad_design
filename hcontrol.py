@@ -20,6 +20,7 @@ import hashlib
 import json
 import logging
 import queue
+import select
 import socket
 import threading
 import time
@@ -358,41 +359,69 @@ DISCO_PARAMS = [
 ]
 
 
+def local_ipv4_addresses() -> list[str]:
+    """Return this computer's IPv4 addresses, one per network interface, without loopback."""
+    try:
+        infos = socket.getaddrinfo(socket.gethostname(), None, socket.AF_INET)
+    except OSError:
+        return []
+    return sorted({info[4][0] for info in infos if not info[4][0].startswith("127.")})
+
+
 def discover(
     timeout: float = 3.0,
     port: int = DEFAULT_PORT,
     broadcast: str = "255.255.255.255",
+    addresses: list[str] | None = None,
 ) -> list[dict]:
     """Find HControl devices on the local network.
 
     Sends a UDP "disco" broadcast and collects the "@disco" replies. Each
     result is a dict with keys such as ip, model, name, guid, and version.
+
+    Windows sends a broadcast out of one network interface only, so the
+    broadcast goes from each of addresses (by default, every local IPv4
+    address) in turn. An address that can't send is skipped.
     """
-    with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
-        sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
-        sock.bind(("", 0))
-        reply_port = sock.getsockname()[1]
-        sock.sendto(encode("disco", {"replyport": reply_port, "params": DISCO_PARAMS}),
-                    (broadcast, port))
+    if addresses is None:
+        addresses = local_ipv4_addresses() or [""]
+    sockets = []
+    try:
+        for address in addresses:
+            sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            try:
+                sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+                sock.bind((address, 0))
+                reply_port = sock.getsockname()[1]
+                sock.sendto(encode("disco", {"replyport": reply_port, "params": DISCO_PARAMS}),
+                            (broadcast, port))
+            except OSError as error:
+                log.debug("Can't send discovery from %r: %s", address, error)
+                sock.close()
+                continue
+            sock.setblocking(False)
+            sockets.append(sock)
         found: dict[str, dict] = {}
         deadline = time.monotonic() + timeout
-        while (remaining := deadline - time.monotonic()) > 0:
-            sock.settimeout(remaining)
-            try:
-                data, address = sock.recvfrom(65536)
-            except socket.timeout:
-                break
-            except ConnectionResetError:
-                # Windows reports ICMP "port unreachable" from other hosts this
-                # way. Keep listening for the remaining replies.
-                continue
-            try:
-                command, params = decode(data.decode("utf-8", errors="replace"))
-            except json.JSONDecodeError:
-                continue
-            if command == "@disco" and isinstance(params, dict):
-                params.setdefault("ip", address[0])
-                found[params.get("guid") or address[0]] = params
+        while sockets and (remaining := deadline - time.monotonic()) > 0:
+            readable, _, _ = select.select(sockets, [], [], remaining)
+            for sock in readable:
+                try:
+                    data, address = sock.recvfrom(65536)
+                except (BlockingIOError, ConnectionResetError):
+                    # Windows reports ICMP "port unreachable" from other hosts
+                    # as a reset. Keep listening for the remaining replies.
+                    continue
+                try:
+                    command, params = decode(data.decode("utf-8", errors="replace"))
+                except json.JSONDecodeError:
+                    continue
+                if command == "@disco" and isinstance(params, dict):
+                    params.setdefault("ip", address[0])
+                    found[params.get("guid") or address[0]] = params
+    finally:
+        for sock in sockets:
+            sock.close()
     return list(found.values())
 
 

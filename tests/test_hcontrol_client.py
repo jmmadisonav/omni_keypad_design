@@ -1,9 +1,10 @@
 import os
+import socket
 import threading
 import time
 import unittest
 
-from hcontrol import HControlClient, HControlError, decode, encode
+from hcontrol import HControlClient, HControlError, decode, discover, encode, local_ipv4_addresses
 from tests.fake_keypad import FakeKeypad
 from tests.helpers import KeypadTestCase, wait_until
 
@@ -19,6 +20,56 @@ class EncodingTests(unittest.TestCase):
     def test_decode_splits_command_and_body(self):
         self.assertEqual(decode('@set {"path":"/a","value":1}'), ("@set", {"path": "/a", "value": 1}))
         self.assertEqual(decode("@exec"), ("@exec", None))
+
+
+class FakeDiscoveryResponder:
+    """Answers "disco" on a UDP port of 127.0.0.1, like a keypad answers the broadcast."""
+
+    def __init__(self, guid="kp-1"):
+        self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        self.sock.bind(("127.0.0.1", 0))
+        self.sock.settimeout(0.2)
+        self.port = self.sock.getsockname()[1]
+        self.guid = guid
+        self.running = True
+        self.thread = threading.Thread(target=self.run, daemon=True)
+        self.thread.start()
+
+    def run(self):
+        while self.running:
+            try:
+                data, address = self.sock.recvfrom(65536)
+            except (socket.timeout, OSError):
+                continue
+            command, params = decode(data.decode())
+            if command == "disco":
+                reply = {"model": "OMNI-KP-8BV", "guid": self.guid}
+                self.sock.sendto(encode("@disco", reply), (address[0], params["replyport"]))
+
+    def close(self):
+        self.running = False
+        self.thread.join()
+        self.sock.close()
+
+
+class DiscoveryTests(unittest.TestCase):
+    def setUp(self):
+        self.responder = FakeDiscoveryResponder()
+        self.addCleanup(self.responder.close)
+
+    def test_sends_from_each_local_address(self):
+        found = discover(timeout=0.5, port=self.responder.port, broadcast="127.0.0.1",
+                         addresses=["127.0.0.1"])
+        self.assertEqual([(d["ip"], d["model"]) for d in found], [("127.0.0.1", "OMNI-KP-8BV")])
+
+    def test_an_address_that_fails_doesnt_stop_the_others(self):
+        # 192.0.2.1 is reserved for documentation, so it's never a local address.
+        found = discover(timeout=0.5, port=self.responder.port, broadcast="127.0.0.1",
+                         addresses=["192.0.2.1", "127.0.0.1"])
+        self.assertEqual([d["guid"] for d in found], ["kp-1"])
+
+    def test_local_addresses_leave_out_loopback(self):
+        self.assertFalse([a for a in local_ipv4_addresses() if a.startswith("127.")])
 
 
 class RequestTests(KeypadTestCase):
