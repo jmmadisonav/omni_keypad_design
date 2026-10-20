@@ -7,6 +7,7 @@ from unittest import mock
 from designer import debug
 from designer.debug import DebugSession
 from hcontrol import HControlError
+from keypad_design import DESIGN_PATH
 from tests.fake_keypad import FakeKeypad
 from tests.helpers import wait_until
 
@@ -32,7 +33,8 @@ def descriptor_for(params: dict, extra: tuple[str, ...] = (), skip: tuple[str, .
             kind = {".type": "enum", ".enums": param["enums"]}
         else:
             kind = {".type": "string" if isinstance(param["value"], str) else "integer"}
-        node[leaf] = {".kind": "param", ".access": param.get("access", "rw"), **kind}
+        node[leaf] = {".kind": "param", ".access": param.get("access", "rw"),
+                      ".default": param["value"], **kind}
     return json.dumps(root).encode("utf-8")
 
 
@@ -85,9 +87,48 @@ class DebugSessionTests(unittest.TestCase):
 
     def test_unavailable_control_is_logged_and_the_rest_still_subscribe(self):
         self.connect()
-        self.assertIn(f"Couldn't subscribe to {BOUND}: unknown path. "
-                      "It might be bound to an OMNI device.", self.texts("error"))
+        self.assertIn("Page 3: button 1 isn't available over HControl. It might be bound to an OMNI device. "
+                      "To check, import the design.", self.texts("error"))
         self.assertIn('subscribe {"path":"/page2/dial/level"}', self.keypad.received)
+
+    def test_unavailable_controls_are_grouped_by_page(self):
+        extra = ("/page3/dial/level", "/page3/dial_button/action", "/page3/button4/action", BOUND)
+        self.keypad.files[DESCRIPTOR] = descriptor_for(self.keypad.params, extra=extra)
+        self.connect()
+        self.assertEqual(self.texts("error"), [
+            "Page 3: dial, dial button, and buttons 1 and 4 aren't available over HControl. "
+            "They might be bound to an OMNI device. To check, import the design."])
+
+    def use_script_reference(self, page: int = 1, reference: str = "/Category_1/Reference_1") -> None:
+        """Move a page's dial to a script reference, as AVX does."""
+        del self.keypad.params[f"/page{page}/dial/level"]
+        self.keypad.params[f"{reference}/level"] = {"value": 0, "min": 0, "max": 100}
+        self.keypad.params[f"{reference}/type"] = {"value": "knob", "access": "ro"}
+        self.keypad.files[DESCRIPTOR] = descriptor_for(self.keypad.params)
+
+    def test_dial_on_a_script_reference_is_subscribed_and_named(self):
+        self.use_script_reference()
+        self.connect()
+        self.assertIn('subscribe {"path":"/Category_1/Reference_1/level"}', self.keypad.received)
+        self.assertIn("Found a dial on the script reference Category_1/Reference_1. "
+                      "Debug logs its turns but doesn't copy them to an LED ring.", self.texts("note"))
+        self.keypad.press("/Category_1/Reference_1/level", 42)
+        self.wait_for_note("Dial on Category_1/Reference_1: 42")
+        self.assertFalse(any(line.startswith('set {"path":"/page1/ledring/level"')
+                             for line in self.keypad.received))
+
+    def test_without_a_dial_the_prompt_only_mentions_buttons(self):
+        for page in (1, 2):
+            del self.keypad.params[f"/page{page}/dial/level"]
+        self.keypad.files[DESCRIPTOR] = descriptor_for(self.keypad.params)
+        self.connect()
+        self.assertIn("Subscribed to 19 controls. Press a button.", self.texts("note"))
+
+    def test_connect_does_not_download_the_design(self):
+        self.keypad.files[DESIGN_PATH] = b"design"
+        self.connect()
+        self.assertFalse(any(line.startswith("getfile") and DESIGN_PATH in line
+                             for line in self.keypad.received))
 
     def test_connect_failure_raises_and_logs(self):
         session = DebugSession(port=1, timeout=1.0)
@@ -248,8 +289,8 @@ class DebugSessionTests(unittest.TestCase):
         self.assertFalse(self.session.status()["connected"])
         time.sleep(0.6)
         texts = [entry["text"] for entry in self.entries()]
-        self.assertEqual(self.texts("error"), [f"Couldn't subscribe to {BOUND}: unknown path. "
-                                               "It might be bound to an OMNI device."])
+        self.assertEqual(self.texts("error"), ["Page 3: button 1 isn't available over HControl. It might be bound to an OMNI device. "
+                                               "To check, import the design."])
         self.assertIn("Disconnected.", texts)
 
 

@@ -412,6 +412,7 @@ class ParamInfo:
     flags: tuple = ()
     arguments: dict | None = None
     name: str | None = None
+    default: Any = None
 
 
 def walk_descriptor(desc: dict, path: str = "") -> Iterator[ParamInfo]:
@@ -432,6 +433,7 @@ def walk_descriptor(desc: dict, path: str = "") -> Iterator[ParamInfo]:
             flags=tuple(desc.get(".flags", ())),
             arguments=desc.get(".arguments"),
             name=desc.get(".name"),
+            default=desc.get(".default"),
         )
         return
     if kind == "array":

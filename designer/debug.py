@@ -19,6 +19,7 @@ import threading
 from typing import Any
 
 from hcontrol import DEFAULT_PORT, HControlClient, HControlError, walk_descriptor
+from designer.bindings import control_names
 
 BUFFER_SIZE = 500          # Entries a new listener receives first.
 LISTENER_LIMIT = 1000      # Entries a listener can fall behind before it's dropped.
@@ -30,6 +31,13 @@ DROPPED = ("Connection closed by the keypad. Deploying a design does this. "
 _BUTTON = re.compile(r"/page(\d+)/button(\d+)/action")
 _DIAL = re.compile(r"/page(\d+)/dial/level")
 _DIAL_BUTTON = re.compile(r"/page(\d+)/dial_button/action")
+_CONTROL = re.compile(r"/page(\d+)/(button\d+|dial_button|dial)/")
+_KNOB = "knob"             # The default of a dial's "type", wherever the dial is.
+
+
+def _reference_name(level: str) -> str:
+    """"/Category_1/Reference_1/level" -> "Category_1/Reference_1": the name AVX shows."""
+    return level.removesuffix("/level").lstrip("/")
 
 
 class Listener:
@@ -55,6 +63,7 @@ class DebugSession:
         self._generation = 0                # Increases whenever a client is replaced.
         self._host = self._model = self._version = ""
         self._paths: frozenset[str] = frozenset()
+        self._references: set[str] = set()  # Level paths of dials on script references.
         self._unavailable: set[str] = set()
         self._seq = 0
         self._buffer: collections.deque = collections.deque(maxlen=BUFFER_SIZE)
@@ -114,19 +123,42 @@ class DebugSession:
                   if info.kind == "param"}
         self._paths = frozenset(params)
         self._unavailable = set()           # LED rings the keypad refused to set.
-        count = 0
+        # A dial is usually /pageN/dial. With a script reference, AVX moves it
+        # to the reference's path, such as /Category_1/Reference_1.
+        knobs = {path.rpartition("/")[0] for path, info in params.items()
+                 if path.endswith("/type") and info.default == _KNOB}
+        self._references = {f"{knob}/level" for knob in knobs
+                            if f"{knob}/level" in params and not _DIAL.fullmatch(f"{knob}/level")}
+        for path in sorted(self._references):
+            self._log("note", f"Found a dial on the script reference {_reference_name(path)}. "
+                              "Debug logs its turns but doesn't copy them to an LED ring.")
+        count = dials = 0
+        missing: dict[str, list[str]] = {}  # Page number -> controls it couldn't subscribe to.
         for path, info in params.items():
-            if not (path.endswith("/action") or path.endswith("/dial/level") or path == CURRENT_PAGE):
+            dial = bool(_DIAL.fullmatch(path)) or path in self._references
+            if not (path.endswith("/action") or dial or path == CURRENT_PAGE):
                 continue
             try:
                 client.subscribe(path, lambda p, v: self._on_event(client, generation, p, v),
                                  fmt="string" if info.type == "enum" else None)
             except HControlError as error:
-                self._log("error", f"Couldn't subscribe to {path}: {error.message}. "
-                                   "It might be bound to an OMNI device.")
+                if match := _CONTROL.match(path):
+                    missing.setdefault(match[1], []).append(match[2])
+                else:
+                    self._log("error", f"Couldn't subscribe to {path}: {error.message}.")
                 continue
             count += 1
-        self._log("note", f"Subscribed to {count} controls. Press a button or turn the dial.")
+            dials += dial
+        prompt = "Press a button or turn the dial." if dials else "Press a button."
+        # The descriptor lists a bound control, but the keypad refuses it. Only
+        # the design says what it's bound to, so point there instead of
+        # downloading it on every connect.
+        for page, controls in missing.items():
+            verb, it = ("isn't", "It") if len(controls) == 1 else ("aren't", "They")
+            self._log("error", f"Page {page}: {control_names(controls)} {verb} available over "
+                               f"HControl. {it} might be bound to an OMNI device. "
+                               "To check, import the design.")
+        self._log("note", f"Subscribed to {count} controls. {prompt}")
 
     def _close(self, message: str | None) -> None:
         with self._lock:
@@ -189,6 +221,8 @@ class DebugSession:
                 return
             clamped = "" if applied == value else f" (LED ring {applied})"
             self._log("note", f"Page {page} dial: {value}{clamped}")
+        elif path in self._references:
+            self._log("note", f"Dial on {_reference_name(path)}: {value}")
         elif match := _DIAL_BUTTON.fullmatch(path):
             self._log("note", f"Page {match[1]} dial button: {value}")
         elif path == CURRENT_PAGE:
