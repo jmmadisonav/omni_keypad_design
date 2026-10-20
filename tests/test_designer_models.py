@@ -67,6 +67,17 @@ class ShippedModelTests(unittest.TestCase):
             with self.subTest(model=model_id):
                 self.assertEqual(model.template["display"]["panel_separator_color"], "#000000")
 
+    def test_new_projects_leave_control_ranges_blank(self):
+        # Like AVX 2026.03.0.28: with no min or max, the keypad uses its own
+        # default range, which is 0 to 200 for the dial and LED ring.
+        for model_id, model in self.models.items():
+            page = model.template["pages"][0]
+            controls = [page.get(k) for k in ("dial", "ledring", "dial_button")] + page["buttons"]
+            for control in filter(None, controls):
+                with self.subTest(model=model_id, control=control.get("name")):
+                    self.assertNotIn("min", control)
+                    self.assertNotIn("max", control)
+
     def test_summary_has_no_template(self):
         summary = self.models["OMNI-KP-6BV"].summary()
         self.assertNotIn("template", summary)
