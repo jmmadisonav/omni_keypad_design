@@ -69,6 +69,17 @@ class ProjectStoreTests(unittest.TestCase):
         self.assertEqual((project["bindings"], project["bindingWarnings"]), ([], []))
         self.assertEqual(self.store.new("Fresh")["bindings"], [])
 
+    def test_save_can_remove_script_references(self):
+        self.store.import_design("Bound", self.data, Design.from_cpio(self.data).fingerprint)
+        design = self.store.design("Bound")
+        design.remove_omni_bindings()
+        design.page(1)["dial"]["path"] = "Category_1/Reference_1"
+        self.store._write("Bound", design, self.store._meta("Bound"))
+        self.assertEqual([b["kind"] for b in self.store.open("Bound")["bindings"]], ["reference"])
+        self.assertTrue(self.store.open("Bound")["referenceNotes"])
+        project = self.store.save("Bound", [], None, {}, remove_script_references=True)
+        self.assertEqual((project["bindings"], project["referenceNotes"]), ([], []))
+
     def test_open_drops_recipes_from_an_older_designer(self):
         self.store.new("Lobby")
         self.store.save("Lobby", [], None, {"1-1": RECIPE})

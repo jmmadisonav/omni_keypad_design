@@ -206,6 +206,15 @@ class ServerTests(unittest.TestCase):
                                                       "removeOmniBindings": "yes"})
         self.assertEqual(status, 400, body)
 
+    def test_save_can_remove_script_references(self):
+        self.json_request("POST", "/api/projects", {"name": "Lobby"})
+        status, body = self.json_request("PUT", "/api/projects/Lobby", {
+            "buttons": [], "recipes": {}, "removeScriptReferences": True})
+        self.assertEqual(status, 200, body)
+        status, body = self.json_request("PUT", "/api/projects/Lobby", {
+            "buttons": [], "recipes": {}, "removeScriptReferences": 1})
+        self.assertEqual(status, 400, body)
+
     def test_load_from_keypad_makes_a_project(self):
         project = self.from_keypad()
         self.assertRegex(project["name"], r"^127-0-0-1 \d{4}-\d\d-\d\d$")

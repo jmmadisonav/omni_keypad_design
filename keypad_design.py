@@ -93,6 +93,14 @@ def png_size(data: bytes) -> tuple[int, int]:
 
 # -- Designs --------------------------------------------------------------------------
 
+def _binding(control: dict) -> str | None:
+    """"omni", "reference", or None: what a control is bound to (see Design.bindings)."""
+    remote, path = control.get("remote") or "", control.get("path") or ""
+    if remote or path.startswith("/"):
+        return "omni"
+    return "reference" if path else None
+
+
 class Design:
     """A keypad design: the parsed keypad.json plus its images.
 
@@ -227,14 +235,9 @@ class Design:
         Category_1/Reference_1: it has no remote, and it's available over
         HControl at the reference's path.
         """
-        found = []
-        for page, name, control in self._controls():
-            remote, path = control.get("remote") or "", control.get("path") or ""
-            if remote or path:
-                kind = "omni" if remote or path.startswith("/") else "reference"
-                found.append({"page": page, "control": name, "kind": kind,
-                              "remote": remote, "path": path})
-        return found
+        return [{"page": page, "control": name, "kind": kind,
+                 "remote": control.get("remote") or "", "path": control.get("path") or ""}
+                for page, name, control in self._controls() if (kind := _binding(control))]
 
     def remove_omni_bindings(self) -> None:
         """Unbind every control bound to an OMNI device.
@@ -243,12 +246,20 @@ class Design:
         have no range, as in AVX 2026.03.0.28, so the keypad uses its own.
         """
         for _, name, control in self._controls():
-            remote, path = control.get("remote") or "", control.get("path") or ""
-            if remote or path.startswith("/"):
+            if _binding(control) == "omni":
                 control["remote"] = control["path"] = ""
                 if name in ("dial", "ledring"):
                     control.pop("min", None)
                     control.pop("max", None)
+
+    def remove_script_references(self) -> None:
+        """Take every control off its AVX script reference, back to its page path.
+
+        OMNI bindings stay, and so do ranges.
+        """
+        for _, _, control in self._controls():
+            if _binding(control) == "reference":
+                control["path"] = ""
 
     def set_dial_range(self, page: int, minimum: float, maximum: float) -> None:
         """Set the value range of a page's dial and LED ring."""

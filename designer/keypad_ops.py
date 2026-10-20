@@ -17,7 +17,7 @@ import re
 import threading
 import time
 from collections.abc import Collection
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 from hcontrol import DEFAULT_PORT, HControlClient, HControlError
@@ -131,18 +131,49 @@ class ButtonImages:
                    images["alt"])
 
 
+# The range settings a page can carry in a layout, and the control each one sets.
+RANGES = {"dialRange": "dial", "ringRange": "ledring"}
+
+
+@dataclass
+class PageLayout:
+    """One page of a Layout.
+
+    source is the number of the loaded page it comes from, or None for a new,
+    empty page. background is the page's #RRGGBB colour, or None to keep the
+    colour it comes with (a new page has page 1's). ranges maps "dial" or
+    "ledring" to (min, max), or to None to leave the range blank so the keypad
+    uses its own. A control missing from ranges keeps the range it has.
+    """
+
+    name: str
+    source: int | None
+    background: str | None = None
+    ranges: dict[str, tuple[float, float] | None] = field(default_factory=dict)
+
+
+def _whole(value: object) -> bool:
+    return type(value) is int or (type(value) is float and value.is_integer())
+
+
+def _range(key: str, value: object) -> tuple[float, float] | None:
+    if value is None:
+        return None
+    if not (isinstance(value, list) and len(value) == 2 and all(map(_whole, value))
+            and value[0] < value[1]):
+        raise ValueError(f"{key} must be [min, max] with whole numbers and min below max, "
+                         f"or null to leave it blank, not {value!r}")
+    return float(value[0]), float(value[1])
+
+
 @dataclass
 class Layout:
     """The pages you want, in order, and where each button switches to.
 
-    Each page is (name, source, background): source is the number of the
-    loaded page it comes from, or None for a new, empty page. background is
-    the page's #RRGGBB colour, or None to keep the colour it comes with (a new
-    page has page 1's). Destinations map (page, button) in the new numbering
-    to the name of a page.
+    Destinations map (page, button) in the new numbering to the name of a page.
     """
 
-    pages: list[tuple[str, int | None, str | None]]
+    pages: list[PageLayout]
     destinations: dict[tuple[int, int], str]
 
     @classmethod
@@ -159,7 +190,9 @@ class Layout:
             if background is not None and not (isinstance(background, str)
                                                and _COLOUR.fullmatch(background)):
                 raise ValueError(f"a page background must be #RRGGBB, not {background!r}")
-            result.pages.append((name.strip(), source, background and background.upper()))
+            ranges = {control: _range(key, page[key]) for key, control in RANGES.items() if key in page}
+            result.pages.append(PageLayout(name.strip(), source, background and background.upper(),
+                                           ranges))
         for entry in destinations:
             try:
                 key = (int(entry["page"]), int(entry["button"]))
@@ -181,23 +214,32 @@ def apply_layout(design: Design, layout: Layout) -> None:
     """
     if not 1 <= len(layout.pages) <= MAX_PAGES:
         raise ValueError(f"a design needs 1 to {MAX_PAGES} pages; this one has {len(layout.pages)}")
-    names = [name for name, _, _ in layout.pages]
+    names = [spec.name for spec in layout.pages]
     if any(not name for name in names):
         raise ValueError("every page needs a name")
     if len(set(names)) != len(names):
         raise ValueError("page names must be different from each other")
     old = design.pages
     pages = []
-    for name, source, background in layout.pages:
-        if source is None:
+    for spec in layout.pages:
+        if spec.source is None:
             page = blank_page(old[0])
-        elif 1 <= source <= len(old):
-            page = copy.deepcopy(old[source - 1])
+        elif 1 <= spec.source <= len(old):
+            page = copy.deepcopy(old[spec.source - 1])
         else:
-            raise ValueError(f"there's no loaded page {source} to copy")
-        page["name"] = name
-        if background is not None:
-            page["background"] = background
+            raise ValueError(f"there's no loaded page {spec.source} to copy")
+        page["name"] = spec.name
+        if spec.background is not None:
+            page["background"] = spec.background
+        for control, limits in spec.ranges.items():
+            if limits is None:
+                if page.get(control):
+                    page[control].pop("min", None)
+                    page[control].pop("max", None)
+            elif not page.get(control):
+                raise ValueError(f"page {spec.name!r} has no dial, so it can't have a range")
+            else:
+                page[control]["min"], page[control]["max"] = limits
         pages.append(page)
     for (page, button), target in layout.destinations.items():
         if not 1 <= page <= len(pages) or not 1 <= button <= len(pages[page - 1]["buttons"]):

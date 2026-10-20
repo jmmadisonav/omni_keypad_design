@@ -115,6 +115,14 @@ class DesignTests(unittest.TestCase):
             self.assertNotIn("min", page[key])
             self.assertNotIn("max", page[key])
 
+    def test_remove_script_references_keeps_omni_bindings_and_ranges(self):
+        self.design.page(2)["dial"].update(path="Category_1/Reference_1", remote="", min=0.0, max=100.0)
+        omni = [b for b in self.design.bindings() if b["kind"] == "omni"]
+        self.design.remove_script_references()
+        self.assertEqual(self.design.bindings(), omni)
+        dial = self.design.page(2)["dial"]
+        self.assertEqual((dial["path"], dial["min"], dial["max"]), ("", 0.0, 100.0))
+
     def test_set_dial_range_sets_dial_and_ledring(self):
         self.design.set_dial_range(2, 0, 100)
         page = self.design.page(2)

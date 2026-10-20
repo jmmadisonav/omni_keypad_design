@@ -12,7 +12,7 @@ import { createEditor, icon } from "./editor.js";
 import {
   MAX_PAGES, layoutFromConfig, addPage, deletePage, setDestination, destinationOf,
   pageNumber, pageName, layoutRequest, recipesFromSaved, recipesRequest, swapDestinations,
-  backgroundOf, setBackground,
+  backgroundOf, setBackground, rangeOf, setRange, rangeError, bindingLines,
 } from "./pages.js";
 import { buttonGroups, pageControlGroups, HCONTROL_NOTES } from "./hcontrol.js";
 import { arrowFor, copyText, statusText, createLog, followAfterScroll } from "./debug.js";
@@ -33,6 +33,7 @@ const state = {
   layout: null,          // Pages and page switching; see pages.js.
   layoutChanges: 0,      // Page and page-link changes not saved yet.
   unbind: false,         // Whether saving removes the design's OMNI bindings.
+  unrefer: false,        // Whether saving removes the design's script references.
   pagesChanged: false,   // Pages added or deleted since the last save, so numbers may move.
   separator: { saved: "#000000", value: "#000000" },  // The colour of the lines between buttons.
   pageId: "",            // The page shown in the keypad view.
@@ -185,7 +186,7 @@ function snapshot() {
   return {
     edits: new Map(state.edits), previews: new Map(state.previews), linkChanged: new Set(state.linkChanged),
     layout: state.layout, layoutChanges: state.layoutChanges, pagesChanged: state.pagesChanged,
-    unbind: state.unbind,
+    unbind: state.unbind, unrefer: state.unrefer,
     pageId: state.pageId, selected: state.selected, separator: state.separator.value,
   };
 }
@@ -207,7 +208,7 @@ function restore(snap) {
   Object.assign(state, {
     edits: new Map(snap.edits), previews: new Map(snap.previews), linkChanged: new Set(snap.linkChanged),
     layout: snap.layout, layoutChanges: snap.layoutChanges, pagesChanged: snap.pagesChanged,
-    unbind: snap.unbind,
+    unbind: snap.unbind, unrefer: snap.unrefer,
     pageId: snap.pageId, selected: snap.selected, renaming: null,
   });
   state.separator.value = snap.separator;
@@ -279,6 +280,8 @@ function renderFaceplate() {
   face.style.setProperty("--cols", gridFor(m, page.buttons.length, state.project.housing).columns);
   face.style.setProperty("--sep", state.separator.value);
   renderBackground();
+  $("range-error").hidden = true;          // An error belongs to the page it was typed on.
+  renderPageSettings();
 }
 
 function renderKeypad() {
@@ -573,7 +576,7 @@ function onAddPage() {
   state.selected = null;
   state.pagesChanged = true;
   changeLayout(next);
-  setStatus(`Added ${pageName(next, state.pageId)}. Dial and LED ring settings copied from ${next.pages[0].name}.`);
+  setStatus(`Added ${pageName(next, state.pageId)}. Its dial and LED ring settings come from ${next.pages[0].name}, but their ranges start blank.`);
 }
 
 async function onDeletePage() {
@@ -607,12 +610,12 @@ async function onDeletePage() {
 
 function setTab(tab) {
   state.tab = tab;
-  $("tab-button").classList.toggle("current", tab === "button");
-  $("tab-library").classList.toggle("current", tab === "library");
-  $("tab-button").setAttribute("aria-selected", tab === "button");
-  $("tab-library").setAttribute("aria-selected", tab === "library");
-  $("button-panel").hidden = tab !== "button";
-  $("library-panel").hidden = tab !== "library";
+  for (const name of ["keypad", "page", "button", "library"]) {
+    $(`tab-${name}`).classList.toggle("current", tab === name);
+    $(`tab-${name}`).setAttribute("aria-selected", tab === name);
+    $(`${name}-panel`).hidden = tab !== name;
+  }
+  if (tab === "page") renderPageSettings();
 }
 
 function selectButton(pageId, button) {
@@ -650,6 +653,7 @@ function renderSelection() {
   renderHControl();
   if (!sel) {
     if (editor.getRecipe()) editor.setRecipe(null);     // The rail shows no button either.
+    if (state.tab === "button") setTab("page");         // The page's settings fill the sidebar.
     return;
   }
   renderSelectionHead();
@@ -1129,23 +1133,47 @@ async function saveRecipe() {
 // -- Header -----------------------------------------------------------------------------
 
 function pendingChanges() {
-  return state.edits.size + state.layoutChanges + (separatorChanged() ? 1 : 0) + (state.unbind ? 1 : 0);
+  return state.edits.size + state.layoutChanges + (separatorChanged() ? 1 : 0) +
+    (state.unbind ? 1 : 0) + (state.unrefer ? 1 : 0);
 }
 
-// Controls bound to an OMNI device aren't available over HControl. The
-// warning offers to unbind them; the change applies when you save. Script
-// references work over HControl, so they only get a note.
-function renderBindings() {
-  const warnings = state.project?.bindingWarnings ?? [];
-  $("binding-banner").hidden = !warnings.length;
-  const lines = state.unbind
+const paragraphs = (lines) => lines.map((line) => `<p>${escapeHtml(line)}</p>`).join("");
+const RANGE_INPUTS = { dial: ["dial-min", "dial-max"], ring: ["ring-min", "ring-max"] };
+
+// The PAGE tab and the OMNI banner. Controls bound to an OMNI device aren't
+// available over HControl, so the banner points to the tab, which offers to
+// unbind them. Script references still work over HControl, at the
+// reference's path; the tab offers to remove them too. Both apply on save.
+function renderPageSettings() {
+  const project = state.project;
+  const omni = (project?.bindings ?? []).filter((b) => b.kind === "omni").length;
+  $("binding-banner").hidden = !omni || state.unbind;
+  $("binding-text").textContent = `${omni} control${omni === 1 ? " is" : "s are"} bound to OMNI devices, ` +
+    "so they aren't available over HControl. See the PAGE tab.";
+  if (!project) return;
+  const page = state.layout.pages.find((p) => p.id === state.pageId);
+  $("page-title").textContent = page?.name ?? "Page";
+  $("range-rows").hidden = !model()?.dial;
+  for (const [which, ids] of Object.entries(RANGE_INPUTS)) {
+    if (ids.some((id) => document.activeElement === $(id))) continue;      // Don't overwrite typing.
+    const range = rangeOf(state.layout, state.pageId, which);
+    ids.forEach((id, i) => { $(id).value = range ? String(range[i]) : ""; });
+  }
+  const lines = bindingLines(project.bindings ?? [], page?.source ?? null);
+  $("page-bindings").innerHTML = lines.length ? paragraphs(lines) : "<p>None.</p>";
+  const warnings = project.bindingWarnings ?? [];
+  $("omni-actions").hidden = !warnings.length;
+  $("omni-text").innerHTML = paragraphs(state.unbind
     ? ["The OMNI bindings are removed when you save. Then deploy, so the controls work over HControl."]
-    : warnings;
-  $("binding-text").innerHTML = lines.map((line) => `<p>${escapeHtml(line)}</p>`).join("");
+    : warnings);
   $("unbind").hidden = state.unbind;
-  const notes = state.project?.referenceNotes ?? [];
-  $("reference-note").hidden = !notes.length;
-  $("reference-note").innerHTML = notes.map((line) => `<p>${escapeHtml(line)}</p>`).join("");
+  const notes = project.referenceNotes ?? [];
+  $("reference-actions").hidden = !notes.length;
+  $("binding-actions").hidden = !warnings.length && !notes.length;
+  $("reference-text").innerHTML = paragraphs(state.unrefer
+    ? ["The script references are removed when you save. The controls go back to their page paths, such as /page1/dial."]
+    : notes);
+  $("unrefer").hidden = state.unrefer;
 }
 
 function removeOmniBindings() {
@@ -1156,13 +1184,40 @@ function removeOmniBindings() {
   setStatus("The OMNI bindings are removed when you save. Ctrl+Z undoes this.");
 }
 
+function removeScriptReferences() {
+  if (!state.project || state.unrefer) return;
+  record("removing the script references");
+  state.unrefer = true;
+  updateHeader();
+  setStatus("The script references are removed when you save. Ctrl+Z undoes this.");
+}
+
+// which is "dial" or "ring". The range changes once both boxes make sense.
+function commitRange(which) {
+  const [min, max] = RANGE_INPUTS[which].map((id) => $(id).value);
+  const error = rangeError(min, max);
+  $("range-error").hidden = !error;
+  $("range-error").textContent = error;
+  if (error) return;
+  const range = min.trim() ? [Number(min), Number(max)] : null;
+  const current = rangeOf(state.layout, state.pageId, which);
+  if (JSON.stringify(range) === JSON.stringify(current)) return;
+  const label = which === "dial" ? "dial" : "LED ring";
+  record(`changing the ${label} range of ${pageName(state.layout, state.pageId)}`);
+  state.layout = setRange(state.layout, state.pageId, which, range);
+  state.layoutChanges++;
+  updateHeader();
+  setStatus(range ? `The ${label} range is now ${range[0]} to ${range[1]}.`
+    : `The ${label} range is blank, so the keypad uses its own.`);
+}
+
 const separatorChanged = () => state.separator.value !== state.separator.saved;
 
 function updateHeader() {
   const open = Boolean(state.project);
   const unsaved = pendingChanges() > 0;
   const m = model();
-  renderBindings();
+  renderPageSettings();
   $("unsaved").hidden = !unsaved;
   $("save").classList.toggle("faded", !unsaved);
   $("save").textContent = state.busy === "save" ? "Saving…" : "Save";
@@ -1214,6 +1269,7 @@ function showProject(project) {
   state.layout = layoutFromConfig(project.config);
   state.layoutChanges = 0;
   state.unbind = false;
+  state.unrefer = false;
   state.pagesChanged = false;
   const separator = (project.config.display?.panel_separator_color || "#000000").toUpperCase();
   state.separator = { saved: separator, value: separator };
@@ -1365,6 +1421,7 @@ async function saveRequest() {
   if (state.layoutChanges) request.layout = layoutRequest(state.layout);
   if (separatorChanged()) request.separatorColor = state.separator.value;
   if (state.unbind) request.removeOmniBindings = true;
+  if (state.unrefer) request.removeScriptReferences = true;
   return request;
 }
 
@@ -1911,6 +1968,23 @@ function wire() {
   $("separator-hex").addEventListener("change", (e) => state.project && setSeparator(e.target.value.trim()));
   $("separator-hex").addEventListener("keydown", (e) => { if (e.key === "Enter") e.target.blur(); });
   $("unbind").addEventListener("click", removeOmniBindings);
+  $("unrefer").addEventListener("click", removeScriptReferences);
+  for (const [which, ids] of Object.entries(RANGE_INPUTS)) {
+    for (const id of ids) {
+      $(id).addEventListener("change", () => state.project && commitRange(which));
+      $(id).addEventListener("keydown", (e) => { if (e.key === "Enter") e.target.blur(); });
+    }
+  }
+  // Keypad and Page settings aren't about one button, so opening them deselects it.
+  for (const tab of ["keypad", "page"]) {
+    $(`tab-${tab}`).addEventListener("click", () => {
+      setTab(tab);
+      if (!state.selected) return;
+      state.selected = null;
+      renderSelection();
+      renderKeypad();
+    });
+  }
   $("background-picker").addEventListener("input", (e) => state.project && setPageBackground(e.target.value));
   $("background-hex").addEventListener("change", (e) => state.project && setPageBackground(e.target.value.trim()));
   $("background-hex").addEventListener("keydown", (e) => { if (e.key === "Enter") e.target.blur(); });

@@ -148,7 +148,7 @@ body.busy .lockable { opacity: .4; pointer-events: none; }
 /* -- Stage ------------------------------------------------------------------------- */
 
 .main { flex: 1; min-height: 0; display: flex; }
-.main.nothing-selected .rail, .main.nothing-selected .sidebar { display: none; }
+.main.nothing-selected .rail { display: none; }
 .workspace { flex: 1; min-width: 0; min-height: 0; display: flex; flex-direction: column; }
 /* A size container, so the keypad can shrink to fit above the HControl drawer. */
 .stage { flex: 1; min-width: 0; min-height: 0; container-type: size; display: flex; flex-direction: column;
@@ -163,10 +163,6 @@ body.busy .lockable { opacity: .4; pointer-events: none; }
 .banner { display: flex; gap: 12px; align-items: flex-start; width: min(100%, 640px); margin-bottom: 16px;
           padding: 12px 16px; background: var(--white); border: 1px solid var(--red); font-size: 14px; line-height: 1.5; }
 .banner .chip-error { margin-top: 2px; }
-.binding-body { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; }
-.binding-body p { margin: 0; }
-.reference-note { width: min(100%, 640px); margin-bottom: 16px; font-size: 13px; line-height: 1.5; color: var(--grey); }
-.reference-note p { margin: 0; }
 .tabs-wrap { display: flex; flex-direction: column; align-items: center; gap: 6px; max-width: 100%; }
 .page-tabs { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 2px; max-width: 100%;
              border-bottom: 1px solid var(--control); }
@@ -234,10 +230,6 @@ body.busy .lockable { opacity: .4; pointer-events: none; }
 .stage-controls { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 16px; }
 .seg-look button { flex: none; height: 32px; padding: 0 12px; font-size: 11px; font-weight: 700;
                    letter-spacing: .06em; text-transform: uppercase; }
-.lines-field { display: flex; align-items: center; gap: 8px; }
-.lines-field .label { margin: 0; }
-.lines-field .colour-field { width: 118px; height: 32px; }
-.lines-field .colour-field input[type="color"] { width: 32px; }
 .look-picks { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .legend { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--grey); }
 
@@ -252,6 +244,17 @@ body.busy .lockable { opacity: .4; pointer-events: none; }
 .side-panel { flex: 1; min-height: 0; overflow: auto; display: flex; flex-direction: column; }
 .pad { padding: 20px; display: flex; flex-direction: column; gap: 10px; }
 .pad-x { padding: 6px 20px 0; }
+.pad.divided { border-top: 1px solid var(--light); }
+
+/* PAGE tab: settings for the page you're viewing, then for every page */
+.page-panel { overflow-y: auto; }
+.setting-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.setting-row .label { margin: 0; }
+.setting-row .colour-field { width: 140px; }
+.range-pair { display: flex; align-items: center; gap: 6px; color: var(--muted); font-size: 13px; }
+.field.range { width: 64px; text-align: right; }
+#page-bindings p, #omni-text p, #reference-text p { margin: 0 0 4px; }
+#omni-actions .btn-outline, #reference-actions .btn-outline { align-self: flex-start; }
 .title { margin: 0; font-size: 18px; font-weight: 700; }
 .title-sm { margin: 0; font-size: 16px; font-weight: 700; }
 .lead { margin: 0; font-size: 14px; color: var(--grey); line-height: 1.6; }

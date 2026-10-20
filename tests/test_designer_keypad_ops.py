@@ -184,6 +184,30 @@ class LayoutTests(unittest.TestCase):
         apply_layout(design, self.layout([("Page 2", 2), ("Page 1", 1), ("New", None)]))
         self.assertEqual([p["background"] for p in design.pages], ["#222222", "#111111", "#111111"])
 
+    def test_sets_or_clears_each_dial_and_ring_range(self):
+        design = original()             # Bound to a gain: dial and ring are -100 to 10.
+        apply_layout(design, Layout.from_json({"pages": [
+            {"name": "Page 1", "source": 1, "dialRange": [0, 200], "ringRange": None},
+            {"name": "Page 2", "source": 2, "ringRange": [-5, 5]}]}))
+        one, two = design.pages
+        self.assertEqual((one["dial"]["min"], one["dial"]["max"]), (0.0, 200.0))
+        self.assertNotIn("min", one["ledring"])
+        self.assertNotIn("max", one["ledring"])
+        self.assertEqual((two["dial"]["min"], two["dial"]["max"]), (-100.0, 10.0))   # Kept.
+        self.assertEqual((two["ledring"]["min"], two["ledring"]["max"]), (-5.0, 5.0))
+
+    def test_from_json_rejects_a_bad_range(self):
+        for bad in ([5, 5], [10, 0], [0], [0, "200"], [0.5, 2], "0-200", [True, 5]):
+            with self.subTest(range=bad), self.assertRaises(ValueError):
+                Layout.from_json({"pages": [{"name": "A", "source": 1, "dialRange": bad}]})
+
+    def test_a_range_on_a_page_without_a_dial_is_refused(self):
+        design = original()
+        del design.page(1)["dial"]
+        with self.assertRaisesRegex(ValueError, "no dial"):
+            apply_layout(design, Layout.from_json({"pages": [
+                {"name": "Page 1", "source": 1, "dialRange": [0, 100]}]}))
+
     def test_from_json_rejects_a_bad_background(self):
         for background in ("red", "#12345", 7):
             with self.subTest(background=background), self.assertRaises(ValueError):

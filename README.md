@@ -155,17 +155,20 @@ it, delete it from the library.
 
 A design made in AVX can bind controls to an OMNI device. A bound control
 isn't available over HControl. When you open a project with bound controls, a
-warning lists them by page and device. To use them over HControl, click
-**Remove OMNI bindings**, save, and deploy. Removing the bindings leaves page
-links and script references alone, and the dial and LED ring go back to the
-keypad's own range. To undo it before you save, press Ctrl+Z.
+warning above the keypad says how many there are, and the **Page** tab lists
+them by page and device. To use them over HControl, click **Remove OMNI
+bindings** in the **Page** tab, save, and deploy. Removing the bindings leaves
+page links and script references alone, and the dial and LED ring go back to
+the keypad's own range. To undo it before you save, press Ctrl+Z.
 
 A control can also use an AVX script reference, such as
 `Category_1/Reference_1`. It's still available over HControl, but at the
 reference's path instead of its page's path. For example, a dial on that
 reference is at `/Category_1/Reference_1/level` instead of
-`/page1/dial/level`. The designer notes each script reference under the
-warning area.
+`/page1/dial/level`. The **Page** tab lists each script reference. To move
+the controls back to their page paths, for example for a third-party
+controller, click **Remove script references**, save, and deploy. The ranges
+stay as they are.
 
 ### Backups
 
@@ -233,27 +236,46 @@ OMNI-KP-8BV loads from and deploys to an OMNI-KP-T8BV, and the other way
 around. Importing from a tabletop keypad makes a project for its wall-unit
 model, with the tabletop housing.
 
-### Housing, finish, and lines
+### Housing and finish
 
-Under the keypad view, three controls set how the keypad looks:
+Under the keypad view, two controls set how the keypad looks:
 
 - **Wall | Tabletop** sets the housing. The tabletop T6B and T6BV turn the
   screen sideways, so their buttons are 3 across. Choose it in **New**, or
   change it any time.
 - **Black | White** sets the finish, such as OMNI-KP-T8BV-BL or -WH. It only
   changes the preview.
-- **Lines** sets the colour of the lines between buttons on the keypad. It's
-  part of the design: it's saved with the project, deployed, and undone with
-  Ctrl+Z. New projects use black. A project imported from a keypad keeps the
-  keypad's colour.
-- **Background** sets the background colour of the page you're viewing. Each
-  page has its own. The keypad shows it as a thin border around the outside
-  of the buttons, and behind blank buttons and the transparent parts of
-  button images. Like **Lines**, it's saved with the project, deployed, and
-  undone with Ctrl+Z. A page you add starts with page 1's colour. A page with
-  no colour uses black.
 
 The housing and finish are saved with the project straight away.
+
+### Keypad and page settings
+
+The sidebar's **Keypad** tab holds settings for every page, and its **Page**
+tab holds settings for the page you're viewing. Opening either tab deselects
+the selected button. When no button is selected, the sidebar shows the
+**Page** tab. These settings are part of the design: they're saved with the
+project, deployed, and undone with Ctrl+Z.
+
+On the **Keypad** tab, **Lines** sets the colour of the lines between
+buttons. New projects use black. A project imported from a keypad keeps the
+keypad's colour.
+
+On the **Page** tab:
+
+- **Background** sets the page's background colour. The keypad shows it as a
+  thin border around the outside of the buttons, and behind blank buttons and
+  the transparent parts of button images. A page you add starts with page 1's
+  colour. A page with no colour uses black.
+- **Dial range** and **LED ring range** set the lowest and highest level of
+  the dial and the LED ring, separately. Use whole numbers; they can be
+  negative. To use the keypad's own range, 0 to 200, leave both boxes blank.
+  New projects and new pages start blank. These settings only appear on
+  models with a dial.
+- **Bindings on this page** lists controls that are bound to an OMNI device
+  or use a script reference.
+- **Remove OMNI bindings** and **Remove script references** appear when the
+  design has them, and apply to every page. For details, see
+  [OMNI bindings and script references](#omni-bindings-and-script-references).
 
 If a project's model file is missing, the designer shows an error. You can
 still edit the project, but you can't deploy it until you put the model file

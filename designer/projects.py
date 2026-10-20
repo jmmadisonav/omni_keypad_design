@@ -121,17 +121,20 @@ class ProjectStore:
 
     def save(self, name: str, buttons: list[ButtonImages], layout: Layout | None,
              recipes: dict, separator: str | None = None,
-             remove_omni_bindings: bool = False) -> dict:
+             remove_omni_bindings: bool = False, remove_script_references: bool = False) -> dict:
         """Save changes. separator, when given, is the #RRGGBB colour of the
         lines between buttons on the keypad. remove_omni_bindings unbinds every
-        control bound to an OMNI device, on every page."""
+        control bound to an OMNI device, and remove_script_references takes
+        every control off its script reference, on every page."""
         if separator is not None and not _COLOUR.fullmatch(separator):
             raise ValueError(f"the separator colour must be #RRGGBB, not {separator!r}")
         with self._lock:
-            return self._save(name, buttons, layout, recipes, separator, remove_omni_bindings)
+            return self._save(name, buttons, layout, recipes, separator, remove_omni_bindings,
+                              remove_script_references)
 
     def _save(self, name: str, buttons: list[ButtonImages], layout: Layout | None,
-              recipes: dict, separator: str | None, remove_omni_bindings: bool) -> dict:
+              recipes: dict, separator: str | None, remove_omni_bindings: bool,
+              remove_script_references: bool) -> dict:
         design = self.design(name)
         meta = self._meta(name)
         if separator is not None:
@@ -140,6 +143,8 @@ class ProjectStore:
             apply_layout(design, layout)          # Image page numbers use the new layout.
         if remove_omni_bindings:
             design.remove_omni_bindings()         # After the layout, so new pages are covered.
+        if remove_script_references:
+            design.remove_script_references()
         try:
             apply_buttons(design, buttons)
         except IndexError as error:
