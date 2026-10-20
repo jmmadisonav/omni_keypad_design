@@ -278,7 +278,7 @@ body.busy .lockable { opacity: .4; pointer-events: none; }
 .rail-state.current .rail-head { color: var(--slate); }
 .rail-mark { width: 8px; height: 8px; background: var(--red); visibility: hidden; }
 .rail-state.current .rail-mark { visibility: visible; }
-.rail-tile { position: relative; width: 124px; height: 124px; padding: 0; border: 0; background: #000; overflow: hidden;
+.rail-tile { position: relative; width: 124px; height: 124px; padding: 0; border: 0; background: var(--page-bg, #000); overflow: hidden;
              outline-offset: 2px; touch-action: none; }
 .rail-state.current .rail-tile { outline: 2px solid var(--slate); }
 .rail-tile canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }

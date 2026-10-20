@@ -413,7 +413,7 @@ function renderBackground() {
   const colour = backgroundOf(state.layout, state.pageId);
   $("background-picker").value = colour.toLowerCase();
   $("background-hex").value = colour;
-  $("faceplate").style.setProperty("--page-bg", colour);
+  for (const id of ["faceplate", "rail"]) $(id).style.setProperty("--page-bg", colour);
 }
 
 function renderSeparator() {
