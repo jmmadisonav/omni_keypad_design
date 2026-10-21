@@ -285,6 +285,8 @@ class _Handler(BaseHTTPRequestHandler):
             body = self._body()
             if action == "copy":
                 return self._json(self.projects.copy(name, _field(body, "to", str).strip()))
+            if action == "rename":
+                return self._json(self.projects.rename(name, _field(body, "to", str).strip()))
             if action == "settings":
                 return self._json(self.projects.set_settings(name, body))
             if action == "deploy":

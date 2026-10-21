@@ -100,7 +100,7 @@ your most recent project.</p>
 <p>The window has four areas:</p>
 <ul>
   <li><b>The header</b> shows the project name, the keypad's IP address, and
-    the <b>Find</b>, <b>Import</b>, <b>Backups</b>, <b>Locate</b>, and
+    the <b>Scan</b>, <b>Import</b>, <b>Locate</b>, and
     <b>Deploy</b> buttons.</li>
   <li><b>The keypad view</b> shows the page you're working on, with the page
     tabs above it and the keypad model just above the keypad.</li>
@@ -117,7 +117,7 @@ your most recent project.</p>
   <li><b>Edit:</b> Undo and Redo, plus Cut, Copy, Paste, and Select All for
     text fields.</li>
   <li><b>View:</b> Reload, zoom, Full Screen, and Developer Tools.</li>
-  <li><b>Keypad:</b> Locate, Back Up Keypad Now, and Reset Keypad, for the
+  <li><b>Keypad:</b> Locate, Back Up Keypad Now, Backups, and Reset Keypad, for the
     keypad whose IP address is in the header.</li>
   <li><b>Help:</b> this guide, and About, which shows the app's version.</li>
 </ul>
@@ -127,7 +127,7 @@ your most recent project.</p>
 <ol>
   <li>To start a project, click <b>File &gt; New Project</b>, and choose its
     name and keypad model. To work on a keypad's current design instead, enter
-    its IP address in the header, or click <b>Find</b>, and then click
+    its IP address in the header, or click <b>Scan</b>, and then click
     <b>Import</b>. That saves the design as a new project named after the
     keypad, for example <code>172-17-0-55 2026-10-06</code>.</li>
   <li>Click a button on the keypad view. The <b>States</b> rail shows its OFF,
@@ -357,13 +357,13 @@ Keypad Graphics.</p>
 <ul>
   <li>Every deploy saves the design that was running first.</li>
   <li>Every <b>Import</b> saves a copy of what it imported.</li>
-  <li><b>Back up keypad now</b> in <b>Backups</b> saves a copy whenever you
+  <li><b>Back up keypad now</b> in <b>Keypad &gt; Backups</b> saves a copy whenever you
     like.</li>
   <li><b>Reset Keypad</b> saves a copy first, unless you clear its
     checkbox.</li>
 </ul>
 
-<p>To put a design back, click <b>Backups</b>, choose a backup, and click
+<p>To put a design back, click <b>Keypad &gt; Backups</b>, choose a backup, and click
 <b>Restore</b>. Restoring works even when the keypad has no design. If a
 deploy fails after its backup, the designer offers to restore that
 backup.</p>
@@ -378,14 +378,14 @@ stops. <b>Keypad &gt; Locate</b> does the same.</p>
 <p>To reset a keypad to its default settings, do the following. The keypad
 keeps its firmware version.</p>
 <ol>
-  <li>Enter the keypad's IP address in the header, or click <b>Find</b>.</li>
+  <li>Enter the keypad's IP address in the header, or click <b>Scan</b>.</li>
   <li>Click <b>Keypad &gt; Reset Keypad</b>.</li>
   <li>To keep a copy of the keypad's design, leave <b>Back up the keypad's
     design first</b> selected.</li>
   <li>Click <b>Reset keypad</b>.</li>
 </ol>
 <p>The keypad loses its design and restarts. If it had a fixed IP address, it
-might come back with another one; to find it, click <b>Find</b>. To put the
+might come back with another one; to find it, click <b>Scan</b>. To put the
 design back, deploy a project or restore the backup.</p>
 
 <h2 id="hcontrol">Program the keypad from your own code</h2>
@@ -408,7 +408,7 @@ dial and LED ring paths. The <b>Notes</b> pane explains the protocol rules.</p>
 would, so you can check a deployed design by hand. It doesn't need a project
 open.</p>
 <ol>
-  <li>Enter the keypad's IP address in the header, or click <b>Find</b>.</li>
+  <li>Enter the keypad's IP address in the header, or click <b>Scan</b>.</li>
   <li>Click the <b>Debug</b> tab, and then click <b>Connect</b>.</li>
   <li>Press buttons and turn the dial on the keypad.</li>
 </ol>

@@ -110,8 +110,6 @@ select.field { padding: 0 8px; }
 .header { position: relative; z-index: 3; flex: none; display: flex; flex-wrap: wrap; align-items: center;
           gap: 10px 16px; min-height: 64px; padding: 12px 20px; background: var(--white);
           box-shadow: 0 2px 4px -2px rgba(46, 60, 73, .4); }
-.brand { flex: none; font-size: 19px; font-weight: 600; white-space: nowrap; }
-.vrule { width: 1px; height: 32px; background: var(--light); }
 .project { display: flex; flex-direction: column; min-width: 80px; max-width: 340px; flex: 0 1 auto; }
 .project .overline { font-size: 10px; }
 .project-line { display: flex; align-items: center; gap: 8px; min-width: 0; }

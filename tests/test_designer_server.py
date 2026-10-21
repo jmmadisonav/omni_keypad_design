@@ -437,6 +437,15 @@ class ServerTests(unittest.TestCase):
                          [["OMNI-KP-T6B"], ["OMNI-KP-T6BV"], ["OMNI-KP-T8BV"], []])
         self.assertNotIn("template", models[0])
 
+    def test_rename_project(self):
+        self.json_request("POST", "/api/projects", {"name": "Lobby"})
+        self.json_request("POST", "/api/projects", {"name": "Hall"})
+        status, project = self.json_request("POST", "/api/projects/Lobby/rename", {"to": " Foyer "})
+        self.assertEqual((status, project["name"]), (200, "Foyer"), project)
+        status, body = self.json_request("POST", "/api/projects/Foyer/rename", {"to": "Hall"})
+        self.assertEqual(status, 409, body)
+        self.assertEqual(sorted(p["name"] for p in self.projects.list()), ["Foyer", "Hall"])
+
     def test_new_project_with_model(self):
         status, project = self.json_request("POST", "/api/projects",
                                             {"name": "Lobby", "model": "OMNI-KP-6BV"})

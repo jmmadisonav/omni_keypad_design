@@ -1244,7 +1244,7 @@ function updateHeader() {
   const m = model();
   renderPageSettings();
   $("unsaved").hidden = !unsaved;
-  $("find").textContent = state.busy === "find" ? "Finding…" : "Find";
+  $("find").textContent = state.busy === "find" ? "Scanning…" : "Scan";
   $("load").textContent = state.busy === "load" ? "Importing…" : "Import";
   $("locate").textContent = state.locating ? "Stop locating" : "Locate";
   $("locate").classList.toggle("on", state.locating);
@@ -1329,7 +1329,7 @@ function showProject(project) {
   renderLook();
   renderSeparator();
   $("project-name").textContent = project.name;
-  $("project-name").title = project.name;
+  $("project-name").title = `${project.name}. Double-click to rename it.`;
   // A keypad with no buttons, such as the OMNI-KP-V, has one page and only
   // the Page tab's dial settings: everything about buttons and pages is hidden.
   const knob = knobOnly(model());
@@ -1518,6 +1518,33 @@ async function onSave() {
   if (pendingChanges()) await saveProject();
 }
 
+// Rename the open project. Unsaved changes stay open, and save under the new name.
+async function renameProject() {
+  if (!state.project || state.busy) return;
+  const from = state.project.name;
+  const to = await nameModal({
+    title: "Rename project",
+    body: `Give ${from} a new name.`,
+    label: "Project name",
+    value: from,
+    hint: () => NAME_RULE,
+    confirm: "Rename",
+    // Its own name, in any case, isn't taken.
+    validate: (name) => (name.toLowerCase() === from.toLowerCase() ? (name ? "" : "Enter a name.")
+      : projectNameError(name)),
+    submit: async (name) => {
+      if (name !== from) await sendJson("POST", `${projectUrl(from)}/rename`, { to: name });
+      return name;
+    },
+  });
+  if (!to || to === from) return;
+  state.project.name = to;
+  $("project-name").textContent = to;
+  $("project-name").title = `${to}. Double-click to rename it.`;
+  await refreshProjects();
+  setStatus(`Renamed ${from} to ${to}.`);
+}
+
 async function saveAs() {
   const to = await nameModal({
     title: "Save as",
@@ -1584,7 +1611,7 @@ async function findKeypads() {
   if (!state.keypads.length) {
     state.connected = false;
     updateHeader();
-    return setStatus("Find returned no keypads. Check the keypad is powered and on this network.", true);
+    return setStatus("Scan found no keypads. Check the keypad is powered and on this network.", true);
   }
   if (state.keypads.length === 1) {
     const [keypad] = state.keypads;
@@ -1608,7 +1635,7 @@ function onHostInput() {
 
 function needHost() {
   if (host()) return false;
-  setStatus("Enter the keypad's IP address first, or click Find.", true);
+  setStatus("Enter the keypad's IP address first, or click Scan.", true);
   $("host").focus();
   return true;
 }
@@ -1623,7 +1650,7 @@ async function loadFromKeypad() {
     state.connected = true;
     state.keypadModel = project.model;
     showProject(project);
-    setStatus(`Imported ${address} into new project "${project.name}". A copy is saved in Backups.`);
+    setStatus(`Imported ${address} into new project "${project.name}". A copy is saved in Keypad > Backups.`);
   } catch (error) {
     setStatus(error.message, true);
   } finally {
@@ -1987,7 +2014,7 @@ async function resetKeypad() {
     showModal({
       title: "Reset keypad",
       body: `This resets the keypad at ${address} to its default settings, and keeps its firmware. It loses its design and ` +
-            "restarts. If it had a fixed IP address, it might come back with another one: to find it, click Find.",
+            "restarts. If it had a fixed IP address, it might come back with another one: to find it, click Scan.",
       content: [keep],
       secondary: { text: "Cancel", onClick: () => done(null) },
       primary: { text: "Reset keypad", onClick: () => done({ backUp: box.checked }) },
@@ -2001,7 +2028,7 @@ async function resetKeypad() {
   try {
     const { backup } = await sendJson("POST", "/api/keypad/reset", { host: address, backUp: reset.backUp });
     state.connected = false;
-    const saved = backup ? ` Its design is saved as ${backup}: to put it back, click Backups.` : "";
+    const saved = backup ? ` Its design is saved as ${backup}: to put it back, click Keypad > Backups.` : "";
     showModal({ title: "Reset keypad", content: [result(true, `The keypad at ${address} is resetting.${saved}`)],
                 secondary: { text: "Close", onClick: closeModal } });
     setStatus(`Reset ${address} to its default settings.${saved}`);
@@ -2105,6 +2132,7 @@ async function onMenuCommand(command, arg) {
   if (!$("modal").hidden || state.busy) return;
   if (command === "locate") toggleLocate();
   else if (command === "back-up-keypad") { if (!needHost()) backUpKeypad().catch(() => {}); }
+  else if (command === "backups") openBackups();
   else if (command === "reset-keypad") resetKeypad();
   else if (command === "new") newProject();
   else if (command === "open" && arg) openProject(arg);
@@ -2123,7 +2151,6 @@ function wire() {
     $("find-popover").hidden = !$("find-popover").hidden;
   });
   $("load").addEventListener("click", loadFromKeypad);
-  $("backups").addEventListener("click", () => openBackups());
   $("deploy").addEventListener("click", openDeploy);
   $("housing").addEventListener("click", (e) => { const b = e.target.closest("[data-housing]"); if (b) setLook("housing", b.dataset.housing); });
   $("finish").addEventListener("click", (e) => { const b = e.target.closest("[data-finish]"); if (b) setLook("finish", b.dataset.finish); });
@@ -2151,6 +2178,7 @@ function wire() {
   for (const tab of ["keypad", "page"]) $(`tab-${tab}`).addEventListener("click", () => openTab(tab));
   // The dial and LED ring's settings are on the Page tab.
   $("dial").addEventListener("click", () => state.project && openTab("page"));
+  $("project-name").addEventListener("dblclick", renameProject);
   $("dial").addEventListener("keydown", (e) => {
     if ((e.key === "Enter" || e.key === " ") && state.project) { e.preventDefault(); openTab("page"); }
   });

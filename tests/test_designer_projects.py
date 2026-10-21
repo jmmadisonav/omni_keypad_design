@@ -248,6 +248,33 @@ class ProjectStoreTests(unittest.TestCase):
         self.assertEqual(copy["baseFingerprint"], "abc")
         self.assertEqual(copy["config"]["pages"], self.store.open("Lobby")["config"]["pages"])
 
+    def test_rename_moves_the_project_with_its_recipes_and_base(self):
+        self.store.import_design("Lobby", self.data, "abc")
+        self.store.save("Lobby", [], None, {"1-1": RECIPE})
+        renamed = self.store.rename("Lobby", "Foyer")
+        self.assertEqual((renamed["name"], renamed["recipes"], renamed["baseFingerprint"]),
+                         ("Foyer", {"1-1": RECIPE}, "abc"))
+        self.assertEqual([p["name"] for p in self.store.list()], ["Foyer"])
+        with self.assertRaises(FileNotFoundError):
+            self.store.open("Lobby")
+
+    def test_rename_to_a_taken_name_is_refused(self):
+        self.store.new("Lobby")
+        self.store.new("Foyer")
+        with self.assertRaises(FileExistsError):
+            self.store.rename("Lobby", "foyer")
+        self.assertEqual(sorted(p["name"] for p in self.store.list()), ["Foyer", "Lobby"])
+
+    def test_rename_can_change_only_the_case(self):
+        self.store.new("lobby")
+        self.assertEqual(self.store.rename("lobby", "Lobby")["name"], "Lobby")
+        self.assertEqual([p["name"] for p in self.store.list()], ["Lobby"])
+
+    def test_rename_checks_the_new_name(self):
+        self.store.new("Lobby")
+        with self.assertRaises(ValueError):
+            self.store.rename("Lobby", "bad/name")
+
     def test_import_keeps_the_keypad_design_and_records_its_fingerprint(self):
         original = Design.from_cpio(self.data)
         project = self.store.import_design("Keypad", self.data, original.fingerprint)

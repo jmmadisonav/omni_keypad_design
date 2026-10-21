@@ -11,8 +11,6 @@
 <body>
 <div class="app">
   <header class="header">
-    <div class="brand">Button Designer<span class="dot">.</span></div>
-    <div class="vrule" aria-hidden="true"></div>
     <div class="project">
       <div class="overline">Project</div>
       <div class="project-line">
@@ -25,10 +23,9 @@
         <div class="device">
           <div class="device-label"><span id="conn" class="conn" aria-hidden="true"></span>Keypad</div>
           <input id="host" class="host" placeholder="IP address" spellcheck="false" aria-label="Keypad IP address">
-          <button id="find-list" type="button" class="device-btn chevron" title="Keypads found" aria-label="Keypads found" hidden></button>
-          <button id="find" type="button" class="device-btn">Find</button>
+          <button id="find-list" type="button" class="device-btn chevron" title="Keypads found by Scan" aria-label="Keypads found by Scan" hidden></button>
+          <button id="find" type="button" class="device-btn">Scan</button>
           <button id="load" type="button" class="device-btn">Import</button>
-          <button id="backups" type="button" class="device-btn">Backups</button>
           <button id="locate" type="button" class="device-btn" title="Cycles the keypad's LED ring so you can see which one it is">Locate</button>
         </div>
         <div id="find-popover" class="popover" hidden></div>

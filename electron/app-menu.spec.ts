@@ -42,7 +42,8 @@ describe('menuTemplate', () => {
   it('passes the keypad commands to the page', () => {
     const a = actions();
     const keypad = submenu(ready, '&Keypad', a);
-    for (const [label, command] of [['Locate', 'locate'], ['Back Up Keypad Now', 'back-up-keypad'], ['Reset Keypad…', 'reset-keypad']]) {
+    for (const [label, command] of [['Locate', 'locate'], ['Back Up Keypad Now', 'back-up-keypad'], ['Backups…', 'backups'],
+                                    ['Reset Keypad…', 'reset-keypad']]) {
       click(item(keypad, label));
       expect(a.send).toHaveBeenLastCalledWith(command);
     }
@@ -53,9 +54,10 @@ describe('menuTemplate', () => {
     expect(item(submenu({ ...ready, locating: true }, '&Keypad'), 'Locate').checked).toBe(true);
   });
 
-  it('turns off the keypad commands until you enter an IP address', () => {
+  it('turns off the keypad commands until you enter an IP address, but not Backups', () => {
     const keypad = submenu({ ...ready, hasKeypad: false }, '&Keypad');
-    expect(keypad.filter(i => i.label).map(i => i.enabled)).toEqual([false, false, false]);
+    expect(keypad.filter(i => i.label).map(i => [i.label, i.enabled])).toEqual(
+      [['&Locate', false], ['&Back Up Keypad Now', false], ['B&ackups…', true], ['&Reset Keypad…', false]]);
   });
 
   it('runs the View shortcuts and the Help items', () => {

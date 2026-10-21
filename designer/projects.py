@@ -162,6 +162,26 @@ class ProjectStore:
             self._write(to, design, meta)
             return self.open(to)
 
+    def rename(self, name: str, to: str) -> dict:
+        """Rename a project, and return it opened under its new name.
+
+        A change of case alone, such as lobby to Lobby, is allowed. Any other
+        name a project already has, in any case, is refused.
+        """
+        with self._lock:
+            old = self._path(name)
+            if not (old / "keypad.json").exists():
+                raise FileNotFoundError(f"there's no project called {name!r}")
+            new = self._path(to)
+            if to.lower() != name.lower() and any(
+                    path.name.lower() == to.lower() for path in self.folder.iterdir()):
+                raise FileExistsError(f"there's already a project called {to!r}")
+            # Through a temporary name, so a change of case works where names ignore it.
+            temp = old.with_name(f".renaming-{secrets.token_hex(4)}")
+            old.rename(temp)
+            temp.rename(new)
+            return self.open(to)
+
     def import_design(self, name: str, data: bytes, base_fingerprint: str,
                       model: str = DEFAULT_MODEL, housing: str = "wall") -> dict:
         view = _check_settings({"housing": self._housing(model, housing)})

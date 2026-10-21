@@ -49,7 +49,7 @@ The menu bar has the usual Windows menus:
 - **View:** **Reload** (F5 or Ctrl+R), **Zoom In** (Ctrl+Plus), **Zoom Out**
   (Ctrl+Minus), **Actual Size** (Ctrl+0), **Full Screen** (F11), and
   **Developer Tools** (F12 or Ctrl+Shift+I).
-- **Keypad:** **Locate**, **Back Up Keypad Now**, and **Reset Keypad**, for
+- **Keypad:** **Locate**, **Back Up Keypad Now**, **Backups**, and **Reset Keypad**, for
   the keypad whose IP address is in the header. See
   [Locate or reset a keypad](#locate-or-reset-a-keypad).
 - **Help:** **User Guide** (F1), which opens the guide in your browser, and
@@ -71,7 +71,7 @@ you can move anything you saved in the meantime across.
 1. The designer opens your most recent project, or a new project called
    "Untitled" the first time. To start another, click **File > New Project**, and choose its
    name and keypad model. To work on a keypad's current design, enter its IP
-   address, or click **Find**, and click **Import**. That saves the design as a
+   address, or click **Scan**, and click **Import**. That saves the design as a
    new project named after the keypad, for example `172-17-0-55 2026-10-06`.
 1. Click a button on the keypad view. Until you do, the keypad has the whole
    window. The **States** rail next to the keypad
@@ -181,12 +181,12 @@ stay as they are.
 
 Every deploy saves the design that was running as
 `backups/backup_<date>_<time>.cpio` in the data folder, every **Import** saves
-a copy as `loaded_<date>_<time>.cpio`, **Back up keypad now** in **Backups**
+a copy as `loaded_<date>_<time>.cpio`, **Back up keypad now** in **Keypad > Backups**
 saves `manual_<date>_<time>.cpio`, and **Reset Keypad** saves
 `reset_<date>_<time>.cpio` unless you clear its checkbox. If a deploy fails
 after its backup, the designer offers to restore that backup.
 
-To put a design back, click **Backups**, choose a backup, and click
+To put a design back, click **Keypad > Backups**, choose a backup, and click
 **Restore**. Restoring works even when the keypad has no design loaded.
 
 A keypad with no design, for example after a factory reset, doesn't need a
@@ -208,7 +208,7 @@ The keypad keeps its firmware version.
 The designer asks first, and backs up the keypad's design unless you clear
 **Back up the keypad's design first**. The keypad loses its design and
 restarts. If it had a fixed IP address, it might come back with another one;
-to find it, click **Find**. To put the design back, deploy a project or
+to find it, click **Scan**. To put the design back, deploy a project or
 restore the backup.
 
 Both use HControl: Locate sends `locate` with the keypad's guid, MAC address,
@@ -378,7 +378,7 @@ The **Debug** tab in the drawer connects to the keypad and answers it the
 way a simple control system would, so you can check a deployed design by
 hand. It doesn't need a project open.
 
-1. Enter the keypad's IP address in the header, or click **Find**.
+1. Enter the keypad's IP address in the header, or click **Scan**.
 2. Click the **Debug** tab, and then click **Connect**.
 3. Press buttons and turn the dial on the keypad.
 
@@ -516,4 +516,4 @@ To check the designer against a keypad, do the following:
 1. Deploy, and check both buttons on the keypad in both states. To switch a
    button to ON, run `python 01_buttons_dial_feedback.py` and press it.
 1. Click **Import** again, and check that the designer shows the deployed images.
-1. In **Backups**, restore the backup, and check that the keypad shows the original design.
+1. In **Keypad > Backups**, restore the backup, and check that the keypad shows the original design.
