@@ -160,6 +160,12 @@
                 <input id="dial-max" class="field range" inputmode="numeric" placeholder="max" aria-label="Dial range, max">
               </span>
             </div>
+            <div class="setting-row" title="How far one click of the dial moves it">
+              <span class="label">Dial step</span>
+              <span class="range-pair">
+                <input id="dial-step" class="field range" inputmode="numeric" placeholder="3" aria-label="Dial step">
+              </span>
+            </div>
             <div class="setting-row">
               <span class="label">LED ring range</span>
               <span class="range-pair">
@@ -169,7 +175,8 @@
               </span>
             </div>
             <span id="range-error" class="help error" role="alert" hidden></span>
-            <span class="help">To use the keypad's own range, 0 to 200, leave both boxes blank.</span>
+            <span class="help">To use the keypad's own range, 0 to 200, leave both boxes blank.
+              Dial step is how far one click moves the dial; leave it blank for the keypad's own, 3.</span>
           </div>
           <div class="stack">
             <span class="label">Bindings on this page</span>

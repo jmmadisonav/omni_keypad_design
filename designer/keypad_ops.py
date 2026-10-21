@@ -136,6 +136,9 @@ class ButtonImages:
 
 # The range settings a page can carry in a layout, and the control each one sets.
 RANGES = {"dialRange": "dial", "ringRange": "ledring"}
+# How far one click of the dial moves it: the dial's "steps". Without it, the keypad moves 3.
+MAX_DIAL_STEP = 100
+_KEEP = object()                    # A page layout that leaves the dial step as it is.
 
 
 @dataclass
@@ -147,12 +150,15 @@ class PageLayout:
     colour it comes with (a new page has page 1's). ranges maps "dial" or
     "ledring" to (min, max), or to None to leave the range blank so the keypad
     uses its own. A control missing from ranges keeps the range it has.
+    dial_step is how far one click of the dial moves it, None to leave it blank
+    so the keypad uses its own (3), or _KEEP to leave it as it is.
     """
 
     name: str
     source: int | None
     background: str | None = None
     ranges: dict[str, tuple[float, float] | None] = field(default_factory=dict)
+    dial_step: int | None | object = _KEEP
 
 
 def _whole(value: object) -> bool:
@@ -167,6 +173,15 @@ def _range(key: str, value: object) -> tuple[float, float] | None:
         raise ValueError(f"{key} must be [min, max] with whole numbers and min below max, "
                          f"or null to leave it blank, not {value!r}")
     return float(value[0]), float(value[1])
+
+
+def _dial_step(value: object) -> int | None:
+    if value is None:
+        return None
+    if not (type(value) is int and 1 <= value <= MAX_DIAL_STEP):
+        raise ValueError(f"dialStep must be a whole number from 1 to {MAX_DIAL_STEP}, "
+                         f"or null to leave it blank, not {value!r}")
+    return value
 
 
 @dataclass
@@ -194,8 +209,9 @@ class Layout:
                                                and _COLOUR.fullmatch(background)):
                 raise ValueError(f"a page background must be #RRGGBB, not {background!r}")
             ranges = {control: _range(key, page[key]) for key, control in RANGES.items() if key in page}
+            step = _dial_step(page["dialStep"]) if "dialStep" in page else _KEEP
             result.pages.append(PageLayout(name.strip(), source, background and background.upper(),
-                                           ranges))
+                                           ranges, step))
         for entry in destinations:
             try:
                 key = (int(entry["page"]), int(entry["button"]))
@@ -243,6 +259,13 @@ def apply_layout(design: Design, layout: Layout) -> None:
                 raise ValueError(f"page {spec.name!r} has no dial, so it can't have a range")
             else:
                 page[control]["min"], page[control]["max"] = limits
+        if spec.dial_step is None:
+            if page.get("dial"):
+                page["dial"].pop("steps", None)
+        elif spec.dial_step is not _KEEP:
+            if not page.get("dial"):
+                raise ValueError(f"page {spec.name!r} has no dial, so it can't have a dial step")
+            page["dial"]["steps"] = spec.dial_step
         pages.append(page)
     for (page, button), target in layout.destinations.items():
         if not 1 <= page <= len(pages) or not 1 <= button <= len(pages[page - 1]["buttons"]):

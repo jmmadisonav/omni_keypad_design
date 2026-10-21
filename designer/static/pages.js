@@ -1,14 +1,17 @@
 // The design's pages and where each button switches to: plain data, no DOM.
 // Pages have stable ids ("L2" for loaded page 2, "N1" for the first new
 // page), so edits and destinations survive pages being added or deleted.
-// A layout is { pages: [{ id, name, source, background, ranges }], destinations: { "<id>-<button>": id }, next }.
+// A layout is { pages: [{ id, name, source, background, ranges, step }], destinations: { "<id>-<button>": id }, next }.
 // background is the page's #RRGGBB colour, which shows around the buttons and
 // behind blank or transparent ones. ranges is { dial, ring }: each [min, max],
 // or null to leave it blank so the keypad uses its own range (0 to 200).
+// step is how far one click of the dial moves it, or null to leave it blank
+// so the keypad uses its own (3).
 
 export const MAX_PAGES = 9;
 const BLACK = "#000000";
 const BLANK_RANGES = { dial: null, ring: null };
+export const MAX_DIAL_STEP = 100;
 
 // A control's range in a design, or null when it has none.
 function rangeIn(control) {
@@ -20,7 +23,8 @@ const key = (pageId, button) => `${pageId}-${button}`;
 export function layoutFromConfig(config) {
   const pages = config.pages.map((page, i) => ({ id: `L${i + 1}`, name: page.name, source: i + 1,
                                                  background: (page.background || BLACK).toUpperCase(),
-                                                 ranges: { dial: rangeIn(page.dial), ring: rangeIn(page.ledring) } }));
+                                                 ranges: { dial: rangeIn(page.dial), ring: rangeIn(page.ledring) },
+                                                 step: typeof page.dial?.steps === "number" ? page.dial.steps : null }));
   const byName = new Map(pages.map((p) => [p.name, p.id]));
   const destinations = {};
   config.pages.forEach((page, i) => {
@@ -48,7 +52,7 @@ export function addPage(layout) {
   let n = layout.pages.length + 1;
   while (taken.has(`page ${n}`)) n++;
   const page = { id: `N${layout.next}`, name: `Page ${n}`, source: null,
-                 background: layout.pages[0]?.background ?? BLACK, ranges: BLANK_RANGES };
+                 background: layout.pages[0]?.background ?? BLACK, ranges: BLANK_RANGES, step: null };
   return { ...layout, pages: [...layout.pages, page], next: layout.next + 1 };
 }
 
@@ -77,6 +81,24 @@ export function rangeOf(layout, id, which) {
 export function setRange(layout, id, which, range) {
   return { ...layout, pages: layout.pages.map((p) =>
     (p.id === id ? { ...p, ranges: { ...(p.ranges ?? BLANK_RANGES), [which]: range } } : p)) };
+}
+
+export function stepOf(layout, id) {
+  return layout.pages.find((p) => p.id === id)?.step ?? null;
+}
+
+export function setStep(layout, id, step) {
+  return { ...layout, pages: layout.pages.map((p) => (p.id === id ? { ...p, step } : p)) };
+}
+
+// Why a dial step typed by hand isn't one, or "" when it is (blank is fine).
+export function stepError(text) {
+  const value = text.trim();
+  if (!value) return "";
+  if (!/^\d+$/.test(value) || Number(value) < 1 || Number(value) > MAX_DIAL_STEP) {
+    return `Use a whole number from 1 to ${MAX_DIAL_STEP}, or leave it blank.`;
+  }
+  return "";
 }
 
 // Why a min and max typed by hand aren't a range, or "" when they are (both blank is fine).
@@ -155,11 +177,12 @@ export function swapDestinations(layout, a, b) {
   return { ...layout, destinations };
 }
 
-// The deploy request's "layout": current page numbers, names, backgrounds, and ranges.
+// The deploy request's "layout": current page numbers, names, backgrounds, ranges, and dial steps.
 export function layoutRequest(layout) {
   return {
     pages: layout.pages.map((p) => ({ name: p.name, source: p.source, background: p.background,
-                                      dialRange: p.ranges?.dial ?? null, ringRange: p.ranges?.ring ?? null })),
+                                      dialRange: p.ranges?.dial ?? null, ringRange: p.ranges?.ring ?? null,
+                                      dialStep: p.step ?? null })),
     destinations: Object.entries(layout.destinations).map(([from, to]) => {
       const [pageId, button] = from.split("-");
       return { page: pageNumber(layout, pageId), button: Number(button), destination: pageName(layout, to) };

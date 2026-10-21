@@ -196,6 +196,33 @@ class LayoutTests(unittest.TestCase):
         self.assertEqual((two["dial"]["min"], two["dial"]["max"]), (-100.0, 10.0))   # Kept.
         self.assertEqual((two["ledring"]["min"], two["ledring"]["max"]), (-5.0, 5.0))
 
+    def test_sets_clears_or_keeps_each_dial_step(self):
+        # The dial's "steps" is how far one click moves it; without it, the keypad moves 3.
+        design = original()
+        design.page(2)["dial"]["steps"] = 24
+        design.page(1)["ledring"]["steps"] = 24
+        apply_layout(design, Layout.from_json({"pages": [
+            {"name": "Page 1", "source": 1, "dialStep": 5},
+            {"name": "Page 2", "source": 2, "dialStep": None},
+            {"name": "Page 3", "source": 2}]}))
+        one, two, three = design.pages
+        self.assertEqual(one["dial"]["steps"], 5)
+        self.assertEqual(one["ledring"]["steps"], 24)                 # The ring's own steps.
+        self.assertNotIn("steps", two["dial"])
+        self.assertEqual(three["dial"]["steps"], 24)                  # Kept.
+
+    def test_from_json_rejects_a_bad_dial_step(self):
+        for bad in (0, 101, 2.5, "3", True, [3]):
+            with self.subTest(step=bad), self.assertRaises(ValueError):
+                Layout.from_json({"pages": [{"name": "A", "source": 1, "dialStep": bad}]})
+
+    def test_a_dial_step_on_a_page_without_a_dial_is_refused(self):
+        design = original()
+        del design.page(1)["dial"]
+        with self.assertRaisesRegex(ValueError, "no dial"):
+            apply_layout(design, Layout.from_json({"pages": [
+                {"name": "Page 1", "source": 1, "dialStep": 3}]}))
+
     def test_from_json_rejects_a_bad_range(self):
         for bad in ([5, 5], [10, 0], [0], [0, "200"], [0.5, 2], "0-200", [True, 5]):
             with self.subTest(range=bad), self.assertRaises(ValueError):

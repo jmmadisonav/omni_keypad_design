@@ -12,7 +12,7 @@ import { createEditor, icon } from "./editor.js";
 import {
   MAX_PAGES, layoutFromConfig, addPage, deletePage, setDestination, destinationOf,
   pageNumber, pageName, layoutRequest, recipesFromSaved, recipesRequest, swapDestinations,
-  backgroundOf, setBackground, rangeOf, setRange, rangeError, bindingLines,
+  backgroundOf, setBackground, rangeOf, setRange, rangeError, stepOf, setStep, stepError, bindingLines,
 } from "./pages.js";
 import { buttonGroups, pageControlGroups, HCONTROL_NOTES } from "./hcontrol.js";
 import { arrowFor, copyText, statusText, createLog, followAfterScroll } from "./debug.js";
@@ -1164,6 +1164,9 @@ function renderPageSettings() {
     const range = rangeOf(state.layout, state.pageId, which);
     ids.forEach((id, i) => { $(id).value = range ? String(range[i]) : ""; });
   }
+  if (document.activeElement !== $("dial-step")) {
+    $("dial-step").value = stepOf(state.layout, state.pageId) ?? "";
+  }
   const lines = bindingLines(project.bindings ?? [], page?.source ?? null);
   $("page-bindings").innerHTML = lines.length ? paragraphs(lines) : "<p>None.</p>";
   const warnings = project.bindingWarnings ?? [];
@@ -1214,6 +1217,23 @@ function commitRange(which) {
   updateHeader();
   setStatus(range ? `The ${label} range is now ${range[0]} to ${range[1]}.`
     : `The ${label} range is blank, so the keypad uses its own.`);
+}
+
+// How far one click of the dial moves it: a whole number, or blank for the keypad's own.
+function commitStep() {
+  const text = $("dial-step").value;
+  const error = stepError(text);
+  $("range-error").hidden = !error;
+  $("range-error").textContent = error;
+  if (error) return;
+  const step = text.trim() ? Number(text) : null;
+  if (step === stepOf(state.layout, state.pageId)) return;
+  record(`changing the dial step of ${pageName(state.layout, state.pageId)}`);
+  state.layout = setStep(state.layout, state.pageId, step);
+  state.layoutChanges++;
+  updateHeader();
+  setStatus(step ? `Each click of the dial now moves it by ${step}.`
+    : "The dial step is blank, so the keypad uses its own, 3.");
 }
 
 const separatorChanged = () => state.separator.value !== state.separator.saved;
@@ -2118,6 +2138,8 @@ function wire() {
       $(id).addEventListener("keydown", (e) => { if (e.key === "Enter") e.target.blur(); });
     }
   }
+  $("dial-step").addEventListener("change", () => state.project && commitStep());
+  $("dial-step").addEventListener("keydown", (e) => { if (e.key === "Enter") e.target.blur(); });
   // Keypad and Page settings aren't about one button, so opening them deselects it.
   for (const tab of ["keypad", "page"]) {
     $(`tab-${tab}`).addEventListener("click", () => {

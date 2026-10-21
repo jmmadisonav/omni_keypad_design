@@ -79,8 +79,8 @@ test("layoutRequest uses current numbers and names", () => {
   const extra = layout.pages[1].id;
   layout = setDestination(layout, extra, 1, "L2");
   assert.deepEqual(layoutRequest(layout), {
-    pages: [{ name: "Main", source: 2, background: "#000000", dialRange: null, ringRange: null },
-            { name: layout.pages[1].name, source: null, background: "#000000", dialRange: null, ringRange: null }],
+    pages: [{ name: "Main", source: 2, background: "#000000", dialRange: null, ringRange: null, dialStep: null },
+            { name: layout.pages[1].name, source: null, background: "#000000", dialRange: null, ringRange: null, dialStep: null }],
     destinations: [{ page: 2, button: 1, destination: "Main" }],
   });
 });
@@ -153,6 +153,27 @@ test("each page keeps its own dial and LED ring range, blank when the design has
   assert.equal(rangeOf(changed, "L1", "ring"), null);
   assert.deepEqual(rangeOf(layout, "L1", "dial"), [0, 1]);      // Unchanged: layouts are immutable.
   assert.equal(rangeOf(setRange(layout, "L2", "ring", null), "L2", "ring"), null);
+});
+
+test("each page keeps its own dial step, blank when the design has none", async () => {
+  const { stepOf, setStep } = await import("./pages.js");
+  const layout = layoutFromConfig({ pages: [
+    { name: "Page 1", dial: { steps: 24 }, ledring: { steps: 24 }, buttons: [] },
+    { name: "Page 2", dial: {}, buttons: [] }] });
+  assert.equal(stepOf(layout, "L1"), 24);
+  assert.equal(stepOf(layout, "L2"), null);
+  const changed = setStep(layout, "L1", 3);
+  assert.equal(stepOf(changed, "L1"), 3);
+  assert.equal(stepOf(layout, "L1"), 24);                 // Unchanged: layouts are immutable.
+  assert.deepEqual(layoutRequest(setStep(changed, "L2", null)).pages.map((p) => p.dialStep), [3, null]);
+});
+
+test("stepError accepts blank or a whole number from 1 to 100", async () => {
+  const { stepError } = await import("./pages.js");
+  for (const ok of ["", "  ", "1", "3", "100"]) assert.equal(stepError(ok), "", ok);
+  for (const bad of ["0", "101", "2.5", "-3", "abc"]) {
+    assert.equal(stepError(bad), "Use a whole number from 1 to 100, or leave it blank.", bad);
+  }
 });
 
 test("a new page starts with blank ranges, and layoutRequest sends every page's", async () => {
