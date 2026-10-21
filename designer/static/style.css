@@ -203,8 +203,9 @@ body.busy .lockable { opacity: .4; pointer-events: none; }
    top and the dial centred below. The T6B and T6BV fit 3 x 2 buttons in a narrower screen. */
 .faceplate.tabletop.six { --scr-left: 20%; --scr-top: 12%; --scr-w: 60%; }
 .faceplate.tabletop.six.no-dial { --scr-top: 28%; }
-/* The OMNI-KP-V is a knob and LED ring in the middle of a square plate. */
-.faceplate.knob-face { --face-max: 300px; --ratio: 1; --dial-left: 20%; --dial-top: 20%; --dial-w: 60%; }
+/* The OMNI-KP-V is a knob and LED ring centred on a portrait plate, the 6BV's
+   shape. The ring is 42% of the plate's width; --dial-top centres it vertically. */
+.faceplate.knob-face { --face-max: 363px; --ratio: .62; --dial-left: 29%; --dial-top: 37%; --dial-w: 42%; }
 .faceplate.white { background: linear-gradient(180deg, #fbfbfb 0%, #f3f4f5 80%, #e6e7e8 100%);
                    box-shadow: inset 0 0 0 1px #d5d8db, 0 0 0 1px #6f7378, 0 18px 40px -18px rgba(46, 60, 73, .6); }
 /* The gaps between buttons show the keypad's separator colour (--sep). The
