@@ -653,6 +653,40 @@ class DebugRouteTests(unittest.TestCase):
         status, body = self.post("/api/debug/disconnect")
         self.assertEqual((status, body["connected"]), (200, False))
 
+    def upload_restarting_the_keypad(self):
+        """Deploy and restore wait for the keypad to restart, which drops every connection."""
+        self.keypad.files[DESIGN_PATH] = (FIXTURES / "original_design.cpio").read_bytes()
+        patcher = mock.patch.object(keypad_ops, "wait_for_design",
+                                    side_effect=lambda *args, **kwargs: self.keypad.disconnect_all())
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
+    def test_deploy_reconnects_debug_once_the_keypad_is_back(self):
+        self.upload_restarting_the_keypad()
+        self.assertEqual(self.post("/api/debug/connect", {"host": "127.0.0.1"})[0], 200)
+        self.assertEqual(self.post("/api/projects", {"name": "Lobby"})[0], 200)
+        status, result = self.post("/api/projects/Lobby/deploy", {"host": "127.0.0.1", "force": True})
+        self.assertEqual(status, 200, result)
+        self.assertTrue(self.debug.status()["connected"])
+        self.assertIn("Reconnecting to 127.0.0.1 now that it's running the new design.",
+                      [entry["text"] for entry in self.debug._buffer])
+
+    def test_restore_reconnects_debug_once_the_keypad_is_back(self):
+        self.upload_restarting_the_keypad()
+        self.post("/api/debug/connect", {"host": "127.0.0.1"})
+        name = "backup_20260101_000000.cpio"
+        (self.server.RequestHandlerClass.ops.backup_dir / name).write_bytes(
+            (FIXTURES / "original_design.cpio").read_bytes())
+        status, result = self.post("/api/design/restore", {"host": "127.0.0.1", "backup": name})
+        self.assertEqual(status, 200, result)
+        self.assertTrue(self.debug.status()["connected"])
+
+    def test_deploy_leaves_debug_off_when_it_wasnt_connected(self):
+        self.upload_restarting_the_keypad()
+        self.post("/api/projects", {"name": "Lobby"})
+        self.assertEqual(self.post("/api/projects/Lobby/deploy", {"host": "127.0.0.1", "force": True})[0], 200)
+        self.assertFalse(self.debug.status()["connected"])
+
     def test_connect_needs_a_host(self):
         status, body = self.post("/api/debug/connect", {})
         self.assertEqual((status, body["error"]), (400, "enter the keypad's IP address"))

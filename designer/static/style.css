@@ -272,7 +272,9 @@ body.busy .lockable { opacity: .4; pointer-events: none; }
 .setting-row .label { margin: 0; }
 .setting-row .colour-field { width: 140px; }
 .range-pair { display: flex; align-items: center; gap: 6px; color: var(--muted); font-size: 13px; }
-.field.range { width: 64px; text-align: right; }
+/* The pair's "to" is muted; the values you type aren't, only the placeholders. */
+.field.range { width: 64px; text-align: right; color: var(--slate); }
+.field.range::placeholder { color: var(--muted); }
 #page-bindings p, #omni-text p, #reference-text p { margin: 0 0 4px; }
 #omni-actions .btn-outline, #reference-actions .btn-outline { align-self: flex-start; }
 .title { margin: 0; font-size: 18px; font-weight: 700; }

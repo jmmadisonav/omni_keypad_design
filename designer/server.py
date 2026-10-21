@@ -214,15 +214,19 @@ class _Handler(BaseHTTPRequestHandler):
             problem = None if model else _backup_misfit(self.projects, data)
             if problem:
                 raise ValueError(f"This backup can't be restored: {problem}.")
+            debugging = self.debug.connected_to(host)     # The restart drops Debug.
             try:
-                return self._json(self.ops.restore(host, name, model=model,
-                                                   aliases=_aliases(self.projects, model)))
+                result = self.ops.restore(host, name, model=model,
+                                          aliases=_aliases(self.projects, model))
             except ModelMismatch as error:
                 raise HttpError(409, f"This backup is for "
                                      f"{_article(_model_name(self.projects, error.expected))}, "
                                      f"but the keypad at {host} is "
                                      f"{_article(_model_name(self.projects, error.actual))}.",
                                 model=True) from None
+            if debugging:
+                self.debug.resume(host)
+            return self._json(result)
         if route == ("POST", "debug", "connect"):
             return self._json(self.debug.connect(self._host_from(self._body())))
         if route == ("POST", "debug", "disconnect"):
@@ -297,6 +301,7 @@ class _Handler(BaseHTTPRequestHandler):
                 if model not in self.projects.models:
                     raise ValueError(f"{name} is for {_article(model)}, which the designer "
                                      "doesn't know. Put its model file back in designer/models/.")
+                debugging = self.debug.connected_to(host)     # The restart drops Debug.
                 try:
                     result = self.ops.deploy_project(
                         host, design, self.projects.base_fingerprint(name),
@@ -314,6 +319,8 @@ class _Handler(BaseHTTPRequestHandler):
                 except OSError as error:
                     raise HttpError(500, f"the keypad at {host} has the new design, but the "
                                          f"designer couldn't record that in {name}: {error}") from None
+                if debugging:
+                    self.debug.resume(host)
                 return self._json(result)
         if route == ("GET", "library"):
             return self._json(self.library.list())

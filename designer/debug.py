@@ -104,6 +104,23 @@ class DebugSession:
                 raise
             return self.status()
 
+    def connected_to(self, host: str) -> bool:
+        """Whether a session is open with the keypad at host."""
+        status = self.status()
+        return status["connected"] and status["host"] == host
+
+    def resume(self, host: str) -> None:
+        """Reconnect after a deploy or restore restarted the keypad at host.
+
+        The new design can have other controls, so this subscribes afresh.
+        A failure is logged, not raised: the upload itself worked.
+        """
+        self._log("note", f"Reconnecting to {host} now that it's running the new design.")
+        try:
+            self.connect(host)
+        except (OSError, HControlError, ValueError):
+            pass                            # connect() logged why.
+
     def disconnect(self) -> dict:
         """Close the session, if one is open, and return the status."""
         with self._connect_lock:
