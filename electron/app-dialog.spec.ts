@@ -13,6 +13,12 @@ describe('AppDialogs', () => {
     expect(sent.map(r => [r.id, r.title])).toEqual([[1, 'Activation complete'], [2, 'Second']]);
   });
 
+  it('passes on a request for the company logo', () => {
+    const sent: AppDialogRequest[] = [];
+    void new AppDialogs(request => sent.push(request)).show({ ...NOTICE, logo: true });
+    expect(sent[0].logo).toBe(true);
+  });
+
   it('resolves with the answer and forgets the request', async () => {
     const dialogs = new AppDialogs(() => {});
     const confirmed = dialogs.show(NOTICE);

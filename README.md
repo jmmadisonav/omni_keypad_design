@@ -47,9 +47,8 @@ The menu bar has the usual Windows menus:
 - **Edit:** **Undo** (Ctrl+Z), **Redo** (Ctrl+Y), and **Cut**, **Copy**,
   **Paste**, and **Select All** for text fields.
 - **View:** **Reload** (F5 or Ctrl+R), **Zoom In** (Ctrl+Plus), **Zoom Out**
-  (Ctrl+Minus), **Actual Size** (Ctrl+0), **Full Screen** (F11), and
-  **Developer Tools** (F12 or Ctrl+Shift+I).
-- **Keypad:** **Locate**, **Back Up Keypad Now**, **Backups**, and **Reset Keypad**, for
+  (Ctrl+Minus), **Actual Size** (Ctrl+0), and **Developer Tools** (F12 or Ctrl+Shift+I).
+- **Keypad:** **Back Up Keypad Now**, **Backups**, and **Reset Keypad**, for
   the keypad whose IP address is in the header. See
   [Locate or reset a keypad](#locate-or-reset-a-keypad).
 - **Help:** **User Guide** (F1), which opens the guide in your browser, and
@@ -201,7 +200,7 @@ from or deployed to, the designer asks before it replaces it.
 To see which keypad has the IP address in the header, click **Locate**. The
 keypad's LED ring cycles for about 8 minutes, the same as Locate in AVX. To
 stop it sooner, click **Stop locating**. The button changes back by itself
-when the keypad stops. **Keypad > Locate** does the same.
+when the keypad stops.
 
 To reset a keypad to its default settings, click **Keypad > Reset Keypad**.
 The keypad keeps its firmware version.

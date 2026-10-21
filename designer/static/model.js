@@ -17,6 +17,20 @@ export function gridFor(model, buttonCount, housing = "wall") {
   const columns = buttonCount <= 6 ? (tabletop ? 3 : 2) : 4;
   return { columns, rows: Math.ceil(buttonCount / columns) };
 }
+// The keypad address typed in the header, trimmed, or "" when it can't be one:
+// an IPv4 address, or a host name such as kp-lobby.local. Anything else, such
+// as pasted log text, counts as no address. server.py's _host_from() agrees.
+const HOST_LABEL = /^[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?$/;
+export function keypadAddress(text) {
+  const address = (text || "").trim();
+  if (!address || address.length > 253) return "";
+  if (/^[\d.]+$/.test(address)) {
+    const parts = address.split(".");
+    return parts.length === 4 && parts.every((p) => /^\d{1,3}$/.test(p) && Number(p) <= 255) ? address : "";
+  }
+  return address.split(".").every((label) => HOST_LABEL.test(label)) ? address : "";
+}
+
 // A keypad with no buttons, such as the OMNI-KP-V: just a knob and LED ring.
 export function knobOnly(model) {
   return Boolean(model) && model.columns * model.rows === 0;

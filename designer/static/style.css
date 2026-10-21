@@ -123,10 +123,11 @@ select.field { padding: 0 8px; }
 .conn { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); }
 .conn.on { background: var(--green); }
 .host { width: 112px; height: 100%; padding: 0 10px; border: 0; background: transparent; font-size: 14px; outline: none; }
+.host.bad { color: var(--red); text-decoration: underline wavy var(--red); }
 .device-btn { height: 100%; padding: 0 12px; border: 0; border-left: 1px solid var(--light); background: transparent;
               font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
               white-space: nowrap; transition: background 200ms; }
-.device-btn:hover { background: var(--light); }
+.device-btn:hover:not(:disabled) { background: var(--light); }
 .device-btn.on { color: var(--red); }
 .device-btn.chevron { display: grid; place-items: center; width: 28px; padding: 0; }
 .popover { position: absolute; top: 44px; left: 0; z-index: 5; width: 360px; max-width: calc(100vw - 40px);
@@ -153,7 +154,12 @@ body.busy .lockable { opacity: .4; pointer-events: none; }
 .workspace { flex: 1; min-width: 0; min-height: 0; display: flex; flex-direction: column; }
 /* A size container, so the keypad can shrink to fit above the HControl drawer. */
 .stage { flex: 1; min-width: 0; min-height: 0; container-type: size; display: flex; flex-direction: column;
-         align-items: center; overflow: auto; padding: 16px 24px; position: relative; }
+         align-items: center; overflow: auto; padding: 16px 24px; position: relative; isolation: isolate; }
+/* The Madison AV logo sits small in the stage's bottom-left corner, behind
+   everything. app.js hides it whenever it would overlap the keypad view. */
+.about-logo { display: block; width: 240px; max-width: 100%; height: auto; margin: 4px 0 8px; }
+.brand-logo { position: absolute; left: 20px; bottom: 16px; z-index: -1; width: 150px; height: auto;
+              pointer-events: none; user-select: none; }
 /* Pick mode: copying to another button. */
 .pick-banner { position: sticky; z-index: 2; top: -16px; flex: none; align-self: stretch; display: flex;
                align-items: center; justify-content: center; gap: 16px; margin: -16px -24px 12px; padding: 10px 16px;

@@ -296,6 +296,13 @@ class ServerTests(unittest.TestCase):
         self.assertEqual(status, 400)
         self.assertNotIn('"level":"System"', "".join(self.keypad.received))
 
+    def test_keypad_routes_refuse_text_that_isnt_an_address(self):
+        # Such as log text pasted into the IP box.
+        status, body = self.json_request("POST", "/api/keypad/locating",
+                                         {"host": "2026-10-20 09:23:27 id = 417, 0x00000cb3"})
+        self.assertEqual(status, 400)
+        self.assertEqual(body["error"], "the keypad address must be an IP address or host name")
+
     def test_back_up_now_needs_a_host(self):
         status, result = self.json_request("POST", "/api/backups", {})
         self.assertEqual(status, 400, result)

@@ -12,7 +12,7 @@ const item = (items: MenuItemConstructorOptions[], label: string) =>
 const click = (i: MenuItemConstructorOptions) => (i.click as () => void)();
 
 const ready: MenuState = {
-  open: true, busy: false, unsaved: true, canUndo: true, canRedo: true, hasKeypad: true, locating: false,
+  open: true, busy: false, unsaved: true, canUndo: true, canRedo: true, hasKeypad: true,
   projects: [{ name: 'Lobby', model: 'OMNI-KP-8BV' }],
 };
 
@@ -42,22 +42,22 @@ describe('menuTemplate', () => {
   it('passes the keypad commands to the page', () => {
     const a = actions();
     const keypad = submenu(ready, '&Keypad', a);
-    for (const [label, command] of [['Locate', 'locate'], ['Back Up Keypad Now', 'back-up-keypad'], ['Backups…', 'backups'],
+    for (const [label, command] of [['Back Up Keypad Now', 'back-up-keypad'], ['Backups…', 'backups'],
                                     ['Reset Keypad…', 'reset-keypad']]) {
       click(item(keypad, label));
       expect(a.send).toHaveBeenLastCalledWith(command);
     }
   });
 
-  it('ticks Locate while the keypad is locating', () => {
-    expect(item(submenu(ready, '&Keypad'), 'Locate').checked).toBe(false);
-    expect(item(submenu({ ...ready, locating: true }, '&Keypad'), 'Locate').checked).toBe(true);
+  it('leaves Locate to the header button, and has no Full Screen, which would hide the menu', () => {
+    expect(item(submenu(ready, '&Keypad'), 'Locate')).toBeUndefined();
+    expect(item(submenu(ready, '&View'), 'Full Screen')).toBeUndefined();
   });
 
   it('turns off the keypad commands until you enter an IP address, but not Backups', () => {
     const keypad = submenu({ ...ready, hasKeypad: false }, '&Keypad');
     expect(keypad.filter(i => i.label).map(i => [i.label, i.enabled])).toEqual(
-      [['&Locate', false], ['&Back Up Keypad Now', false], ['B&ackups…', true], ['&Reset Keypad…', false]]);
+      [['&Back Up Keypad Now', false], ['B&ackups…', true], ['&Reset Keypad…', false]]);
   });
 
   it('runs the View shortcuts and the Help items', () => {

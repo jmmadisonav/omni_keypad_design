@@ -15,7 +15,10 @@ describe('shortcutFor', () => {
     expect(shortcutFor(key('+', { control: true, shift: true }))).toBe('zoom-in');
     expect(shortcutFor(key('-', { control: true }))).toBe('zoom-out');
     expect(shortcutFor(key('0', { control: true }))).toBe('zoom-reset');
-    expect(shortcutFor(key('F11'))).toBe('fullscreen');
+  });
+
+  it('has no full screen key, which would hide the menu', () => {
+    expect(shortcutFor(key('F11'))).toBeNull();
   });
 
   it("leaves the designer's own keys to the page", () => {

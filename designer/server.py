@@ -17,6 +17,7 @@ import datetime
 import json
 import os
 import queue
+import re
 import socket
 import sys
 import threading
@@ -369,6 +370,8 @@ class _Handler(BaseHTTPRequestHandler):
         host = str(body.get("host") or "").strip()
         if not host:
             raise ValueError("enter the keypad's IP address")
+        if not _is_address(host):
+            raise ValueError("the keypad address must be an IP address or host name")
         self._host = host
         return host
 
@@ -419,6 +422,20 @@ class _Handler(BaseHTTPRequestHandler):
     def _send_event(self, text: str) -> None:
         self.wfile.write(text.encode("utf-8"))
         self.wfile.flush()
+
+
+_HOST_LABEL = re.compile(r"[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?")
+
+
+def _is_address(host: str) -> bool:
+    """Whether host is an IPv4 address or a host name, not, say, pasted log
+    text. keypadAddress() in static/model.js agrees."""
+    if len(host) > 253:
+        return False
+    if re.fullmatch(r"[\d.]+", host):
+        parts = host.split(".")
+        return len(parts) == 4 and all(len(p) <= 3 and p.isdigit() and int(p) <= 255 for p in parts)
+    return all(_HOST_LABEL.fullmatch(label) for label in host.split("."))
 
 
 def _article(name: str) -> str:

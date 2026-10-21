@@ -2,6 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
   SIZE, CENTRE, buttonKey, shapeFiles, recipeFromImages, searchIcons, fitWithin, gridFor, knobOnly,
+  keypadAddress,
 } from "./model.js";
 
 const catalog = {
@@ -70,6 +71,17 @@ test("gridFor uses the tabletop grid for a tabletop project", () => {
   // With no model, a 6-button tabletop is 3 x 2.
   assert.deepEqual(gridFor(undefined, 6, "tabletop"), { columns: 3, rows: 2 });
   assert.deepEqual(gridFor(undefined, 8, "tabletop"), { columns: 4, rows: 2 });
+});
+
+test("keypadAddress keeps an IP address or host name, and drops anything else", () => {
+  assert.equal(keypadAddress(" 192.168.101.182 "), "192.168.101.182");
+  assert.equal(keypadAddress("kp-lobby.local"), "kp-lobby.local");
+  assert.equal(keypadAddress(""), "");
+  // Pasted log text, as found in the IP box: not an address.
+  assert.equal(keypadAddress("2026-10-20 09:23:27 id = 417, 0x00000cb3 (SNTP down)"), "");
+  for (const bad of ["192.168.1.256", "1.2.3", "a b", "x".repeat(254), "-lobby", "lobby-", "a..b"]) {
+    assert.equal(keypadAddress(bad), "", bad);
+  }
 });
 
 test("knobOnly is true for a known model with no buttons", () => {

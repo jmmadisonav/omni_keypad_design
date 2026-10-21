@@ -13,6 +13,8 @@ export interface AppDialogOptions {
   confirmLabel: string;
   /** Null for a notice with a single button. */
   cancelLabel: string | null;
+  /** Shows the company logo above the message, as Help > About does. */
+  logo?: boolean;
 }
 
 export interface AppDialogRequest extends AppDialogOptions {

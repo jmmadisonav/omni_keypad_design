@@ -13,7 +13,7 @@ import type { MenuItemConstructorOptions } from 'electron';
 import type { Shortcut } from './shortcuts';
 
 export type MenuCommand = 'new' | 'open' | 'save' | 'save-as' | 'open-data-folder' | 'undo' | 'redo'
-  | 'locate' | 'back-up-keypad' | 'backups' | 'reset-keypad';
+  | 'back-up-keypad' | 'backups' | 'reset-keypad';
 
 /** What the page reports to the menu. */
 export interface MenuState {
@@ -27,18 +27,16 @@ export interface MenuState {
   canRedo: boolean;
   /** A keypad's IP address is entered. */
   hasKeypad: boolean;
-  /** That keypad is locating. */
-  locating: boolean;
   /** The saved projects, in the order the page lists them. */
   projects: { name: string; model: string }[];
 }
 
 export const INITIAL_MENU_STATE: MenuState = {
-  open: false, busy: true, unsaved: false, canUndo: false, canRedo: false, hasKeypad: false, locating: false,
+  open: false, busy: true, unsaved: false, canUndo: false, canRedo: false, hasKeypad: false,
   projects: [],
 };
 
-const FLAGS = ['open', 'busy', 'unsaved', 'canUndo', 'canRedo', 'hasKeypad', 'locating'] as const;
+const FLAGS = ['open', 'busy', 'unsaved', 'canUndo', 'canRedo', 'hasKeypad'] as const;
 
 /** Reads a menu state the page sent, or null if it isn't one. */
 export function parseMenuState(value: unknown): MenuState | null {
@@ -50,7 +48,7 @@ export function parseMenuState(value: unknown): MenuState | null {
   return {
     open: v.open as boolean, busy: v.busy as boolean, unsaved: v.unsaved as boolean,
     canUndo: v.canUndo as boolean, canRedo: v.canRedo as boolean,
-    hasKeypad: v.hasKeypad as boolean, locating: v.locating as boolean,
+    hasKeypad: v.hasKeypad as boolean,
     projects: projects.map(p => ({ name: p.name, model: p.model })),
   };
 }
@@ -112,15 +110,12 @@ export function menuTemplate(state: MenuState, actions: MenuActions, appName: st
         { label: 'Zoom &Out', ...shown('Ctrl+-'), click: () => view('zoom-out') },
         { label: '&Actual Size', ...shown('Ctrl+0'), click: () => view('zoom-reset') },
         { type: 'separator' },
-        { label: '&Full Screen', ...shown('F11'), click: () => view('fullscreen') },
         { label: '&Developer Tools', ...shown('F12'), click: () => view('devtools') },
       ],
     },
     {
       label: '&Keypad',
       submenu: [
-        { label: '&Locate', type: 'checkbox', checked: state.locating, enabled: ready && state.hasKeypad,
-          click: () => send('locate') },
         { label: '&Back Up Keypad Now', enabled: ready && state.hasKeypad, click: () => send('back-up-keypad') },
         { label: 'B&ackups…', enabled: ready, click: () => send('backups') },
         { type: 'separator' },

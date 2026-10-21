@@ -82,6 +82,7 @@ function setMenu(state = INITIAL_MENU_STATE): void {
       message: `Version ${app.getVersion()}. Your projects, backups, and library are in ${dataDir}.`,
       confirmLabel: 'OK',
       cancelLabel: null,
+      logo: true,
     }),
   };
   Menu.setApplicationMenu(Menu.buildFromTemplate(menuTemplate(state, actions, APP_NAME)));
@@ -96,7 +97,6 @@ function runShortcut(win: BrowserWindow, shortcut: Shortcut): void {
     case 'zoom-in': contents.setZoomLevel(Math.min(contents.getZoomLevel() + 0.5, 5)); break;
     case 'zoom-out': contents.setZoomLevel(Math.max(contents.getZoomLevel() - 0.5, -3)); break;
     case 'zoom-reset': contents.setZoomLevel(0); break;
-    case 'fullscreen': win.setFullScreen(!win.isFullScreen()); break;
   }
 }
 

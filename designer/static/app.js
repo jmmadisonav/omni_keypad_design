@@ -4,7 +4,7 @@
 import { getJson, sendJson, assetUrl } from "./api.js";
 import {
   gridFor, buttonKey, recipeFromImages, isBlank, fileStem, buttonNameError, nameFromImage, imageSizeFor,
-  statesOf, knobOnly,
+  statesOf, knobOnly, keypadAddress,
 } from "./model.js";
 import { renderRecipe, toBase64, loadIcons } from "./render.js";
 import { clearRecipe, copyStateFrom, copyAllStates } from "./recipe.js";
@@ -94,7 +94,9 @@ function remember(key, value) {
   } catch { /* Not remembered; nothing else depends on it. */ }
 }
 
-const host = () => $("host").value.trim();
+// The typed keypad address, or "" when the box is empty or holds something
+// that isn't an address, such as pasted text.
+const host = () => keypadAddress($("host").value);
 
 // -- Buttons ----------------------------------------------------------------------------
 
@@ -287,6 +289,20 @@ function renderFaceplate() {
   renderBackground();
   $("range-error").hidden = true;          // An error belongs to the page it was typed on.
   renderPageSettings();
+  placeLogo();
+}
+
+// The logo only shows where it has room: anything in the stage that would
+// overlap it, such as the keypad or a banner, hides it.
+function placeLogo() {
+  const logo = $("brand-logo");
+  const box = logo.getBoundingClientRect();
+  const stage = $("stage");
+  const covered = [...stage.querySelectorAll(".banner, .pick-banner, .tabs-wrap, .chip, .faceplate, .stage-controls")]
+    .map((el) => el.getBoundingClientRect())
+    .some((r) => r.width && r.height && r.left < box.right && r.right > box.left
+      && r.top < box.bottom && r.bottom > box.top);
+  logo.style.visibility = covered ? "hidden" : "";
 }
 
 function renderKeypad() {
@@ -1248,6 +1264,14 @@ function updateHeader() {
   $("load").textContent = state.busy === "load" ? "Importing…" : "Import";
   $("locate").textContent = state.locating ? "Stop locating" : "Locate";
   $("locate").classList.toggle("on", state.locating);
+  // Import and Locate need a keypad that answers: the green dot. Each keeps
+  // its own tooltip (data-title) while it's on.
+  for (const id of ["load", "locate"]) {
+    const button = $(id);
+    button.dataset.title ??= button.title;
+    button.disabled = !state.connected;
+    button.title = state.connected ? button.dataset.title : notConnected();
+  }
   const chip = $("model-chip");
   chip.hidden = !open;
   if (open) {
@@ -1260,9 +1284,10 @@ function updateHeader() {
     $("model-banner-text").textContent = `The model file for ${state.project.model} is missing. ` +
       "You can edit this project, but you can't deploy it until the model file is restored.";
   }
-  const blocked = !open || !m || Boolean(state.busy);
+  const blocked = !open || !m || Boolean(state.busy) || !state.connected;
   $("deploy").classList.toggle("off", blocked);
-  $("deploy").title = open && !m ? `Model file for ${state.project.model} is missing` : "";
+  $("deploy").title = open && !m ? `Model file for ${state.project.model} is missing`
+    : !state.connected ? notConnected() : "";
   document.body.classList.toggle("busy", Boolean(state.busy));
   $("conn").classList.toggle("on", state.connected);
   $("find-list").hidden = state.keypads.length < 2;
@@ -1277,7 +1302,7 @@ function sendMenuState() {
   const menu = {
     open: Boolean(state.project), busy: Boolean(state.busy), unsaved: Boolean(state.project) && pendingChanges() > 0,
     canUndo: history.undo.length > 0, canRedo: history.redo.length > 0,
-    hasKeypad: Boolean(host()), locating: state.locating,
+    hasKeypad: state.connected,
     projects: state.projects.map((p) => ({ name: p.name, model: p.model })),
   };
   const json = JSON.stringify(menu);
@@ -1572,12 +1597,13 @@ async function saveAs() {
 
 function useKeypad(keypad, message) {
   $("host").value = keypad.ip;
-  $("host").title = "";
+  markHost();
   remember("designer.host", keypad.ip);
   state.keypadModel = keypad.model;
   state.connected = true;
   $("find-popover").hidden = true;
   updateHeader();
+  renderHControl();                         // Its strings name the keypad's address.
   setStatus(message);
 }
 
@@ -1626,11 +1652,46 @@ async function findKeypads() {
 function onHostInput() {
   remember("designer.host", host());
   stopWatchingLocate();
-  $("host").title = "";
+  markHost();
   state.connected = false;
   state.keypadModel = state.keypads.find((k) => k.ip === host())?.model || "";
   updateHeader();
   renderHControl();
+  checkKeypad();
+}
+
+// Mark the IP box when it holds something that isn't an address.
+function markHost() {
+  const bad = Boolean($("host").value.trim()) && !host();
+  $("host").classList.toggle("bad", bad);
+  $("host").title = bad ? "That isn't an IP address or host name. Enter the keypad's IP address, or click Scan." : "";
+}
+
+// Why Import, Locate, and Deploy are off: the green dot isn't lit.
+function notConnected() {
+  return host() ? `Waiting for the keypad at ${host()} to answer. Check the address, or click Scan.`
+    : "Enter the keypad's IP address first, or click Scan";
+}
+
+// Light the green dot once the keypad at the typed address answers, half a
+// second after you stop typing. Only the newest check counts.
+let checkTimer = null;
+let checkCount = 0;
+function checkKeypad() {
+  clearTimeout(checkTimer);
+  const address = host();
+  if (!address) return;
+  checkTimer = setTimeout(async () => {
+    const check = ++checkCount;
+    try {
+      await sendJson("POST", "/api/keypad/locating", { host: address });
+    } catch {
+      return;                                      // No answer: the dot stays off.
+    }
+    if (check !== checkCount || host() !== address || state.connected) return;
+    state.connected = true;
+    updateHeader();
+  }, 500);
 }
 
 function needHost() {
@@ -2084,9 +2145,12 @@ function wireAppDialogs() {
       showing = false;
       next();
     };
+    const logo = el("img", "about-logo");
+    Object.assign(logo, { src: "/static/madison-av-logo.png", alt: "Madison AV" });
     showModal({
       title: request.title,
       body: request.message,
+      content: request.logo ? [logo] : [],
       closable: false,
       secondary: request.cancelLabel ? { text: request.cancelLabel, onClick: () => done(false) } : null,
       primary: { text: request.confirmLabel, onClick: () => done(true) },
@@ -2130,8 +2194,7 @@ async function onMenuCommand(command, arg) {
     return;
   }
   if (!$("modal").hidden || state.busy) return;
-  if (command === "locate") toggleLocate();
-  else if (command === "back-up-keypad") { if (!needHost()) backUpKeypad().catch(() => {}); }
+  if (command === "back-up-keypad") { if (!needHost()) backUpKeypad().catch(() => {}); }
   else if (command === "backups") openBackups();
   else if (command === "reset-keypad") resetKeypad();
   else if (command === "new") newProject();
@@ -2179,6 +2242,8 @@ function wire() {
   // The dial and LED ring's settings are on the Page tab.
   $("dial").addEventListener("click", () => state.project && openTab("page"));
   $("project-name").addEventListener("dblclick", renameProject);
+  new ResizeObserver(placeLogo).observe($("stage"));
+  $("brand-logo").addEventListener("load", placeLogo);
   $("dial").addEventListener("keydown", (e) => {
     if ((e.key === "Enter" || e.key === " ") && state.project) { e.preventDefault(); openTab("page"); }
   });
@@ -2239,10 +2304,13 @@ async function start() {
   } catch (error) {
     return setStatus(`The designer couldn't start: ${error.message}`, true);
   }
-  const remembered = recall("designer.host");
+  // A remembered entry that isn't an address, such as pasted text, is dropped.
+  const remembered = keypadAddress(recall("designer.host"));
+  remember("designer.host", remembered);
   $("host").value = remembered;
   if (remembered) $("host").title = "Remembered from your last session";
   wire();
+  checkKeypad();
   updateHeader();
   renderLastDeployed();
   // Open the newest project, or create one the first time. A project that

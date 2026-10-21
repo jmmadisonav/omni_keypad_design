@@ -12,6 +12,7 @@ interface AppDialogRequest {
   message: string;
   confirmLabel: string;
   cancelLabel: string | null;
+  logo?: boolean;
 }
 
 contextBridge.exposeInMainWorld('appDialog', {
