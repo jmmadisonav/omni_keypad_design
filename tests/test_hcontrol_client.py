@@ -338,6 +338,23 @@ class LineHookTests(unittest.TestCase):
                          [("send", "set"), ("receive", "publish"), ("receive", "@set"),
                           ("send", "@publish")])
 
+    def test_request_waits_after_an_acknowledgement(self):
+        # On an OMNI-KP-V, an @publish that a request follows within a few
+        # milliseconds doesn't count.
+        times = {}
+        def note(direction, text):
+            times.setdefault(text.split(" ")[0], time.monotonic())
+        with HControlClient("127.0.0.1", self.keypad.port, timeout=1.0, on_line=note) as kp:
+            kp.subscribe("/page1/button1/action", lambda path, value: None, fmt="string")
+            times.clear()
+            self.keypad.press("/page1/button1/action", "PUSH")
+            self.assertTrue(wait_until(lambda: "@publish" in times))
+            kp.get("/settings/brightness")
+        self.assertGreaterEqual(times["get"] - times["@publish"], 0.014)
+
+    def test_lines_are_sent_without_delay(self):
+        self.assertTrue(self.kp._sock.getsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY))
+
     def test_held_acknowledgement_is_sent_when_its_request_times_out(self):
         self.kp.subscribe("/page1/button1/action", lambda path, value: None, fmt="string")
         self.keypad.ignore.add("get")

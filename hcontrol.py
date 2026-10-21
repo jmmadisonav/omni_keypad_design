@@ -30,6 +30,10 @@ from typing import Any, Callable, Iterator
 log = logging.getLogger("hcontrol")
 
 DEFAULT_PORT = 4197
+# How long to wait after an @publish before sending a request. An OMNI-KP-V
+# ignores an @publish that a request follows within a few milliseconds, then
+# waits half a second before its next publish. Tested at 10 and 15 ms on firmware 1.1.4.0.
+ACK_SPACING = 0.015
 
 Callback = Callable[[str, Any], None]
 
@@ -66,7 +70,10 @@ class HControlClient:
     receives everything the keypad sends and acknowledges each publish with
     @publish, but never while a request waits for its reply: the keypad
     ignores an @publish then, and can lose the reply. A held @publish goes
-    out as soon as the reply arrives, or the request times out. A dispatcher
+    out as soon as the reply arrives, or the request times out. A request
+    waits ACK_SPACING after an @publish, which the keypad also ignores if a
+    request follows too closely. Lines go out at once, without Nagle's
+    algorithm, which held a request for the keypad's delayed ACK. A dispatcher
     thread calls your subscription callbacks, so a callback can safely call
     get() or set().
 
@@ -86,6 +93,9 @@ class HControlClient:
         self._on_disconnect = on_disconnect
         self._on_line = on_line
         self._sock = socket.create_connection((host, port), timeout=timeout)
+        # With Nagle's algorithm, a request written after an @publish waited
+        # for the keypad's delayed ACK: up to about 200 ms if no publish followed.
+        self._sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
         self._sock.settimeout(None)
         self._send_lock = threading.Lock()
         self._request_lock = threading.Lock()
@@ -95,6 +105,7 @@ class HControlClient:
         self._ack_lock = threading.Lock()
         self._answer_due = False
         self._ack_held = False
+        self._acked_at = 0.0            # time.monotonic() of the last @publish
         self._replies: queue.Queue = queue.Queue()
         self._events: queue.Queue = queue.Queue()
         self._callbacks: dict[str, list[Callback]] = {}
@@ -281,6 +292,9 @@ class HControlClient:
         if self._closed.is_set():
             raise ConnectionError("not connected to the keypad")
         with self._ack_lock:
+            wait = self._acked_at + ACK_SPACING - time.monotonic()
+            if wait > 0:
+                time.sleep(wait)
             self._answer_due = True
             self._send_line(encode(command, params))
 
@@ -290,7 +304,12 @@ class HControlClient:
             self._answer_due = False
             if self._ack_held:
                 self._ack_held = False
-                self._send_line(b"@publish\n")
+                self._send_ack()
+
+    def _send_ack(self) -> None:
+        """Send @publish. Hold _ack_lock to call this."""
+        self._send_line(b"@publish\n")
+        self._acked_at = time.monotonic()
 
     def _send_line(self, line: bytes) -> None:
         text = line.decode("utf-8").rstrip()
@@ -365,7 +384,7 @@ class HControlClient:
                     if self._answer_due:
                         self._ack_held = True
                     else:
-                        self._send_line(b"@publish\n")
+                        self._send_ack()
             except OSError:
                 return
             self._events.put(params)

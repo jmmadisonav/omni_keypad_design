@@ -86,7 +86,8 @@ export function pageControlGroups(page) {
 export const HCONTROL_NOTES = [
   { title: "One request at a time", text: "Every request gets exactly one reply that starts with @. Wait for it before you send the next request." },
   { title: "Acknowledge publishes", text: "A publish is sent when a control changes, such as a button press or a turn of the dial. Answer each one with @publish, or the keypad won't send the next one. Echoing the whole line back with @ in front also works." },
-  { title: "Acknowledge after replies", text: "If a publish arrives while you're waiting for the reply to a request, send @publish after that reply. The keypad ignores an @publish sent before it, holds the next publish for half a second, and can lose the reply." },
+  { title: "Acknowledge after replies", text: "If a publish arrives while you're waiting for the reply to a request, send @publish after that reply. The keypad ignores an @publish sent before it, holds the next publish for half a second, and can lose the reply. It also ignores an @publish that a request follows within a few milliseconds, so wait about 15 ms after an @publish before you send a request." },
+  { title: "Send lines at once", text: "If a reply sometimes takes about 200 ms after you stop turning the dial, your controller's TCP stack is holding the request back until the keypad acknowledges your @publish. If your controller lets you, turn off Nagle's algorithm (TCP_NODELAY) for the connection." },
   { title: "Interleaving", text: "A publish can arrive between your request and its reply, so match each reply by its command and path." },
   { title: "Use string format", text: "Include \"format\":\"string\" so action and state use names (PUSH, ON). Without it, they're indexes, for example 2 for ON." },
   { title: "Feedback is up to you", text: "Pressing a button doesn't change its state. Your code sets state to show feedback." },
