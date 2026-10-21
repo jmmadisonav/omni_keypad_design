@@ -223,6 +223,11 @@ class ProjectStoreTests(unittest.TestCase):
         self.assertEqual(project["housing"], "wall")
         self.assertEqual([page["buttons"] for page in project["config"]["pages"]], [[]])
 
+    def test_kp_v_settings_keep_it_a_wall_unit(self):
+        self.store.new("Desk", "OMNI-KP-V")
+        project = self.store.set_settings("Desk", {"housing": "tabletop", "finish": "white"})
+        self.assertEqual((project["housing"], project["finish"]), ("wall", "white"))
+
     def test_new_with_unique_picks_a_free_name(self):
         (self.folder / "Untitled").mkdir()   # A leftover folder that isn't a project.
         self.assertEqual(self.store.new("Untitled", unique=True)["name"], "Untitled 2")

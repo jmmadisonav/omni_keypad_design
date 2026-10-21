@@ -190,7 +190,10 @@ class ProjectStore:
         if not changes:
             raise ValueError("send at least one of showAlt, housing, or finish")
         with self._lock:
-            meta = {**self._meta(name), **changes}
+            meta = self._meta(name)
+            if "housing" in changes:
+                changes["housing"] = self._housing(meta["model"], changes["housing"])
+            meta = {**meta, **changes}
             (self._path(name) / _META).write_text(json.dumps(meta, indent=2) + "\n",
                                                   encoding="utf-8")
             return self.open(name)

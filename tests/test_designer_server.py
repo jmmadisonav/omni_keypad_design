@@ -494,7 +494,7 @@ class ServerTests(unittest.TestCase):
         status, body = self.json_request("POST", "/api/projects/from-keypad", {"host": "127.0.0.1"})
         self.assertEqual(status, 400)
         self.assertEqual(body["error"], "The keypad at 127.0.0.1 can't be imported: "
-                                        "it has 2 pages, but a V holds 1.")
+                                        "it has 2 pages, but a KP-V only supports 1.")
         self.assertEqual(self.projects.list(), [])
 
     def test_backups_of_a_kp_v_match_it_only_with_one_page(self):
@@ -562,7 +562,7 @@ class ServerTests(unittest.TestCase):
         status, body = self.json_request("POST", "/api/design/restore",
                                          {"host": "127.0.0.1", "backup": name})
         self.assertEqual(status, 400)
-        self.assertEqual(body["error"], "This backup can't be restored: it has 2 pages, but a V holds 1.")
+        self.assertEqual(body["error"], "This backup can't be restored: it has 2 pages, but a KP-V only supports 1.")
         self.assertEqual(self.keypad.files[DESIGN_PATH], self.data)
 
     def test_restore_8bv_backup_to_8bv_works(self):

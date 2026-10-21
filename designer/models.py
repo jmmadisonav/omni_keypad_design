@@ -56,13 +56,14 @@ class Model:
         Only checks the page limit, and that a model with no buttons holds none.
         """
         pages = config.get("pages", [])
+        short = self.id.removeprefix("OMNI-")             # "KP-V"
         if self.max_pages is not None and len(pages) > self.max_pages:
-            return (f"it has {len(pages)} pages, but a {self.name} holds {self.max_pages}")
+            return f"it has {len(pages)} pages, but a {short} only supports {self.max_pages}"
         if self.buttons == 0:
             for number, page in enumerate(pages, 1):
                 if count := len(page.get("buttons", [])):
                     return (f"page {number} has {count} button{'s' if count != 1 else ''}, "
-                            f"but a {self.name} has none")
+                            f"but a {short} has none")
         return None
 
     def summary(self) -> dict:
