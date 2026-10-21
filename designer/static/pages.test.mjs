@@ -14,6 +14,12 @@ const config = {
   ],
 };
 
+test("layoutFromConfig takes a page with no buttons", () => {
+  const layout = layoutFromConfig({ pages: [{ name: "Page 1", buttons: [] }] });
+  assert.deepEqual(layout.pages.map((p) => p.name), ["Page 1"]);
+  assert.equal(layoutRequest(layout).destinations.length, 0);
+});
+
 test("layoutFromConfig keeps pages and known destinations", () => {
   const layout = layoutFromConfig(config);
   assert.deepEqual(layout.pages.map((p) => [p.id, p.name, p.source]),

@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
-  SIZE, CENTRE, buttonKey, shapeFiles, recipeFromImages, searchIcons, fitWithin, gridFor,
+  SIZE, CENTRE, buttonKey, shapeFiles, recipeFromImages, searchIcons, fitWithin, gridFor, knobOnly,
 } from "./model.js";
 
 const catalog = {
@@ -70,6 +70,19 @@ test("gridFor uses the tabletop grid for a tabletop project", () => {
   // With no model, a 6-button tabletop is 3 x 2.
   assert.deepEqual(gridFor(undefined, 6, "tabletop"), { columns: 3, rows: 2 });
   assert.deepEqual(gridFor(undefined, 8, "tabletop"), { columns: 4, rows: 2 });
+});
+
+test("knobOnly is true for a known model with no buttons", () => {
+  assert.equal(knobOnly({ columns: 0, rows: 0, dial: true }), true);
+  assert.equal(knobOnly({ columns: 4, rows: 2, dial: true }), false);
+  assert.equal(knobOnly(null), false);
+  assert.equal(knobOnly(undefined), false);
+});
+
+test("gridFor gives a knob-only model no grid, even on a tabletop", () => {
+  const kpV = { columns: 0, rows: 0, tabletop: null };
+  assert.deepEqual(gridFor(kpV, 0), { columns: 0, rows: 0 });
+  assert.deepEqual(gridFor(kpV, 0, "tabletop"), { columns: 0, rows: 0 });
 });
 
 test("fileStem matches the server's image file names", async () => {

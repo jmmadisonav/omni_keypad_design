@@ -17,6 +17,10 @@ export function gridFor(model, buttonCount, housing = "wall") {
   const columns = buttonCount <= 6 ? (tabletop ? 3 : 2) : 4;
   return { columns, rows: Math.ceil(buttonCount / columns) };
 }
+// A keypad with no buttons, such as the OMNI-KP-V: just a knob and LED ring.
+export function knobOnly(model) {
+  return Boolean(model) && model.columns * model.rows === 0;
+}
 // The pixel size of a keypad's button images. Without a known model, a
 // 6-button keypad (6B, 6BV) is 150 and an 8-button one (8BV) is SIZE.
 export function imageSizeFor(model, buttonCount) {
