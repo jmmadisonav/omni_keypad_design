@@ -132,6 +132,15 @@ class DebugSessionTests(unittest.TestCase):
         self.connect()
         self.assertIn("Subscribed to 3 controls. Turn or press the dial.", self.texts("note"))
 
+    def test_with_only_an_omni_bound_dial_the_prompt_still_mentions_the_dial(self):
+        # A KP-V whose dial is bound to an OMNI device: the keypad refuses its level.
+        for path in [p for p in self.keypad.params if p.startswith("/page2") or "/button" in p
+                     or p == "/page1/dial/level"]:
+            del self.keypad.params[path]
+        self.keypad.files[DESCRIPTOR] = descriptor_for(self.keypad.params, extra=("/page1/dial/level",))
+        self.connect()
+        self.assertIn("Subscribed to 2 controls. Turn or press the dial.", self.texts("note"))
+
     def test_connect_does_not_download_the_design(self):
         self.keypad.files[DESIGN_PATH] = b"design"
         self.connect()

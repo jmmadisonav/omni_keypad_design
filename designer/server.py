@@ -210,6 +210,9 @@ class _Handler(BaseHTTPRequestHandler):
             name = _field(body, "backup", str)
             data = self.ops.backup_data(name)
             model = _backup_model(self.projects, data)
+            problem = None if model else _backup_misfit(self.projects, data)
+            if problem:
+                raise ValueError(f"This backup can't be restored: {problem}.")
             try:
                 return self._json(self.ops.restore(host, name, model=model,
                                                    aliases=_aliases(self.projects, model)))
@@ -446,6 +449,17 @@ def _backup_model(projects: ProjectStore, data: bytes) -> str | None:
                if m.buttons == len(page.get("buttons", [])) and m.dial == dial
                and m.misfit(design.config) is None]
     return matches[0] if len(matches) == 1 else None
+
+
+def _backup_misfit(projects: ProjectStore, data: bytes) -> str | None:
+    """Return why a backup doesn't fit the model its page 1 looks like, such as
+    an OMNI-KP-V backup with 2 pages, or None if no model's page 1 matches."""
+    design = Design.from_cpio(data)
+    page = design.pages[0]
+    dial = all(key in page for key in ("ledring", "dial", "dial_button"))
+    return next((problem for m in projects.models.values()
+                 if m.buttons == len(page.get("buttons", [])) and m.dial == dial
+                 and (problem := m.misfit(design.config))), None)
 
 
 def _image_sizes(projects: ProjectStore, model: str) -> set[tuple[int, int]]:

@@ -557,6 +557,14 @@ class ServerTests(unittest.TestCase):
                          "This backup is for a 6BV, but the keypad at 127.0.0.1 is an 8BV.")
         self.assertEqual(self.keypad.files[DESIGN_PATH], self.data)
 
+    def test_restore_kp_v_backup_with_two_pages_is_400(self):
+        name = self.write_backup(self.kp_v_design(pages=2))
+        status, body = self.json_request("POST", "/api/design/restore",
+                                         {"host": "127.0.0.1", "backup": name})
+        self.assertEqual(status, 400)
+        self.assertEqual(body["error"], "This backup can't be restored: it has 2 pages, but a V holds 1.")
+        self.assertEqual(self.keypad.files[DESIGN_PATH], self.data)
+
     def test_restore_8bv_backup_to_8bv_works(self):
         name = self.write_backup(self.data)
         status, body = self.json_request("POST", "/api/design/restore",
