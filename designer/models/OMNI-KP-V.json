@@ -8,7 +8,7 @@
   "faceplate": "knob",
   "tabletop": null,
   "max_pages": 1,
-  "tested": false,
+  "tested": true,
   "image_size": 150,
   "template": {
     "fingerprint": "",

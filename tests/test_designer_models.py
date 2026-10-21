@@ -22,7 +22,7 @@ class ShippedModelTests(unittest.TestCase):
         expected = {"OMNI-KP-6B": ("6B", 2, 3, False, "portrait", False),
                     "OMNI-KP-6BV": ("6BV", 2, 3, True, "portrait", False),
                     "OMNI-KP-8BV": ("8BV", 4, 2, True, "square", True),
-                    "OMNI-KP-V": ("V", 0, 0, True, "knob", False)}
+                    "OMNI-KP-V": ("V", 0, 0, True, "knob", True)}
         for model_id, (name, columns, rows, dial, faceplate, tested) in expected.items():
             model = self.models[model_id]
             with self.subTest(model=model_id):
