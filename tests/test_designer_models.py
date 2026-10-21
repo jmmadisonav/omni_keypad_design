@@ -90,6 +90,20 @@ class ShippedModelTests(unittest.TestCase):
                           "OMNI-KP-V": 1})
         self.assertEqual(self.models["OMNI-KP-V"].summary()["max_pages"], 1)
 
+    def test_misfit(self):
+        kp_v = self.models["OMNI-KP-V"]
+        template = kp_v.template
+        self.assertIsNone(kp_v.misfit(template))
+        page = template["pages"][0]
+        self.assertEqual(kp_v.misfit({**template, "pages": [page, page]}),
+                         "it has 2 pages, but a V holds 1")
+        button = self.models["OMNI-KP-6BV"].template["pages"][0]["buttons"][0]
+        self.assertEqual(kp_v.misfit({**template, "pages": [{**page, "buttons": [button]}]}),
+                         "page 1 has 1 button, but a V has none")
+        # Models with buttons aren't checked for button counts or pages.
+        eight = self.models["OMNI-KP-8BV"].template
+        self.assertIsNone(self.models["OMNI-KP-8BV"].misfit({**eight, "pages": [eight["pages"][0]] * 3}))
+
     def test_summary_has_no_template(self):
         summary = self.models["OMNI-KP-6BV"].summary()
         self.assertNotIn("template", summary)

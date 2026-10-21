@@ -50,6 +50,21 @@ class Model:
     def buttons(self) -> int:
         return self.columns * self.rows
 
+    def misfit(self, config: dict) -> str | None:
+        """Return why a keypad.json doesn't fit this model, or None if it fits.
+
+        Only checks the page limit, and that a model with no buttons holds none.
+        """
+        pages = config.get("pages", [])
+        if self.max_pages is not None and len(pages) > self.max_pages:
+            return (f"it has {len(pages)} pages, but a {self.name} holds {self.max_pages}")
+        if self.buttons == 0:
+            for number, page in enumerate(pages, 1):
+                if count := len(page.get("buttons", [])):
+                    return (f"page {number} has {count} button{'s' if count != 1 else ''}, "
+                            f"but a {self.name} has none")
+        return None
+
     def summary(self) -> dict:
         return {k: list(v) if k == "aliases" else v for k, v in asdict(self).items() if k != "template"}
 

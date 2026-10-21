@@ -70,7 +70,7 @@ class ProjectStore:
         """Create a project for a keypad model. With unique, pick a free name."""
         if model not in self.models:
             raise ValueError(f"{model!r} isn't a keypad model the designer supports")
-        view = _check_settings({"housing": housing, "finish": finish})
+        view = _check_settings({"housing": self._housing(model, housing), "finish": finish})
         with self._lock:
             return self._new(self.unique_name(name) if unique else name, model, view)
 
@@ -164,13 +164,18 @@ class ProjectStore:
 
     def import_design(self, name: str, data: bytes, base_fingerprint: str,
                       model: str = DEFAULT_MODEL, housing: str = "wall") -> dict:
-        view = _check_settings({"housing": housing})
+        view = _check_settings({"housing": self._housing(model, housing)})
         with self._lock:
             self._new_path(name)
             design = Design.from_cpio(data)
             design.prune_images()
             self._write(name, design, {**_empty_meta(base_fingerprint, model), **view})
             return self.open(name)
+
+    def _housing(self, model: str, housing: str) -> str:
+        """A model with no tabletop housing, such as the OMNI-KP-V, is always a wall unit."""
+        known = self.models.get(model)
+        return "wall" if known and known.tabletop is None else housing
 
     def set_show_alt(self, name: str, show: bool) -> dict:
         """Show or hide the ALT state while editing this project."""

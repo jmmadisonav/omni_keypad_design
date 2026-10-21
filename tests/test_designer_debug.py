@@ -124,6 +124,14 @@ class DebugSessionTests(unittest.TestCase):
         self.connect()
         self.assertIn("Subscribed to 19 controls. Press a button.", self.texts("note"))
 
+    def test_with_only_a_dial_the_prompt_only_mentions_the_dial(self):
+        # The OMNI-KP-V: one page with a dial and its push button, and no buttons.
+        for path in [p for p in self.keypad.params if p.startswith("/page2") or "/button" in p]:
+            del self.keypad.params[path]
+        self.keypad.files[DESCRIPTOR] = descriptor_for(self.keypad.params)
+        self.connect()
+        self.assertIn("Subscribed to 3 controls. Turn or press the dial.", self.texts("note"))
+
     def test_connect_does_not_download_the_design(self):
         self.keypad.files[DESIGN_PATH] = b"design"
         self.connect()

@@ -466,6 +466,45 @@ class ServerTests(unittest.TestCase):
         self.assertEqual(status, 409)
         self.assertEqual(body["error"], "This project is for a 6BV, but the keypad at 127.0.0.1 is a T8BV.")
 
+    def kp_v_design(self, pages=1):
+        """A KP-V design like the one on the test keypad: one page, no buttons."""
+        config = copy.deepcopy(self.projects.models["OMNI-KP-V"].template)
+        config["display"]["panel_separator_color"] = "#DFDFDF"
+        config["pages"][0]["dial"].update(path="/Audio/P1/Ch-1/Gain", remote="DC256P")
+        config["pages"] = config["pages"] * pages
+        return Design(config).to_cpio()
+
+    def test_load_from_kp_v_keypad(self):
+        self.keypad.params["/configuration/device/model"]["value"] = "OMNI-KP-V"
+        self.keypad.files[DESIGN_PATH] = self.kp_v_design()
+        project = self.from_keypad()
+        self.assertEqual((project["model"], project["housing"]), ("OMNI-KP-V", "wall"))
+        self.assertEqual(project["config"]["display"]["panel_separator_color"], "#DFDFDF")
+        status, result = self.json_request(
+            "POST", f"/api/projects/{urllib.parse.quote(project['name'])}/deploy", {"host": "127.0.0.1"})
+        self.assertEqual(status, 200, result)
+        uploaded = Design.from_cpio(self.keypad.files[DESIGN_PATH]).config
+        self.assertEqual(uploaded["display"]["panel_separator_color"], "#DFDFDF")
+        self.assertEqual(uploaded["pages"][0]["dial"]["path"], "/Audio/P1/Ch-1/Gain")
+        self.assertEqual([page["buttons"] for page in uploaded["pages"]], [[]])
+
+    def test_load_from_kp_v_with_two_pages_is_400(self):
+        self.keypad.params["/configuration/device/model"]["value"] = "OMNI-KP-V"
+        self.keypad.files[DESIGN_PATH] = self.kp_v_design(pages=2)
+        status, body = self.json_request("POST", "/api/projects/from-keypad", {"host": "127.0.0.1"})
+        self.assertEqual(status, 400)
+        self.assertEqual(body["error"], "The keypad at 127.0.0.1 can't be imported: "
+                                        "it has 2 pages, but a V holds 1.")
+        self.assertEqual(self.projects.list(), [])
+
+    def test_backups_of_a_kp_v_match_it_only_with_one_page(self):
+        self.write_backup(self.kp_v_design())
+        self.assertEqual([b["model"] for b in self.json_request("GET", "/api/backups")[1]],
+                         ["OMNI-KP-V"])
+        (self.ops.backup_dir / "backup_20260101_000000.cpio").unlink()
+        (self.ops.backup_dir / "backup_20260102_000000.cpio").write_bytes(self.kp_v_design(pages=2))
+        self.assertEqual([b["model"] for b in self.json_request("GET", "/api/backups")[1]], [None])
+
     def test_load_from_unsupported_keypad_is_400(self):
         self.keypad.params["/configuration/device/model"]["value"] = "OMNI-KP-9X"
         status, body = self.json_request("POST", "/api/projects/from-keypad", {"host": "127.0.0.1"})

@@ -132,7 +132,7 @@ class DebugSession:
         for path in sorted(self._references):
             self._log("note", f"Found a dial on the script reference {_reference_name(path)}. "
                               "Debug logs its turns but doesn't copy them to an LED ring.")
-        count = dials = 0
+        count = dials = buttons = 0
         missing: dict[str, list[str]] = {}  # Page number -> controls it couldn't subscribe to.
         for path, info in params.items():
             dial = bool(_DIAL.fullmatch(path)) or path in self._references
@@ -149,7 +149,12 @@ class DebugSession:
                 continue
             count += 1
             dials += dial
-        prompt = "Press a button or turn the dial." if dials else "Press a button."
+            control = _CONTROL.match(path)
+            buttons += bool(control and control[2].startswith("button"))
+        if not buttons and dials:
+            prompt = "Turn or press the dial."       # The OMNI-KP-V has only a dial.
+        else:
+            prompt = "Press a button or turn the dial." if dials else "Press a button."
         # The descriptor lists a bound control, but the keypad refuses it. Only
         # the design says what it's bound to, so point there instead of
         # downloading it on every connect.

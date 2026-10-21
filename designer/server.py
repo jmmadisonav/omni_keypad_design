@@ -247,6 +247,9 @@ class _Handler(BaseHTTPRequestHandler):
                 raise ValueError(f"The keypad at {host} is {_article(reported)}. "
                                  f"The designer supports the {_supported(self.projects)}.")
             data = self.ops.download(host)
+            problem = self.projects.models[model].misfit(Design.from_cpio(data).config)
+            if problem:
+                raise ValueError(f"The keypad at {host} can't be imported: {problem}.")
             name = self.projects.unique_name(project_name_for(host))
             # A keypad that reports an alias, such as OMNI-KP-T8BV, is the tabletop housing.
             return self._json(self.projects.import_design(
@@ -436,10 +439,12 @@ def _aliases(projects: ProjectStore, model: str | None) -> tuple[str, ...]:
 
 def _backup_model(projects: ProjectStore, data: bytes) -> str | None:
     """Return the model whose page layout matches a backup's page 1, if exactly one does."""
-    page = Design.from_cpio(data).pages[0]
+    design = Design.from_cpio(data)
+    page = design.pages[0]
     dial = all(key in page for key in ("ledring", "dial", "dial_button"))
     matches = [m.id for m in projects.models.values()
-               if m.buttons == len(page.get("buttons", [])) and m.dial == dial]
+               if m.buttons == len(page.get("buttons", [])) and m.dial == dial
+               and m.misfit(design.config) is None]
     return matches[0] if len(matches) == 1 else None
 
 

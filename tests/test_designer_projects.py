@@ -217,6 +217,12 @@ class ProjectStoreTests(unittest.TestCase):
         self.assertEqual(errors, [])
         self.assertEqual(self.store.design("Lobby").missing_images(), [])
 
+    def test_new_kp_v_project_is_a_wall_unit(self):
+        # The KP-V has no tabletop housing, even if one is asked for.
+        project = self.store.new("Desk", "OMNI-KP-V", housing="tabletop")
+        self.assertEqual(project["housing"], "wall")
+        self.assertEqual([page["buttons"] for page in project["config"]["pages"]], [[]])
+
     def test_new_with_unique_picks_a_free_name(self):
         (self.folder / "Untitled").mkdir()   # A leftover folder that isn't a project.
         self.assertEqual(self.store.new("Untitled", unique=True)["name"], "Untitled 2")
