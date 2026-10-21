@@ -165,7 +165,7 @@ warning above the keypad says how many there are, and the **Page** tab lists
 them by page and device. To use them over HControl, click **Remove OMNI
 bindings** in the **Page** tab, save, and deploy. Removing the bindings leaves
 page links and script references alone, and the dial and LED ring go back to
-the keypad's own range. To undo it before you save, press Ctrl+Z.
+the keypad's default range. To undo it before you save, press Ctrl+Z.
 
 A control can also use an AVX script reference, such as
 `Category_1/Reference_1`. It's still available over HControl, but at the
@@ -299,9 +299,15 @@ On the **Page** tab:
   colour. A page with no colour uses black.
 - **Dial range** and **LED ring range** set the lowest and highest level of
   the dial and the LED ring, separately. Use whole numbers; they can be
-  negative. To use the keypad's own range, 0 to 200, leave both boxes blank.
-  New projects and new pages start blank. These settings only appear on
-  models with a dial.
+  negative. To use the keypad's default range of 0 to 200, leave both boxes
+  blank. New projects and new pages start blank. These settings only appear
+  on models with a dial.
+- **Dial step** sets how much the dial's level changes with each click, as a
+  whole number from 1 to 100. To use the keypad's default step of 3, leave it
+  blank. New projects and new pages start blank. A project you import shows
+  the step that keypad uses: a new OMNI-KP-V uses 24, which fills a 0 to 100
+  range in about five clicks. This setting only appears on models with a
+  dial.
 - **Bindings on this page** lists controls that are bound to an OMNI device
   or use a script reference.
 - **Remove OMNI bindings** and **Remove script references** appear when the

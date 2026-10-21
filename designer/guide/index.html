@@ -285,8 +285,13 @@ buttons.</p>
     parts of button images.</li>
   <li><b>Dial range</b> and <b>LED ring range</b> set the lowest and highest
     level of the dial and the LED ring, separately. Use whole numbers; they can
-    be negative. To use the keypad's own range, 0 to 200, leave both boxes
-    blank. These settings only appear on models with a dial.</li>
+    be negative. To use the keypad's default range of 0 to 200, leave both
+    boxes blank. These settings only appear on models with a dial.</li>
+  <li><b>Dial step</b> sets how much the dial's level changes with each click,
+    as a whole number from 1 to 100. To use the keypad's default step of 3,
+    leave it blank. A project you import shows the step that keypad uses: a new
+    OMNI-KP-V uses 24, which fills a 0 to 100 range in about five clicks. This
+    setting only appears on models with a dial.</li>
   <li><b>Bindings on this page</b> lists controls that are bound to an OMNI
     device or use a script reference.</li>
 </ul>
@@ -330,7 +335,7 @@ above the keypad says how many, and the <b>Page</b> tab lists them.</p>
 <p>To make them available over HControl, click <b>Remove OMNI bindings</b> on
 the <b>Page</b> tab, and then save and deploy. This applies to every page. Page
 links and script references stay, and the dial and LED ring go back to the
-keypad's own range.</p>
+keypad's default range.</p>
 
 <p>A control can also use an AVX script reference, such as
 <code>Category_1/Reference_1</code>. It's still available over HControl, but at
