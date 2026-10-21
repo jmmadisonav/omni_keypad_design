@@ -326,7 +326,36 @@ class LineHookTests(unittest.TestCase):
         self.keypad.press("/page1/button1/action", "PUSH")
         self.assertTrue(wait_until(lambda: len(self.lines) == 2))
         line = 'publish {"path":"/page1/button1/action","format":"string","value":"PUSH"}'
-        self.assertEqual(self.lines, [("receive", line), ("send", "@" + line)])
+        self.assertEqual(self.lines, [("receive", line), ("send", "@publish")])
+
+    def test_publish_during_a_request_is_acknowledged_after_its_reply(self):
+        # On an OMNI-KP-V, an @publish sent while a request waits for its
+        # reply doesn't count, and can lose that reply.
+        self.kp.subscribe("/page1/dial/level", lambda path, value: None)
+        self.lines.clear()
+        self.kp.set("/page1/dial/level", -50)   # The keypad publishes before its @set reply.
+        self.assertEqual([(direction, text.split(" ")[0]) for direction, text in self.lines],
+                         [("send", "set"), ("receive", "publish"), ("receive", "@set"),
+                          ("send", "@publish")])
+
+    def test_held_acknowledgement_is_sent_when_its_request_times_out(self):
+        self.kp.subscribe("/page1/button1/action", lambda path, value: None, fmt="string")
+        self.keypad.ignore.add("get")
+        timed_out = []
+        def get():
+            try:
+                self.kp.get("/settings/brightness")
+            except TimeoutError:
+                timed_out.append(True)
+        waiting = threading.Thread(target=get)
+        waiting.start()
+        time.sleep(0.2)
+        self.keypad.press("/page1/button1/action", "PUSH")
+        time.sleep(0.3)
+        self.assertNotIn("@publish", self.keypad.received)     # Held: the get is waiting.
+        waiting.join(timeout=3)
+        self.assertEqual(timed_out, [True])
+        self.assertTrue(wait_until(lambda: "@publish" in self.keypad.received))
 
     def test_failing_hook_does_not_break_the_connection(self):
         def broken(direction, text):

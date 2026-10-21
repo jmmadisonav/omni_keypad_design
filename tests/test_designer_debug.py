@@ -267,7 +267,7 @@ class DebugSessionTests(unittest.TestCase):
                 if entry["kind"] in ("send", "receive")]
         line = 'publish {"path":"/page1/button1/action","format":"string","value":"PUSH"}'
         index = wire.index(("receive", line))
-        self.assertEqual(wire[index + 1], ("send", "@" + line))
+        self.assertEqual(wire[index + 1], ("send", "@publish"))
         self.assertEqual(wire[0], ("send", 'get {"path":"/configuration/device/model","format":"string"}'))
 
     def test_entries_are_numbered_and_timed(self):

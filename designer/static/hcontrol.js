@@ -6,6 +6,9 @@ const json = (value) => JSON.stringify(value);
 const send = (command, params) => ({ send: true, text: `${command} ${json(params)}` });
 const expect = (command, params) => ({ send: false, text: `${command} ${json(params)}` });
 const group = (title, lines) => ({ title, lines });
+// A bare @publish acknowledges a publish: tested on an OMNI-KP-V. Echoing the
+// whole line back with @ in front also works.
+const ack = { send: true, text: "@publish" };
 
 // Requests and replies that carry an enum use its name, not its index.
 const str = (path, extra = {}) => ({ path, format: "string", ...extra });
@@ -20,9 +23,9 @@ export function buttonGroups({ page, button, pageName = "", target = "" }) {
       expect("@subscribe", str(action, { value: "RELEASE" }))]),
     group("When pressed and released", [
       expect("publish", str(action, { value: "PUSH" })),
-      send("@publish", str(action, { value: "PUSH" })),
+      ack,
       expect("publish", str(action, { value: "RELEASE" })),
-      send("@publish", str(action, { value: "RELEASE" }))]),
+      ack]),
     group("Get the feedback state", [
       send("get", str(state)),
       expect("@get", str(state, { value: "OFF" }))]),
@@ -39,7 +42,7 @@ export function buttonGroups({ page, button, pageName = "", target = "" }) {
       send("subscribe", str(current)),
       expect("@subscribe", str(current, { value: pageName })),
       expect("publish", str(current, { value: target })),
-      send("@publish", str(current, { value: target }))]));
+      ack]));
   }
   return groups;
 }
@@ -52,9 +55,17 @@ export function pageControlGroups(page) {
     group("Dial level", [
       send("subscribe", { path: dial }),
       expect("@subscribe", { path: dial, value: 0 })]),
+    group("When the dial is turned", [
+      expect("publish", { path: dial, value: 10 }),
+      ack]),
     group("Dial button", [
       send("subscribe", str(dialButton)),
       expect("@subscribe", str(dialButton, { value: "RELEASE" }))]),
+    group("When the dial button is pressed and released", [
+      expect("publish", str(dialButton, { value: "PUSH" })),
+      ack,
+      expect("publish", str(dialButton, { value: "RELEASE" })),
+      ack]),
     group("LED ring level", [
       send("set", { path: ring, value: 40 }),
       expect("@set", { path: ring, value: 40 })]),
@@ -63,7 +74,8 @@ export function pageControlGroups(page) {
 
 export const HCONTROL_NOTES = [
   { title: "One request at a time", text: "Every request gets exactly one reply that starts with @. Wait for it before you send the next request." },
-  { title: "Acknowledge publishes", text: "A publish is sent when the button changes. Echo the line back unchanged with @ in front, or the keypad won't send the next one." },
+  { title: "Acknowledge publishes", text: "A publish is sent when a control changes, such as a button press or a turn of the dial. Answer each one with @publish, or the keypad won't send the next one. Echoing the whole line back with @ in front also works." },
+  { title: "Acknowledge after replies", text: "If a publish arrives while you're waiting for the reply to a request, send @publish after that reply. The keypad ignores an @publish sent before it, holds the next publish for half a second, and can lose the reply." },
   { title: "Interleaving", text: "A publish can arrive between your request and its reply, so match each reply by its command and path." },
   { title: "Use string format", text: "Include \"format\":\"string\" so action and state use names (PUSH, ON). Without it, they're indexes, for example 2 for ON." },
   { title: "Feedback is up to you", text: "Pressing a button doesn't change its state. Your code sets state to show feedback." },

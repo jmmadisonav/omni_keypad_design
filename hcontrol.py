@@ -63,9 +63,12 @@ class HControlClient:
 
     Requests run in lockstep: the client sends one request and waits for its
     reply before it sends the next, as the protocol requires. A reader thread
-    receives everything the keypad sends and acknowledges publish messages
-    straight away. A dispatcher thread calls your subscription callbacks, so a
-    callback can safely call get() or set().
+    receives everything the keypad sends and acknowledges each publish with
+    @publish, but never while a request waits for its reply: the keypad
+    ignores an @publish then, and can lose the reply. A held @publish goes
+    out as soon as the reply arrives, or the request times out. A dispatcher
+    thread calls your subscription callbacks, so a callback can safely call
+    get() or set().
 
     Pass on_line to see every line on the wire: the client calls
     on_line("send", text) or on_line("receive", text), without the line feed.
@@ -86,6 +89,12 @@ class HControlClient:
         self._sock.settimeout(None)
         self._send_lock = threading.Lock()
         self._request_lock = threading.Lock()
+        # Whether a sent line waits for the keypad's answer, and whether an
+        # @publish is held until it arrives. Sending a request and sending an
+        # @publish both hold this lock, so they can't interleave.
+        self._ack_lock = threading.Lock()
+        self._answer_due = False
+        self._ack_held = False
         self._replies: queue.Queue = queue.Queue()
         self._events: queue.Queue = queue.Queue()
         self._callbacks: dict[str, list[Callback]] = {}
@@ -268,9 +277,20 @@ class HControlClient:
                 break
 
     def _send(self, command: str, params: dict | None) -> None:
+        """Send a line the keypad answers, such as a request or an @block."""
         if self._closed.is_set():
             raise ConnectionError("not connected to the keypad")
-        self._send_line(encode(command, params))
+        with self._ack_lock:
+            self._answer_due = True
+            self._send_line(encode(command, params))
+
+    def _answered(self) -> None:
+        """The keypad answered, or the wait for it ended: send any held @publish."""
+        with self._ack_lock:
+            self._answer_due = False
+            if self._ack_held:
+                self._ack_held = False
+                self._send_line(b"@publish\n")
 
     def _send_line(self, line: bytes) -> None:
         text = line.decode("utf-8").rstrip()
@@ -285,10 +305,12 @@ class HControlClient:
         while True:
             remaining = deadline - time.monotonic()
             if remaining <= 0:
+                self._answered()                # Don't hold an @publish for good.
                 raise TimeoutError(f"no {expected} reply within {self.timeout} s")
             try:
                 item = self._replies.get(timeout=remaining)
             except queue.Empty:
+                self._answered()                # Don't hold an @publish for good.
                 raise TimeoutError(f"no {expected} reply within {self.timeout} s") from None
             if item is None:
                 self._replies.put(None)  # Wake any other waiter too.
@@ -336,13 +358,24 @@ class HControlClient:
             log.warning("ignoring line that isn't valid JSON: %s", line)
             return
         if command == "publish":
-            # Acknowledge first; the keypad sends nothing more until we do.
+            # The keypad sends nothing more until we acknowledge it. A bare
+            # @publish is enough; hold it while a request waits for its reply.
             try:
-                self._send_line(("@" + line + "\n").encode("utf-8"))
+                with self._ack_lock:
+                    if self._answer_due:
+                        self._ack_held = True
+                    else:
+                        self._send_line(b"@publish\n")
             except OSError:
                 return
             self._events.put(params)
         else:
+            # Send any held @publish before the reply wakes the requester, so
+            # it goes out before the next request.
+            try:
+                self._answered()
+            except OSError:
+                pass
             self._replies.put((command, params))
 
     def _dispatch_loop(self) -> None:

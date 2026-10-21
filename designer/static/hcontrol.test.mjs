@@ -13,9 +13,9 @@ test("buttonGroups fill in the page and button numbers", () => {
     '-> subscribe {"path":"/page1/button3/action","format":"string"}',
     '<- @subscribe {"path":"/page1/button3/action","format":"string","value":"RELEASE"}',
     '<- publish {"path":"/page1/button3/action","format":"string","value":"PUSH"}',
-    '-> @publish {"path":"/page1/button3/action","format":"string","value":"PUSH"}',
+    '-> @publish',
     '<- publish {"path":"/page1/button3/action","format":"string","value":"RELEASE"}',
-    '-> @publish {"path":"/page1/button3/action","format":"string","value":"RELEASE"}',
+    '-> @publish',
   ]);
   assert.deepEqual(lines(groups.slice(3, 4)), [
     '-> set {"path":"/page1/button3/state","format":"string","value":"ON"}',
@@ -31,16 +31,26 @@ test("buttonGroups add page-change lines for a page-switch key", () => {
     '-> subscribe {"path":"/settings/currentpage","format":"string"}',
     '<- @subscribe {"path":"/settings/currentpage","format":"string","value":"Lights"}',
     '<- publish {"path":"/settings/currentpage","format":"string","value":"Page \\"A\\""}',
-    '-> @publish {"path":"/settings/currentpage","format":"string","value":"Page \\"A\\""}',
+    '-> @publish',
   ]);
 });
 
 test("pageControlGroups cover the dial, dial button, and LED ring", () => {
-  assert.deepEqual(lines(pageControlGroups(4)), [
+  const groups = pageControlGroups(4);
+  assert.deepEqual(groups.map((g) => g.title), [
+    "Dial level", "When the dial is turned", "Dial button", "When the dial button is pressed and released",
+    "LED ring level"]);
+  assert.deepEqual(lines(groups), [
     '-> subscribe {"path":"/page4/dial/level"}',
     '<- @subscribe {"path":"/page4/dial/level","value":0}',
+    '<- publish {"path":"/page4/dial/level","value":10}',
+    '-> @publish',
     '-> subscribe {"path":"/page4/dial_button/action","format":"string"}',
     '<- @subscribe {"path":"/page4/dial_button/action","format":"string","value":"RELEASE"}',
+    '<- publish {"path":"/page4/dial_button/action","format":"string","value":"PUSH"}',
+    '-> @publish',
+    '<- publish {"path":"/page4/dial_button/action","format":"string","value":"RELEASE"}',
+    '-> @publish',
     '-> set {"path":"/page4/ledring/level","value":40}',
     '<- @set {"path":"/page4/ledring/level","value":40}',
   ]);

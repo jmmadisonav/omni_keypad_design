@@ -769,7 +769,7 @@ const TOKENS = /("(?:\\.|[^"\\])*")(\s*:)?|(-?\d+(?:\.\d+)?)|\b(true|false|null)
 
 // "set {...}" with the command and the JSON coloured like a code editor.
 function highlight(text) {
-  const space = text.indexOf(" ");
+  const space = text.includes(" ") ? text.indexOf(" ") : text.length;     // A bare "@publish" has no JSON.
   const command = text.slice(0, space);
   let json = "";
   let last = 0;
@@ -812,7 +812,7 @@ function renderHControl() {
     }
   };
   drawerLines = [];
-  comment(`TCP ${host() || "<keypad IP>"}:4197. One line per message: a command, a space, a JSON object and a line feed.`);
+  comment(`TCP ${host() || "<keypad IP>"}:4197. One line per message: a command, usually a space and a JSON object, then a line feed.`);
   if (sel) {
     const target = destinationOf(state.layout, sel.pageId, sel.button);
     groups(buttonGroups({ page, button: sel.button, pageName: name, target: target ? pageName(state.layout, target) : "" }));
