@@ -251,10 +251,13 @@ The designer supports these OMNI keypads:
 | OMNI-KP-6B | OMNI-KP-T6B | 2 columns, 3 rows | 3 columns, 2 rows | No |
 | OMNI-KP-6BV | OMNI-KP-T6BV | 2 columns, 3 rows | 3 columns, 2 rows | Yes |
 | OMNI-KP-8BV | OMNI-KP-T8BV | 4 columns, 2 rows | 4 columns, 2 rows | Yes |
+| OMNI-KP-V | None | None | None | Yes |
 
 Buttons are numbered along the top row first, then the next row.
 
-The designer doesn't support the OMNI-KP-V yet.
+The OMNI-KP-V has a knob and LED ring, with no buttons or screen. A KP-V
+project has one page, and you set its dial and LED ring ranges on the
+**Page** tab.
 
 Each project is for one model. To choose it, click **File > New Project** and pick the
 model. **Import** uses the model the keypad reports. You can't change a
