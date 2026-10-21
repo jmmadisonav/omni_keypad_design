@@ -47,6 +47,17 @@ export function buttonGroups({ page, button, pageName = "", target = "" }) {
   return groups;
 }
 
+// Settings for the whole keypad, not one page. The OMNI-KP-V's descriptor
+// gives the LED ring brightness as a whole number from 10 to 100, starting at 100.
+export function keypadControlGroups() {
+  const brightness = "/settings/ledring_brightness";
+  return [
+    group("LED ring brightness (10 to 100, every page)", [
+      send("set", { path: brightness, value: 50 }),
+      expect("@set", { path: brightness, value: 50 })]),
+  ];
+}
+
 export function pageControlGroups(page) {
   const dial = `/page${page}/dial/level`;
   const dialButton = `/page${page}/dial_button/action`;
@@ -76,7 +87,6 @@ export const HCONTROL_NOTES = [
   { title: "One request at a time", text: "Every request gets exactly one reply that starts with @. Wait for it before you send the next request." },
   { title: "Acknowledge publishes", text: "A publish is sent when a control changes, such as a button press or a turn of the dial. Answer each one with @publish, or the keypad won't send the next one. Echoing the whole line back with @ in front also works." },
   { title: "Acknowledge after replies", text: "If a publish arrives while you're waiting for the reply to a request, send @publish after that reply. The keypad ignores an @publish sent before it, holds the next publish for half a second, and can lose the reply." },
-  { title: "LED ring brightness", text: "To dim or brighten the LED ring, set /settings/ledring_brightness to a whole number from 10 to 100. It's one setting for the whole keypad, not each page, and it starts at 100. For example, send set {\"path\":\"/settings/ledring_brightness\",\"value\":50} and expect @set {\"path\":\"/settings/ledring_brightness\",\"value\":50}." },
   { title: "Interleaving", text: "A publish can arrive between your request and its reply, so match each reply by its command and path." },
   { title: "Use string format", text: "Include \"format\":\"string\" so action and state use names (PUSH, ON). Without it, they're indexes, for example 2 for ON." },
   { title: "Feedback is up to you", text: "Pressing a button doesn't change its state. Your code sets state to show feedback." },

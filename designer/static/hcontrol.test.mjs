@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { buttonGroups, pageControlGroups, HCONTROL_NOTES } from "./hcontrol.js";
+import { buttonGroups, pageControlGroups, keypadControlGroups, HCONTROL_NOTES } from "./hcontrol.js";
 
 const lines = (groups) => groups.flatMap((g) => g.lines.map((l) => `${l.send ? "->" : "<-"} ${l.text}`));
 
@@ -54,6 +54,19 @@ test("pageControlGroups cover the dial, dial button, and LED ring", () => {
     '-> set {"path":"/page4/ledring/level","value":40}',
     '<- @set {"path":"/page4/ledring/level","value":40}',
   ]);
+});
+
+test("keypadControlGroups cover the LED ring brightness, for the whole keypad", () => {
+  const groups = keypadControlGroups();
+  assert.deepEqual(groups.map((g) => g.title), ["LED ring brightness (10 to 100, every page)"]);
+  assert.deepEqual(lines(groups), [
+    '-> set {"path":"/settings/ledring_brightness","value":50}',
+    '<- @set {"path":"/settings/ledring_brightness","value":50}',
+  ]);
+});
+
+test("the notes leave the LED ring brightness to the strings", () => {
+  assert.ok(!HCONTROL_NOTES.some((note) => /brightness/i.test(note.title)));
 });
 
 test("every note has a title and text", () => {

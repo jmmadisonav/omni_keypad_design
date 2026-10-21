@@ -14,7 +14,7 @@ import {
   pageNumber, pageName, layoutRequest, recipesFromSaved, recipesRequest, swapDestinations,
   backgroundOf, setBackground, rangeOf, setRange, rangeError, stepOf, setStep, stepError, bindingLines,
 } from "./pages.js";
-import { buttonGroups, pageControlGroups, HCONTROL_NOTES } from "./hcontrol.js";
+import { buttonGroups, pageControlGroups, keypadControlGroups, HCONTROL_NOTES } from "./hcontrol.js";
 import { arrowFor, copyText, statusText, createLog, followAfterScroll } from "./debug.js";
 
 const $ = (id) => document.getElementById(id);
@@ -823,6 +823,9 @@ function renderHControl() {
     rows.push(`<div class="code-row gap"></div>`);
     comment(`Page controls · ${name}`);
     groups(pageControlGroups(page));
+    rows.push(`<div class="code-row gap"></div>`);
+    comment("Keypad controls · every page");
+    groups(keypadControlGroups());
   }
   $("hc-code").innerHTML = rows.join("");
   $("drawer-path").textContent = sel ? `/page${page}/button${sel.button} · Button ${sel.button} · ${name}` : name;
