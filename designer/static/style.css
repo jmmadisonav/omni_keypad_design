@@ -227,7 +227,8 @@ body.busy .lockable { opacity: .4; pointer-events: none; }
                    background: var(--red); color: var(--white); font-size: 9px; font-weight: 700; line-height: 1.4;
                    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; pointer-events: none; }
 .dial { position: absolute; left: var(--dial-left); top: var(--dial-top); width: var(--dial-w); aspect-ratio: 1;
-        display: grid; place-items: center; border-radius: 50%; }
+        display: grid; place-items: center; border-radius: 50%; cursor: pointer; }
+.dial:focus-visible { outline: 2px solid var(--red); outline-offset: 4px; }
 /* The LED ring fills smoothly, clockwise from just left of the bottom (195deg),
    like the keypad's: shown 70% full (252deg), fading in and out at its ends, over an
    almost invisible unlit track. The glow sits on .arc so the ring's mask doesn't clip it. */

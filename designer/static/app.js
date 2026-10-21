@@ -2141,15 +2141,19 @@ function wire() {
   $("dial-step").addEventListener("change", () => state.project && commitStep());
   $("dial-step").addEventListener("keydown", (e) => { if (e.key === "Enter") e.target.blur(); });
   // Keypad and Page settings aren't about one button, so opening them deselects it.
-  for (const tab of ["keypad", "page"]) {
-    $(`tab-${tab}`).addEventListener("click", () => {
-      setTab(tab);
-      if (!state.selected) return;
-      state.selected = null;
-      renderSelection();
-      renderKeypad();
-    });
-  }
+  const openTab = (tab) => {
+    setTab(tab);
+    if (!state.selected) return;
+    state.selected = null;
+    renderSelection();
+    renderKeypad();
+  };
+  for (const tab of ["keypad", "page"]) $(`tab-${tab}`).addEventListener("click", () => openTab(tab));
+  // The dial and LED ring's settings are on the Page tab.
+  $("dial").addEventListener("click", () => state.project && openTab("page"));
+  $("dial").addEventListener("keydown", (e) => {
+    if ((e.key === "Enter" || e.key === " ") && state.project) { e.preventDefault(); openTab("page"); }
+  });
   $("background-picker").addEventListener("input", (e) => state.project && setPageBackground(e.target.value));
   $("background-hex").addEventListener("change", (e) => state.project && setPageBackground(e.target.value.trim()));
   $("background-hex").addEventListener("keydown", (e) => { if (e.key === "Enter") e.target.blur(); });
