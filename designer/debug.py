@@ -153,7 +153,13 @@ class DebugSession:
         # has only a dial, even when the keypad refuses its OMNI-bound level.
         buttons = any(path.endswith("/action") and not path.endswith("/dial_button/action")
                       for path in params)
-        if not buttons and any(path.endswith("/dial_button/action") for path in params):
+        if not buttons and not self._references and not any(
+                path.endswith("/dial_button/action") or _DIAL.fullmatch(path) for path in params):
+            # The OMNI-KP-V leaves an OMNI-bound dial out of its descriptor entirely.
+            self._log("error", "The keypad doesn't list any buttons or a dial over HControl. They "
+                               "might be bound to an OMNI device. To check, import the design.")
+            prompt = "Only page changes show here."
+        elif not buttons:
             prompt = "Turn or press the dial."
         else:
             prompt = "Press a button or turn the dial." if dials else "Press a button."

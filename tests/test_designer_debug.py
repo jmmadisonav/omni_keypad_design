@@ -141,6 +141,17 @@ class DebugSessionTests(unittest.TestCase):
         self.connect()
         self.assertIn("Subscribed to 2 controls. Turn or press the dial.", self.texts("note"))
 
+    def test_with_no_controls_listed_the_keypad_points_to_import(self):
+        # The OMNI-KP-V at 192.168.101.182, with its dial bound to an OMNI
+        # device, lists no page controls at all: only the current page.
+        for path in [p for p in self.keypad.params if p.startswith("/page")]:
+            del self.keypad.params[path]
+        self.keypad.files[DESCRIPTOR] = descriptor_for(self.keypad.params)
+        self.connect()
+        self.assertIn("The keypad doesn't list any buttons or a dial over HControl. They might be "
+                      "bound to an OMNI device. To check, import the design.", self.texts("error"))
+        self.assertIn("Subscribed to 1 controls. Only page changes show here.", self.texts("note"))
+
     def test_connect_does_not_download_the_design(self):
         self.keypad.files[DESIGN_PATH] = b"design"
         self.connect()
