@@ -4,7 +4,7 @@
 import { getJson, sendJson, assetUrl } from "./api.js";
 import {
   gridFor, buttonKey, recipeFromImages, isBlank, fileStem, buttonNameError, nameFromImage, imageSizeFor,
-  statesOf,
+  statesOf, knobOnly,
 } from "./model.js";
 import { renderRecipe, toBase64, loadIcons } from "./render.js";
 import { clearRecipe, copyStateFrom, copyAllStates } from "./recipe.js";
@@ -277,7 +277,8 @@ function renderFaceplate() {
   const face = $("faceplate");
   face.classList.toggle("portrait", portrait);
   face.classList.toggle("tabletop", tabletop);
-  face.classList.toggle("six", page.buttons.length <= 6);
+  face.classList.toggle("knob-face", m?.faceplate === "knob");
+  face.classList.toggle("six", !knobOnly(m) && page.buttons.length <= 6);
   face.classList.toggle("white", state.project.finish === "white");
   face.classList.toggle("no-dial", !dial);
   $("dial").hidden = !dial;
@@ -799,7 +800,7 @@ function renderHControl() {
   if (sel) {
     const target = destinationOf(state.layout, sel.pageId, sel.button);
     groups(buttonGroups({ page, button: sel.button, pageName: name, target: target ? pageName(state.layout, target) : "" }));
-  } else {
+  } else if (!knobOnly(model())) {
     comment("Select a button on the keypad to see its strings.");
   }
   if (dial) {
@@ -1277,6 +1278,7 @@ function modelLabel(m) {
 }
 
 function modelDescription(m) {
+  if (knobOnly(m)) return "Knob and LED ring, no buttons or screen";
   const shape = m.faceplate === "portrait" ? "portrait" : "square";
   const dial = m.dial ? (m.faceplate === "portrait" ? "dial and LED ring below" : "dial and LED ring") : "no dial";
   const table = m.tabletop && (m.tabletop.columns !== m.columns) ? ` (${m.tabletop.columns}×${m.tabletop.rows} on the tabletop)` : "";
@@ -1308,6 +1310,11 @@ function showProject(project) {
   renderSeparator();
   $("project-name").textContent = project.name;
   $("project-name").title = project.name;
+  // A keypad with no buttons, such as the OMNI-KP-V, has one page and only
+  // the Page tab's dial settings: everything about buttons and pages is hidden.
+  const knob = knobOnly(model());
+  document.querySelector(".main").classList.toggle("knob-only", knob);
+  if (knob) setTab("page");
   renderTabs();
   renderKeypad();
   renderSelection();
@@ -1354,7 +1361,7 @@ async function newProject() {
   const renderModels = () => {
     models.innerHTML = `<span class="label">Keypad model</span>` + Object.values(state.models).map((m) => `
       <button type="button" class="model-option${m.id === chosen ? " current" : ""}" data-model="${m.id}">
-        <span class="radio"></span><span class="model-glyph${m.faceplate === "portrait" ? " portrait" : ""}"></span>
+        <span class="radio"></span><span class="model-glyph${m.faceplate === "portrait" ? " portrait" : ""}${knobOnly(m) ? " knob" : ""}"></span>
         <span class="option-text"><span class="option-name">${modelLabel(m)} <span class="sub">${m.tested ? "" : "(untested)"}</span></span>
           <span class="option-desc">${modelDescription(m)}</span></span></button>`).join("");
   };
@@ -1364,8 +1371,11 @@ async function newProject() {
   };
   const looks = document.createElement("div");
   looks.className = "look-picks";
+  // A model with no tabletop housing, such as the OMNI-KP-V, offers only the finish.
+  const wallOnly = () => state.models[chosen].tabletop === null;
   const renderLooks = () => {
-    looks.innerHTML = [["housing", "Housing", HOUSINGS], ["finish", "Finish", FINISHES]].map(([key, label, options]) => `
+    const picks = [["housing", "Housing", HOUSINGS], ["finish", "Finish", FINISHES]];
+    looks.innerHTML = picks.filter(([key]) => key !== "housing" || !wallOnly()).map(([key, label, options]) => `
       <div class="stack"><span class="label">${label}</span><div class="seg" role="group" aria-label="${label}">${
         options.map(([value, text]) => `<button type="button" data-${key}="${value}"
           class="${view[key] === value ? "current" : ""}">${text}</button>`).join("")}</div></div>`).join("");
@@ -1379,7 +1389,7 @@ async function newProject() {
   });
   models.addEventListener("click", (event) => {
     const option = event.target.closest("[data-model]");
-    if (option) { chosen = option.dataset.model; renderModels(); }
+    if (option) { chosen = option.dataset.model; renderModels(); renderLooks(); }
   });
   renderModels();
   renderLooks();
@@ -1396,14 +1406,17 @@ async function newProject() {
     extra,
     confirm: "Create",
     validate: projectNameError,
-    submit: (name) => sendJson("POST", "/api/projects", { name, model: chosen, ...view }),
+    submit: (name) => sendJson("POST", "/api/projects",
+      { name, model: chosen, ...view, ...(wallOnly() ? { housing: "wall" } : {}) }),
   });
   if (!project) return;
   remember("designer.model", chosen);
   remember("designer.housing", view.housing);
   remember("designer.finish", view.finish);
   showProject(project);
-  setStatus(`Created ${project.name} for ${chosen}. Click a button to design it.`);
+  setStatus(knobOnly(state.models[chosen])
+    ? `Created ${project.name} for ${chosen}. Set the dial and LED ring ranges on the Page tab.`
+    : `Created ${project.name} for ${chosen}. Click a button to design it.`);
 }
 
 async function openProject(name) {
