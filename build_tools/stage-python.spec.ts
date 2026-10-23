@@ -30,6 +30,13 @@ describe('shipsInDesigner', () => {
     }
   });
 
+  it('ships only the keypad photos the header shows', () => {
+    expect(shipsInDesigner('keypad_images/OMNI-KP-8BV-white.webp')).toBe(true);
+    expect(shipsInDesigner('keypad_images/OMNI-KP-T8BV-black.webp')).toBe(true);
+    expect(shipsInDesigner('keypad_images/OMNI-KP-8BV.webp')).toBe(false);
+    expect(shipsInDesigner('keypad_images/white.jpg')).toBe(false);
+  });
+
   it('understands Windows paths', () => {
     expect(shipsInDesigner('designer\\projects\\Lobby')).toBe(false);
     expect(shipsInDesigner('designer\\server.py')).toBe(true);

@@ -2,10 +2,10 @@
 // Text, drawn back to front. It never says "layer". Ready-made artwork comes
 // from the LIBRARY tab.
 
-import { clampPosition } from "./model.js";
+import { clampPosition, shapeFiles, FILL, stateName } from "./model.js";
 import { assetUrl } from "./api.js";
 import {
-  PARTS, PART_NAMES, simpleParts, setPart, differsFromOff, partSummary, defaultLayerFor,
+  PARTS, PART_NAMES, simpleParts, setPart, differsFromOff, partSummary, defaultLayerFor, resizedSize,
 } from "./recipe.js";
 import { createLayerSettings, layerBounds, icon, escapeHtml } from "./layer-settings.js";
 
@@ -17,6 +17,7 @@ export function createSimple({ root, catalog, iconTags, onChange, onSelect, onSt
   let state = "off";
   let open = null;                 // The part type whose settings are open.
   let origin = null;               // The open part's position when a drag started.
+  let resizeFrom = null;           // The open part and its box when a resize started.
 
   const form = document.createElement("form");
   form.className = "settings part-settings";
@@ -35,15 +36,17 @@ export function createSimple({ root, catalog, iconTags, onChange, onSelect, onSt
     else refreshSummaries();
   }
 
-  const STATE = () => state.toUpperCase();
+  const STATE = () => stateName(state);
 
   function thumb(type, layer) {
     switch (type) {
       case "shape": {
         if (!layer) return `<span class="part-thumb"></span>`;
         if (layer.tint) return `<span class="part-thumb" style="background: ${layer.tint}"></span>`;
-        const files = catalog.shapes[layer.set]?.[layer.colour];
-        return `<span class="part-thumb">${files ? `<img alt="" src="${assetUrl(files[layer.art])}">` : ""}</span>`;
+        const files = shapeFiles(catalog, layer.set, layer.colour);
+        // A Fill shows the middle of its artwork at full size: the flat colour it paints.
+        const crop = layer.set === FILL ? ` style="object-fit: none"` : "";
+        return `<span class="part-thumb">${files ? `<img alt="" src="${assetUrl(files[layer.art])}"${crop}>` : ""}</span>`;
       }
       case "image":
         return `<span class="part-thumb dashed">${layer?.src ? `<img alt="" src="${layer.src}">` : ""}</span>`;
@@ -60,7 +63,7 @@ export function createSimple({ root, catalog, iconTags, onChange, onSelect, onSt
     return `<li class="part-row${on ? "" : " off"}${open === type ? " open" : ""}" data-part="${type}">
       ${thumb(type, part?.layer)}
       <span class="part-text"><span class="part-name">${PART_NAMES[type]}${differs
-        ? ` <span class="differs" title="Different from OFF">≠ OFF</span>` : ""}</span>
+        ? ` <span class="differs" title="Different from Off">≠ Off</span>` : ""}</span>
         <span class="sub" data-summary>${escapeHtml(partSummary(recipe, state, type))}</span></span>
       <button type="button" class="switch${on ? " on" : ""}" role="switch" aria-checked="${on}" data-switch
         title="${on ? "Turn off" : "Turn on"} for ${STATE()}" aria-label="${PART_NAMES[type]} for ${STATE()}"><span></span></button>
@@ -125,6 +128,19 @@ export function createSimple({ root, catalog, iconTags, onChange, onSelect, onSt
       const y = clampPosition(origin.y + dy);
       settings.syncPosition(x, y);
       commit(setPart(recipe, state, open, { x, y }, catalog), null, false);
+    },
+    // Resizes the selection from its corner handle; see resizedSize.
+    resizeSelected({ dx, dy, first }) {
+      const layer = openLayer();
+      if (!layer) return;
+      if (first || !resizeFrom) {
+        const box = layerBounds(layer, layer.type === "image" ? imageSize(layer.src) : null);
+        resizeFrom = box && { layer, box };
+      }
+      if (!resizeFrom) return;
+      const size = resizedSize(resizeFrom.layer, resizeFrom.box, dx, dy);
+      settings.syncSize(size);
+      commit(setPart(recipe, state, open, { size }, catalog), null, false);
     },
   };
 }

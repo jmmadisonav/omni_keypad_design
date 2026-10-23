@@ -43,12 +43,14 @@ from designer.projects import ProjectStore, project_name_for  # noqa: E402
 from keypad_design import Design  # noqa: E402
 
 MAX_BODY = 32 * 1024 * 1024
-STATIC_DIRS = {"static": HERE / "static", "vendor": HERE / "vendor"}
+# keypad-images holds a photo of each model and finish, such as OMNI-KP-8BV-white.webp.
+STATIC_DIRS = {"static": HERE / "static", "vendor": HERE / "vendor",
+               "keypad-images": HERE.parent / "keypad_images"}
 CONTENT_TYPES = {
     ".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=utf-8",
     ".mjs": "text/javascript; charset=utf-8", ".css": "text/css; charset=utf-8",
     ".json": "application/json", ".svg": "image/svg+xml", ".png": "image/png",
-    ".ttf": "font/ttf", ".txt": "text/plain; charset=utf-8",
+    ".ttf": "font/ttf", ".txt": "text/plain; charset=utf-8", ".webp": "image/webp",
 }
 
 
@@ -199,6 +201,8 @@ class _Handler(BaseHTTPRequestHandler):
             body = self._body()
             host = self._host_from(body)
             return self._json(self.ops.locate(host, _flag(body, "on")))
+        if route == ("POST", "keypad", "status"):
+            return self._json({"model": self.ops.keypad_model(self._host_from(self._body()))})
         if route == ("POST", "keypad", "locating"):
             return self._json({"locating": self.ops.locating(self._host_from(self._body()))})
         if route == ("POST", "keypad", "reset"):
@@ -220,9 +224,9 @@ class _Handler(BaseHTTPRequestHandler):
                                           aliases=_aliases(self.projects, model))
             except ModelMismatch as error:
                 raise HttpError(409, f"This backup is for "
-                                     f"{_article(_model_name(self.projects, error.expected))}, "
+                                     f"{_article(error.expected)}, "
                                      f"but the keypad at {host} is "
-                                     f"{_article(_model_name(self.projects, error.actual))}.",
+                                     f"{_article(error.actual)}.",
                                 model=True) from None
             if debugging:
                 self.debug.resume(host)
@@ -309,9 +313,9 @@ class _Handler(BaseHTTPRequestHandler):
                         aliases=_aliases(self.projects, model))
                 except ModelMismatch as error:
                     raise HttpError(409, f"This project is for "
-                                         f"{_article(_model_name(self.projects, error.expected))}, "
+                                         f"{_article(error.expected)}, "
                                          f"but the keypad at {host} is "
-                                         f"{_article(_model_name(self.projects, error.actual))}.",
+                                         f"{_article(error.actual)}.",
                                     model=True) from None
                 result["deployed"] = datetime.datetime.now().isoformat(timespec="seconds")
                 try:
@@ -446,18 +450,8 @@ def _is_address(host: str) -> bool:
 
 
 def _article(name: str) -> str:
-    """Return "an 8BV" or "a 6BV"."""
+    """Return "an OMNI-KP-8BV", or "a" before a model that starts with a consonant."""
     return f"{'an' if name[:1].upper() in '8AEIOU' else 'a'} {name}"
-
-
-def _model_name(projects: ProjectStore, model: str) -> str:
-    """Return "8BV" for OMNI-KP-8BV and "T8BV" for its alias OMNI-KP-T8BV."""
-    known = projects.models.get(model)
-    if known:
-        return known.name
-    if model_for(projects.models, model):
-        return model.removeprefix("OMNI-KP-")
-    return model
 
 
 def _aliases(projects: ProjectStore, model: str | None) -> tuple[str, ...]:
@@ -498,7 +492,7 @@ def _image_sizes(projects: ProjectStore, model: str) -> set[tuple[int, int]]:
 
 def _supported(projects: ProjectStore) -> str:
     models = projects.models.values()
-    names = [m.name for m in models] + [_model_name(projects, a) for m in models for a in m.aliases]
+    names = [m.id for m in models] + [a for m in models for a in m.aliases]
     return ", ".join(names[:-1]) + f", and {names[-1]}" if len(names) > 1 else names[0]
 
 

@@ -26,18 +26,22 @@ export function embedZipUrl(version = PYTHON_VERSION) {
 
 /** The files the designer's server needs, relative to the repo root: the
  * shared modules it imports, the designer package with its models, page and
- * vendored fonts and icons, and the Keypad Graphics artwork. */
+ * vendored fonts and icons, the Keypad Graphics artwork, and the keypad
+ * photos the header shows. */
 export const DESIGNER_SOURCES = [
   'hcontrol.py',
   'keypad_design.py',
   'designer',
   'docs/Keypad Graphics.zip',
+  'keypad_images',
 ];
 
 /** Whether a path under designer/ ships. Not your projects, backups, or
- * library, which live in Documents; not tests, caches, or the render check. */
+ * library, which live in Documents; not tests, caches, or the render check.
+ * From keypad_images, only the photos named by model and finish ship. */
 export function shipsInDesigner(relative) {
   const parts = relative.split(/[\\/]/);
+  if (parts[0] === 'keypad_images' && parts.length > 1) { return /-(black|white)\.webp$/.test(parts[1]); }
   if (parts.some(part => part === '__pycache__')) { return false; }
   if (['projects', 'backups', 'library'].includes(parts[1])) { return false; }
   const name = parts.at(-1);

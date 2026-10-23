@@ -4,7 +4,7 @@ import { SIZE, CENTRE, statesOf, isBlank } from "./model.js";
 import {
   defaultLayerFor, blankRecipe, isBack,
   fitsSimple, simpleParts, setPart, differsFromOff, partSummary,
-  layerNames, addLayerTo, setLayerAt, removeLayerAt, moveInGroup, coverage, imageFills, SHRINK_SIZE,
+  layerNames, addLayerTo, setLayerAt, removeLayerAt, moveInGroup, coverage, imageFills, SHRINK_SIZE, resizedSize,
   copyState, copyAllStates, startAlt, removeAlt, clearRecipe, layerSummary, copyStateFrom, viewFor,
 } from "./recipe.js";
 
@@ -27,7 +27,7 @@ test("defaultLayerFor starts the same in every state", () => {
     assert.equal(defaultLayerFor("icon", catalog, state).colour, "#FFFFFF");
     assert.equal(defaultLayerFor("text", catalog, state).colour, "#FFFFFF");
     assert.deepEqual(defaultLayerFor("shape", catalog, state),
-      { type: "shape", set: "Bubble", colour: "Blue", art: "off", visible: true });
+      { type: "shape", set: "Fill", colour: "Black", art: "off", visible: true });
   }
   const image = defaultLayerFor("image", catalog, "off");
   assert.equal(image.src, "");
@@ -62,14 +62,14 @@ test("fitsSimple accepts one of each in order", () => {
 
 test("fitsSimple names two text layers", () => {
   assert.deepEqual(fitsSimple(v2([text()], [text(), text()])),
-    { ok: false, state: "on", reason: "ON has two Text layers. Simple has one of each part." });
+    { ok: false, state: "on", reason: "On has two Text layers. Simple has one of each part." });
   assert.equal(fitsSimple(v2([text(), text(), text()])).reason,
-    "OFF has 3 Text layers. Simple has one of each part.");
+    "Off has 3 Text layers. Simple has one of each part.");
 });
 
 test("fitsSimple names the order", () => {
   assert.deepEqual(fitsSimple(v2([image(), shape()])), { ok: false, state: "off",
-    reason: "OFF has Shape above Image. Simple draws Background, Image, Icon and Text from back to front." });
+    reason: "Off has Shape above Image. Simple draws Background, Image, Icon and Text from back to front." });
 });
 
 test("simpleParts finds each part and its index", () => {
@@ -106,6 +106,7 @@ test("differsFromOff", () => {
   assert.equal(differsFromOff(v2([text()], []), "on", "text"), true);
   assert.equal(differsFromOff(v2([icon()], [icon({ icon: "mic" })]), "off", "icon"), false);
   assert.equal(differsFromOff(v2([text()], [text({ size: 30 })]), "on", "text"), false);
+  assert.equal(differsFromOff(v2([shape()], [shape({ set: "Fill" })]), "on", "shape"), true);
 });
 
 test("partSummary background covered", () => {
@@ -204,6 +205,9 @@ test("startAlt, removeAlt and clearRecipe", () => {
 test("layerSummary for Layers rows", () => {
   assert.equal(layerSummary(shape()), "Squared · Blue, dim");
   assert.equal(layerSummary(shape({ art: "on" })), "Squared · Blue, bright");
+  assert.equal(layerSummary(shape({ set: "Fill", art: "on" })), "Fill · Blue, bright");
+  assert.equal(layerSummary(shape({ set: "Fill", tint: "#1A2B3C" })), "Fill · Custom");
+  assert.equal(layerSummary(shape({ tint: "#1A2B3C" })), "Squared · Custom, dim");
   assert.equal(layerSummary(image({ src: "", file: "" })), "No image");
   assert.equal(layerSummary(icon()), "tv");
   assert.equal(layerSummary(text({ lines: ["A", "B"] })), "A / B");
@@ -229,4 +233,25 @@ test("viewFor picks Simple or Layers from the recipe", () => {
   assert.equal(viewFor(blankRecipe()), "simple");
   assert.equal(viewFor({ ...blankRecipe(), editor: "layers" }), "layers");
   assert.equal(viewFor(v2([text(), text()])), "layers");
+});
+
+test("resizedSize grows and shrinks around the layer's position", () => {
+  const box = [54, 54, 80, 80];                         // An 80 px icon at the centre.
+  assert.equal(resizedSize(icon({ size: 80 }), box, 20, 20), 120);
+  assert.equal(resizedSize(icon({ size: 80 }), box, -20, -20), 40);
+  assert.equal(resizedSize(icon({ size: 80 }), box, 20, -20), 80);    // Along the edge: no change.
+  assert.equal(resizedSize(icon({ size: 80 }), box, 0, 0), 80);
+});
+
+test("resizedSize keeps a left-aligned text's left edge", () => {
+  const layer = text({ align: "left", x: 20, size: 20 });
+  assert.equal(resizedSize(layer, [20, 84, 100, 20], 100, 10), 40);
+});
+
+test("resizedSize stays within the Size slider's range", () => {
+  assert.equal(resizedSize(icon({ size: 80 }), [54, 54, 80, 80], -200, -200), 12);
+  assert.equal(resizedSize(icon({ size: 80 }), [54, 54, 80, 80], 500, 500), SIZE);
+  assert.equal(resizedSize(text({ size: 24 }), [44, 80, 100, 28], 500, 500), 80);
+  assert.equal(resizedSize(image({ size: 100 }), [44, 44, 100, 100], 900, 900), SIZE * 2);
+  assert.equal(resizedSize(image({ size: 100 }), [44, 44, 100, 100], -200, -200), Math.round(SIZE / 10));
 });

@@ -102,17 +102,34 @@ class ProjectStoreTests(unittest.TestCase):
         self.assertEqual((project["housing"], project["finish"]), ("wall", "black"))
 
     def test_new_project_takes_housing_and_finish(self):
-        project = self.store.new("Desk", "OMNI-KP-6BV", housing="tabletop", finish="white")
-        self.assertEqual((project["housing"], project["finish"]), ("tabletop", "white"))
+        project = self.store.new("Desk", "OMNI-KP-6BV", housing="tabletop")
+        self.assertEqual((project["housing"], project["finish"]), ("tabletop", "black"))
+        project = self.store.new("Wall", "OMNI-KP-6BV", finish="white")
+        self.assertEqual((project["housing"], project["finish"]), ("wall", "white"))
 
     def test_settings_change_housing_and_finish_and_survive_save_and_copy(self):
         self.store.new("Lobby")
-        project = self.store.set_settings("Lobby", {"housing": "tabletop", "finish": "white"})
+        project = self.store.set_settings("Lobby", {"finish": "white"})
         self.assertEqual((project["housing"], project["finish"], project["showAlt"]),
-                         ("tabletop", "white", False))
+                         ("wall", "white", False))
+        self.store.set_settings("Lobby", {"housing": "tabletop"})
         self.store.save("Lobby", [], None, {})
         copy = self.store.copy("Lobby", "Lobby 2")
-        self.assertEqual((copy["housing"], copy["finish"]), ("tabletop", "white"))
+        self.assertEqual((copy["housing"], copy["finish"]), ("tabletop", "black"))
+
+    def test_tabletop_keypads_are_always_black(self):
+        project = self.store.new("Desk", "OMNI-KP-8BV", housing="tabletop", finish="white")
+        self.assertEqual(project["finish"], "black")
+        self.store.new("Lobby", finish="white")
+        project = self.store.set_settings("Lobby", {"housing": "tabletop"})
+        self.assertEqual((project["housing"], project["finish"]), ("tabletop", "black"))
+        project = self.store.set_settings("Lobby", {"finish": "white"})
+        self.assertEqual(project["finish"], "black")
+        # A project saved as a white tabletop by an older designer opens black.
+        meta = self.store._path("Lobby") / "designer.json"
+        meta.write_text(meta.read_text(encoding="utf-8").replace('"finish": "black"', '"finish": "white"'),
+                        encoding="utf-8")
+        self.assertEqual(self.store.open("Lobby")["finish"], "black")
 
     def test_bad_settings_are_refused(self):
         self.store.new("Lobby")

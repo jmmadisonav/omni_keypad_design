@@ -27,7 +27,7 @@ _META = "designer.json"
 _RECIPE_KEY = re.compile(r"([1-9]\d*)-([1-9]\d*)")
 _COLOUR = re.compile(r"#[0-9A-Fa-f]{6}")
 HOUSINGS = ("wall", "tabletop")        # How the keypad view draws the project.
-FINISHES = ("black", "white")
+FINISHES = ("black", "white")             # Tabletop keypads only come in black.
 
 
 def project_name_for(host: str, today: datetime.date | None = None) -> str:
@@ -70,7 +70,7 @@ class ProjectStore:
         """Create a project for a keypad model. With unique, pick a free name."""
         if model not in self.models:
             raise ValueError(f"{model!r} isn't a keypad model the designer supports")
-        view = _check_settings({"housing": self._housing(model, housing), "finish": finish})
+        view = _finish(_check_settings({"housing": self._housing(model, housing), "finish": finish}))
         with self._lock:
             return self._new(self.unique_name(name) if unique else name, model, view)
 
@@ -102,7 +102,7 @@ class ProjectStore:
             "lastDeployed": meta["lastDeployed"],
             "showAlt": meta["showAlt"],
             "housing": meta["housing"],
-            "finish": meta["finish"],
+            "finish": _finish(meta)["finish"],
         }
 
     def design(self, name: str) -> Design:
@@ -213,7 +213,7 @@ class ProjectStore:
             meta = self._meta(name)
             if "housing" in changes:
                 changes["housing"] = self._housing(meta["model"], changes["housing"])
-            meta = {**meta, **changes}
+            meta = _finish({**meta, **changes})
             (self._path(name) / _META).write_text(json.dumps(meta, indent=2) + "\n",
                                                   encoding="utf-8")
             return self.open(name)
@@ -279,6 +279,11 @@ class ProjectStore:
 def _empty_meta(base_fingerprint: str, model: str = DEFAULT_MODEL) -> dict:
     return {"version": 1, "model": model, "baseFingerprint": base_fingerprint, "recipes": {},
             "lastDeployed": "", "showAlt": False, "housing": "wall", "finish": "black"}
+
+
+def _finish(view: dict) -> dict:
+    """Return view with a black finish when it's a tabletop: there's no white tabletop keypad."""
+    return {**view, "finish": "black"} if view.get("housing") == "tabletop" else view
 
 
 def _check_settings(changes: dict) -> dict:

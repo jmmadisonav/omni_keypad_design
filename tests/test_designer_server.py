@@ -85,8 +85,15 @@ class ServerTests(unittest.TestCase):
         self.assertIn("text/html", headers["Content-Type"])
         self.assertIn(b"<html", body.lower())
 
+    def test_keypad_images(self):
+        status, headers, body = self.request("GET", "/keypad-images/OMNI-KP-8BV-white.webp")
+        self.assertEqual((status, headers["Content-Type"]), (200, "image/webp"))
+        self.assertEqual(body[:4] + body[8:12], b"RIFFWEBP")
+        self.assertEqual(self.request("GET", "/keypad-images/OMNI-KP-9X-black.webp")[0], 404)
+
     def test_static_rejects_path_traversal(self):
-        for path in ("/static/../server.py", "/static/%2e%2e/server.py", "/vendor/../../README.md"):
+        for path in ("/static/../server.py", "/static/%2e%2e/server.py", "/vendor/../../README.md",
+                     "/keypad-images/../README.md"):
             with self.subTest(path=path):
                 self.assertEqual(self.request("GET", path)[0], 404)
 
@@ -140,15 +147,18 @@ class ServerTests(unittest.TestCase):
     def test_new_project_takes_housing_and_finish(self):
         status, project = self.json_request("POST", "/api/projects", {
             "name": "Desk", "model": "OMNI-KP-6BV", "housing": "tabletop", "finish": "white"})
-        self.assertEqual((status, project["housing"], project["finish"]), (200, "tabletop", "white"), project)
+        # Tabletop keypads only come in black.
+        self.assertEqual((status, project["housing"], project["finish"]), (200, "tabletop", "black"), project)
         status, body = self.json_request("POST", "/api/projects", {"name": "Hall", "housing": "ceiling"})
         self.assertEqual(status, 400, body)
 
     def test_settings_change_housing_and_finish(self):
         self.json_request("POST", "/api/projects", {"name": "Lobby"})
         status, project = self.json_request("POST", "/api/projects/Lobby/settings",
-                                            {"housing": "tabletop", "finish": "white"})
-        self.assertEqual((status, project["housing"], project["finish"]), (200, "tabletop", "white"), project)
+                                            {"housing": "wall", "finish": "white"})
+        self.assertEqual((status, project["housing"], project["finish"]), (200, "wall", "white"), project)
+        status, project = self.json_request("POST", "/api/projects/Lobby/settings", {"housing": "tabletop"})
+        self.assertEqual((status, project["housing"], project["finish"]), (200, "tabletop", "black"), project)
         self.assertEqual(self.json_request("POST", "/api/projects/Lobby/settings", {"finish": "red"})[0], 400)
         self.assertEqual(self.json_request("POST", "/api/projects/Lobby/settings", {})[0], 400)
 
@@ -278,6 +288,10 @@ class ServerTests(unittest.TestCase):
         self.json_request("POST", "/api/keypad/locate", {"host": "127.0.0.1", "on": False})
         self.assertEqual(self.json_request("POST", "/api/keypad/locating", {"host": "127.0.0.1"}),
                          (200, {"locating": False}))
+
+    def test_keypad_status_reports_the_model(self):
+        self.assertEqual(self.json_request("POST", "/api/keypad/status", {"host": "127.0.0.1"}),
+                         (200, {"model": self.keypad.params["/configuration/device/model"]["value"]}))
 
     def test_locate_needs_on_as_true_or_false(self):
         status, result = self.json_request("POST", "/api/keypad/locate", {"host": "127.0.0.1", "on": "yes"})
@@ -480,7 +494,7 @@ class ServerTests(unittest.TestCase):
         status, body = self.json_request("POST", "/api/projects/Lobby/deploy",
                                          {"host": "127.0.0.1", "force": True})
         self.assertEqual(status, 409)
-        self.assertEqual(body["error"], "This project is for a 6BV, but the keypad at 127.0.0.1 is a T8BV.")
+        self.assertEqual(body["error"], "This project is for an OMNI-KP-6BV, but the keypad at 127.0.0.1 is an OMNI-KP-T8BV.")
 
     def kp_v_design(self, pages=1):
         """A KP-V design like the one on the test keypad: one page, no buttons."""
@@ -526,7 +540,7 @@ class ServerTests(unittest.TestCase):
         status, body = self.json_request("POST", "/api/projects/from-keypad", {"host": "127.0.0.1"})
         self.assertEqual(status, 400)
         self.assertEqual(body["error"], "The keypad at 127.0.0.1 is an OMNI-KP-9X. "
-                                        "The designer supports the 6B, 6BV, 8BV, V, T6B, T6BV, and T8BV.")
+                                        "The designer supports the OMNI-KP-6B, OMNI-KP-6BV, OMNI-KP-8BV, OMNI-KP-V, OMNI-KP-T6B, OMNI-KP-T6BV, and OMNI-KP-T8BV.")
         self.assertEqual(self.projects.list(), [])
 
     def test_deploy_to_another_model_is_409(self):
@@ -534,7 +548,7 @@ class ServerTests(unittest.TestCase):
         status, body = self.json_request("POST", "/api/projects/Lobby/deploy",
                                          {"host": "127.0.0.1", "force": True})
         self.assertEqual((status, body.get("model")), (409, True))
-        self.assertEqual(body["error"], "This project is for a 6BV, but the keypad at 127.0.0.1 is an 8BV.")
+        self.assertEqual(body["error"], "This project is for an OMNI-KP-6BV, but the keypad at 127.0.0.1 is an OMNI-KP-8BV.")
         self.assertEqual(self.keypad.files[DESIGN_PATH], self.data)
 
     def test_old_project_deploys_to_an_8bv(self):
@@ -570,7 +584,7 @@ class ServerTests(unittest.TestCase):
         self.assertEqual(status, 409)
         self.assertIs(body["model"], True)
         self.assertEqual(body["error"],
-                         "This backup is for a 6BV, but the keypad at 127.0.0.1 is an 8BV.")
+                         "This backup is for an OMNI-KP-6BV, but the keypad at 127.0.0.1 is an OMNI-KP-8BV.")
         self.assertEqual(self.keypad.files[DESIGN_PATH], self.data)
 
     def test_restore_kp_v_backup_with_two_pages_is_400(self):

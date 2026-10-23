@@ -3,10 +3,10 @@
 // are solid. Front always draws over Back, and a warning shows when one Back
 // layer hides another.
 
-import { CENTRE, clampPosition } from "./model.js";
+import { CENTRE, clampPosition, stateName } from "./model.js";
 import {
   isBack, layerNames, layerSummary, addLayerTo, setLayerAt, removeLayerAt, moveInGroup, coverage,
-  imageFills, SHRINK_SIZE, defaultLayerFor,
+  imageFills, SHRINK_SIZE, defaultLayerFor, resizedSize,
 } from "./recipe.js";
 import { createLayerSettings, layerBounds, icon, escapeHtml } from "./layer-settings.js";
 
@@ -20,6 +20,7 @@ export function createLayers({ root, catalog, iconTags, onChange, onSelect, onSt
   let state = "off";
   let selected = -1;
   let origin = null;
+  let resizeFrom = null;
 
   const form = document.createElement("form");
   form.className = "settings";
@@ -30,7 +31,7 @@ export function createLayers({ root, catalog, iconTags, onChange, onSelect, onSt
   });
 
   const layers = () => recipe.states[state]?.layers ?? [];
-  const STATE = () => state.toUpperCase();
+  const STATE = () => stateName(state);
 
   function commit(next, label, rerender = true) {
     recipe = next;
@@ -157,6 +158,19 @@ export function createLayers({ root, catalog, iconTags, onChange, onSelect, onSt
       const y = clampPosition(origin.y + dy);
       settings.syncPosition(x, y);
       commit(setLayerAt(recipe, state, selected, { x, y }), null, false);
+    },
+    // Resizes the selection from its corner handle; see resizedSize.
+    resizeSelected({ dx, dy, first }) {
+      const layer = layers()[selected];
+      if (!layer) return;
+      if (first || !resizeFrom) {
+        const box = layerBounds(layer, layer.type === "image" ? imageSize(layer.src) : null);
+        resizeFrom = box && { layer, box };
+      }
+      if (!resizeFrom) return;
+      const size = resizedSize(resizeFrom.layer, resizeFrom.box, dx, dy);
+      settings.syncSize(size);
+      commit(setLayerAt(recipe, state, selected, { size }), null, false);
     },
   };
 }

@@ -5,7 +5,7 @@
 // { version: 2, name, editor?, states: { off, on, alt? } }, where each state
 // is { layers: [...] } and alt is present only when the button has an ALT state.
 
-import { SIZE, CENTRE, FONTS, STATES } from "./model.js";
+import { SIZE, CENTRE, FONTS, STATES, FILL, shapeColours, stateName } from "./model.js";
 
 export const BACK = ["shape", "image"];
 const WHITE = "#FFFFFF";
@@ -18,15 +18,14 @@ export function blankRecipe(name = "") {
 }
 
 // A new layer. It starts the same in every state: you decide how each state
-// looks. Icons and text are white, and a shape draws its colour's dim picture
-// (art "off"; "on" is the bright one).
+// looks. Icons and text are white, and a shape is a Fill in its colour's dim
+// shade (art "off"; "on" is the bright one).
 export function defaultLayerFor(type, catalog, state, name = "") {
   const colour = WHITE;
   switch (type) {
     case "shape": {
-      const set = Object.keys(catalog.shapes)[0];
-      const colours = Object.keys(catalog.shapes[set] || {});
-      return { type, set, colour: colours.includes("Blue") ? "Blue" : colours[0], art: "off", visible: true };
+      const colours = Object.keys(shapeColours(catalog, FILL));
+      return { type, set: FILL, colour: colours.includes("Blue") ? "Blue" : colours[0], art: "off", visible: true };
     }
     case "icon":
       return { type, icon: "circle", colour, stroke: 2, size: 80, x: CENTRE, y: CENTRE, visible: true };
@@ -64,7 +63,7 @@ export function fitsSimple(recipe) {
   for (const state of STATES) {
     const layers = recipe.states[state]?.layers;
     if (!layers) continue;
-    const STATE = state.toUpperCase();
+    const STATE = stateName(state);
     for (const type of PARTS) {
       const count = layers.filter((l) => l.type === type).length;
       if (count > 1) {
@@ -136,8 +135,9 @@ function imageName(layer) {
   return layer.file || (layer.src ? "Uploaded image" : "No image");
 }
 
-const shapeName = (layer) =>
-  `${layer.set} · ${layer.tint ? "Custom" : layer.colour}, ${layer.art === "on" ? "bright" : "dim"}`;
+// A custom Fill is one flat colour, so it has no dim or bright picture.
+const shapeName = (layer) => (layer.set === FILL && layer.tint ? `${FILL} · Custom`
+  : `${layer.set} · ${layer.tint ? "Custom" : layer.colour}, ${layer.art === "on" ? "bright" : "dim"}`);
 
 // The summary line under a part's name in Simple.
 export function partSummary(recipe, state, type) {
@@ -187,6 +187,23 @@ export function imageFills(layer, { width, height }) {
   const scale = layer.size / Math.max(width, height);
   const [w, h] = [width * scale, height * scale];
   return layer.x - w / 2 <= 0 && layer.x + w / 2 >= SIZE && layer.y - h / 2 <= 0 && layer.y + h / 2 >= SIZE;
+}
+
+// Each sized layer type's smallest and largest size, in 188 units: the Size
+// slider's range.
+export const SIZE_LIMITS = { icon: [12, SIZE], text: [8, 80], image: [SIZE / 10, SIZE * 2] };
+
+// The size a drag on the selection's corner handle gives a layer. box is the
+// layer's bounds when the drag started, and dx and dy are how far the handle
+// has moved since, in 188 units. The layer's x and y stay put, so it grows or
+// shrinks around them: the corner follows the handle along the line from x, y.
+export function resizedSize(layer, box, dx, dy) {
+  const vx = box[0] + box[2] - layer.x;
+  const vy = box[1] + box[3] - layer.y;
+  const length = vx * vx + vy * vy;
+  const factor = length ? ((vx + dx) * vx + (vy + dy) * vy) / length : 1;
+  const [min, max] = SIZE_LIMITS[layer.type];
+  return Math.round(Math.max(min, Math.min(max, layer.size * factor)));
 }
 
 // The size Shrink gives a covering image, so the shape shows around it.

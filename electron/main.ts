@@ -10,6 +10,7 @@ import * as path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { AppDialogs } from './app-dialog';
 import { INITIAL_MENU_STATE, type MenuCommand, menuTemplate, parseMenuState } from './app-menu';
+import { contextMenuTemplate } from './context-menu';
 import { dataFolderNotice, lastDataDirFile, readLastDataDir, writeLastDataDir } from './data-folder';
 import { LicenseClient } from './license/license';
 import { runLicensing } from './license/license-ui';
@@ -130,6 +131,10 @@ function createWindow(url: string): BrowserWindow {
     if (!shortcut) { return; }
     event.preventDefault();
     runShortcut(win, shortcut);
+  });
+  win.webContents.on('context-menu', (_event, params) => {
+    const template = contextMenuTemplate(params);
+    if (template.length) { Menu.buildFromTemplate(template).popup({ window: win }); }
   });
   win.once('ready-to-show', () => win.show());
 

@@ -3,7 +3,7 @@
 // editing. It also drives the States rail. You edit one state at a time, and
 // that state is the one the keypad shows.
 
-import { STATES } from "./model.js";
+import { STATES, stateName } from "./model.js";
 import { fitsSimple, viewFor, copyState, startAlt, removeAlt } from "./recipe.js";
 import { renderRecipe } from "./render.js";
 import { createRail } from "./rail.js";
@@ -46,8 +46,8 @@ export function createEditor({ root, railRoot, catalog, iconTags, onChange, onSt
     <div class="empty-alt" hidden>
       <h3 class="title-sm">No ALT state yet<span class="dot">.</span></h3>
       <p class="note">ALT shows when the control system sets this button to Alt. Start it from an existing state, or from blank.</p>
-      <button type="button" class="btn-dark" data-start-alt="off">Start from OFF</button>
-      <button type="button" class="btn-outline" data-start-alt="on">Start from ON</button>
+      <button type="button" class="btn-dark" data-start-alt="off">Start from Off</button>
+      <button type="button" class="btn-outline" data-start-alt="on">Start from On</button>
       <button type="button" class="btn-outline quiet" data-start-alt="">Start blank</button>
     </div>
     <p class="help pad-x" data-hint>Need two lines of text, a second icon or a different order? Switch to Layers.</p>
@@ -102,7 +102,7 @@ export function createEditor({ root, railRoot, catalog, iconTags, onChange, onSt
       onStatus("Removed the ALT state. When you save, this button has no ALT image on the keypad.");
     },
     onDrag: (drag) => {
-      views[mode].moveSelected(drag);
+      views[mode][drag.resize ? "resizeSelected" : "moveSelected"](drag);
       renderRail();
     },
   });
@@ -139,7 +139,7 @@ export function createEditor({ root, railRoot, catalog, iconTags, onChange, onSt
       if (!el.hidden) view.render(recipe, state);
     }
     $("[data-hint]").hidden = blankAlt || mode !== "simple" || !recipe;
-    $("[data-chip]").textContent = state.toUpperCase();
+    $("[data-chip]").textContent = stateName(state);
     $("[data-copy-state]").disabled = blankAlt;
     renderToggle();
     renderRail();
@@ -149,10 +149,10 @@ export function createEditor({ root, railRoot, catalog, iconTags, onChange, onSt
     menu.hidden = !menuOpen;
     $("[data-copy-state]").classList.toggle("open", menuOpen);
     if (!menuOpen) return;
-    const S = state.toUpperCase();
+    const S = stateName(state);
     const rows = STATES.filter((s) => s !== state).map((to) => [`to:${to}`,
-      `Copy the ${S} state to ${to.toUpperCase()}`,
-      recipe.states[to] ? `Replaces the current ${to.toUpperCase()} parts` : `Creates the ${to.toUpperCase()} state`]);
+      `Copy the ${S} state to ${stateName(to)}`,
+      recipe.states[to] ? `Replaces the current ${stateName(to)} parts` : `Creates the ${stateName(to)} state`]);
     rows.push(["button:state", `Copy the ${S} state to another button…`, "Then click a button on the keypad"]);
     rows.push(["button:all", "Copy all states to another button…", "Then click a button on the keypad"]);
     menu.innerHTML = rows.map(([act, text, sub]) => `<button type="button" role="menuitem" data-menu="${act}">
@@ -181,7 +181,7 @@ export function createEditor({ root, railRoot, catalog, iconTags, onChange, onSt
       const [kind, value] = button.dataset.menu.split(":");
       closeMenu();
       if (kind === "to") {
-        const [from, to] = [state.toUpperCase(), value.toUpperCase()];
+        const [from, to] = [stateName(state), stateName(value)];
         change(copyState(recipe, state, value), `copying ${from} to ${to}`);
       } else {
         onCopyToButton(value);
@@ -189,7 +189,7 @@ export function createEditor({ root, railRoot, catalog, iconTags, onChange, onSt
     } else if (button.dataset.startAlt !== undefined) {
       const from = button.dataset.startAlt || null;
       change(startAlt(recipe, from), "starting ALT");
-      onStatus(from ? `Started ALT from ${from.toUpperCase()}. You can now change ALT on its own.` : "Started a blank ALT state.");
+      onStatus(from ? `Started ALT from ${stateName(from)}. You can now change ALT on its own.` : "Started a blank ALT state.");
     }
   });
 

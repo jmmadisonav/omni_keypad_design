@@ -35,11 +35,11 @@ input[type="range"] { accent-color: var(--red); width: 100%; }
 
 /* -- Shared controls ------------------------------------------------------------- */
 
-.label { display: flex; justify-content: space-between; font-size: 11px; font-weight: 700;
-         letter-spacing: .08em; text-transform: uppercase; color: var(--grey); }
-.label .value { font-weight: 400; letter-spacing: 0; text-transform: none; }
-.label-sm { font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
-.overline { font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted);
+.label { display: flex; justify-content: space-between; font-size: 12px; font-weight: 700;
+         color: var(--grey); }
+.label .value { font-weight: 400; }
+.label-sm { font-size: 12px; font-weight: 700; }
+.overline { font-size: 12px; color: var(--muted);
             white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .help { font-size: 12px; color: var(--muted); margin: 0; }
 .help.error { color: var(--red); }
@@ -56,33 +56,33 @@ select.field { padding: 0 8px; }
 .row-between { display: flex; justify-content: space-between; align-items: center; }
 
 .ghost { height: 34px; padding: 0 10px; border: 0; background: transparent; font-size: 12px;
-         font-weight: 700; letter-spacing: .06em; text-transform: uppercase; white-space: nowrap;
+         font-weight: 700; white-space: nowrap;
          transition: background 200ms; }
 .ghost:hover { background: var(--light); }
 .ghost.faded { opacity: .4; }
 .primary { display: flex; align-items: center; gap: 20px; height: 38px; padding: 0 18px; border: 0;
            background: var(--red); color: var(--white); font-size: 12px; font-weight: 700;
-           letter-spacing: .08em; text-transform: uppercase; white-space: nowrap; transition: background 200ms; }
+           white-space: nowrap; transition: background 200ms; }
 .primary:hover { background: var(--red-hover); }
 .primary.off { background: var(--control); cursor: not-allowed; }
 .btn-outline { display: inline-flex; align-items: center; justify-content: center; height: 34px;
                padding: 0 12px; border: 1px solid var(--slate); background: var(--white);
-               font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
+               font-size: 12px; font-weight: 700;
                white-space: nowrap; transition: background 200ms; }
 .btn-outline:hover { background: var(--light); }
 .btn-outline.small { height: 30px; padding: 0 10px; flex: none; }
 .btn-outline.wide { flex: 1; height: 36px; font-size: 12px; }
 .btn-dark { height: 34px; padding: 0 12px; border: 1px solid var(--slate); background: var(--slate);
-            color: var(--white); font-size: 12px; font-weight: 700; letter-spacing: .06em;
-            text-transform: uppercase; transition: background 200ms; }
+            color: var(--white); font-size: 12px; font-weight: 700;
+            transition: background 200ms; }
 .btn-dark:hover { background: var(--grey); }
 .btn-dark.small { height: 32px; font-size: 11px; }
 .btn-danger { flex: none; height: 36px; padding: 0 14px; border: 1px solid var(--red); background: var(--white);
-              color: var(--red); font-size: 12px; font-weight: 700; letter-spacing: .06em;
-              text-transform: uppercase; white-space: nowrap; transition: background 200ms; }
+              color: var(--red); font-size: 12px; font-weight: 700;
+              white-space: nowrap; transition: background 200ms; }
 .btn-danger:hover { background: var(--red-tint); }
-.link-red { border: 0; background: none; padding: 0; color: var(--red); font-size: 11px; font-weight: 700;
-            letter-spacing: .06em; text-transform: uppercase; transition: color 200ms; }
+.link-red { border: 0; background: none; padding: 0; color: var(--red); font-size: 12px; font-weight: 700;
+            transition: color 200ms; }
 .link-red:hover { color: var(--red-dark); }
 .link-quiet { border: 0; background: none; padding: 0; font-size: 11px; color: var(--muted); }
 .link-quiet.current { color: var(--slate); }
@@ -101,7 +101,7 @@ select.field { padding: 0 8px; }
         font-weight: 700; letter-spacing: .06em; white-space: nowrap; }
 .chip.missing { border-color: var(--red); color: var(--red); }
 .chip-error, .chip-check, .chip-done { flex: none; padding: 2px 6px; background: var(--red); color: var(--white);
-             font-size: 10px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
+             font-size: 11px; font-weight: 700; }
 .chip-done { background: var(--slate); }
 .unsaved-mark { flex: none; display: inline-block; width: 7px; height: 7px; background: var(--red); }
 
@@ -118,14 +118,16 @@ select.field { padding: 0 8px; }
 .device-area { position: relative; }
 .device { display: flex; align-items: center; height: 38px; border: 1px solid var(--control); }
 .device-label { display: flex; align-items: center; gap: 8px; height: 100%; padding: 0 10px;
-                border-right: 1px solid var(--light); font-size: 10px; letter-spacing: .08em;
-                text-transform: uppercase; color: var(--grey); }
+                border-right: 1px solid var(--light); font-size: 11px;
+                color: var(--grey); }
 .conn { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); }
 .conn.on { background: var(--green); }
 .host { width: 112px; height: 100%; padding: 0 10px; border: 0; background: transparent; font-size: 14px; outline: none; }
+/* A photo of the keypad that answers, cropped to the keypad. */
+.keypad-photo { flex: none; height: 30px; max-width: 40px; margin-right: 8px; object-fit: contain; }
 .host.bad { color: var(--red); text-decoration: underline wavy var(--red); }
 .device-btn { height: 100%; padding: 0 12px; border: 0; border-left: 1px solid var(--light); background: transparent;
-              font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
+              font-size: 12px; font-weight: 700;
               white-space: nowrap; transition: background 200ms; }
 .device-btn:hover:not(:disabled) { background: var(--light); }
 .device-btn.on { color: var(--red); }
@@ -185,7 +187,7 @@ body.busy .lockable { opacity: .4; pointer-events: none; }
              border-radius: 0; font-size: 14px; outline: none; }
 .tab-input.invalid { border-color: var(--red); }
 .add-page { height: 40px; padding: 0 12px; border: 0; background: transparent; color: var(--grey); font-size: 12px;
-            font-weight: 700; letter-spacing: .06em; text-transform: uppercase; white-space: nowrap; transition: color 200ms; }
+            font-weight: 700; white-space: nowrap; transition: color 200ms; }
 .add-page:hover { color: var(--red); }
 .add-page.full { color: var(--muted); cursor: not-allowed; }
 .rename-error { font-size: 12px; color: var(--red); }
@@ -225,8 +227,12 @@ body.busy .lockable { opacity: .4; pointer-events: none; }
 .key.selected { outline: 2px solid var(--red); outline-offset: 3px; }
 .key.drop-target { outline: 3px dashed var(--drop); }
 .key.dragging { opacity: .4; }
-.key .changed { position: absolute; top: 4px; left: 4px; width: 7px; height: 7px; background: var(--red);
-                box-shadow: 0 0 0 1px #000; pointer-events: none; }
+/* The unsaved-changes badge sits on the button's top-left corner, half off the
+   face, so it can't be mistaken for part of the button's artwork. */
+.key .changed { position: absolute; top: 0; left: 0; z-index: 1; display: grid; place-items: center;
+                width: 16px; height: 16px; transform: translate(-50%, -50%); border-radius: 50%;
+                background: var(--slate); color: var(--white); box-shadow: 0 0 0 1.5px var(--white), 0 1px 3px rgba(0, 0, 0, .5);
+                pointer-events: none; }
 .key .link-badge { position: absolute; top: 3px; right: 3px; max-width: calc(100% - 6px); padding: 1px 4px;
                    background: var(--red); color: var(--white); font-size: 9px; font-weight: 700; line-height: 1.4;
                    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; pointer-events: none; }
@@ -249,8 +255,7 @@ body.busy .lockable { opacity: .4; pointer-events: none; }
 .led { position: absolute; right: 7%; bottom: 4%; width: 5px; height: 5px; border-radius: 50%;
        background: var(--led); box-shadow: 0 0 5px var(--led); }
 .stage-controls { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 16px; }
-.seg-look button { flex: none; height: 32px; padding: 0 12px; font-size: 11px; font-weight: 700;
-                   letter-spacing: .06em; text-transform: uppercase; }
+.seg-look button { flex: none; height: 32px; padding: 0 12px; font-size: 12px; font-weight: 700; }
 .look-picks { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 
 /* -- Sidebar ----------------------------------------------------------------------- */
@@ -259,7 +264,7 @@ body.busy .lockable { opacity: .4; pointer-events: none; }
            background: var(--white); border-left: 1px solid var(--side-border); }
 .side-tabs { flex: none; display: flex; border-bottom: 1px solid var(--light); }
 .side-tabs button { flex: 1; height: 48px; border: 0; border-bottom: 3px solid transparent; background: var(--white);
-                    font-size: 12px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
+                    font-size: 12px; font-weight: 700; }
 .side-tabs button.current { border-bottom-color: var(--red); }
 .side-panel { flex: 1; min-height: 0; overflow: auto; display: flex; flex-direction: column; }
 .pad { padding: 20px; display: flex; flex-direction: column; gap: 10px; }
@@ -285,24 +290,23 @@ body.busy .lockable { opacity: .4; pointer-events: none; }
 .sel-title [data-name] { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: text; }
 .name-edit { min-width: 0; width: 100%; height: 30px; padding: 0 6px; border: 1px solid var(--slate);
              font-size: 17px; font-weight: 700; outline: none; }
-.changed-tag { flex: none; margin-left: 8px; font-size: 10px; font-weight: 700; letter-spacing: .06em;
-               text-transform: uppercase; color: var(--red); }
+.changed-tag { flex: none; margin-left: 8px; font-size: 11px; font-weight: 700;
+               color: var(--red); }
 .block { display: flex; flex-direction: column; gap: 8px; padding: 16px 20px 0; }
 .block.divided { gap: 14px; margin-top: 16px; padding: 16px 20px; border-top: 1px solid var(--light); }
 
 /* States rail: one tile per state, between the keypad and the sidebar. */
-.rail { flex: none; width: 168px; display: flex; flex-direction: column; gap: 14px; padding: 20px 22px; overflow: auto;
+.rail { flex: none; width: 209px; display: flex; flex-direction: column; gap: 14px; padding: 20px 22px; overflow: auto;
         background: var(--white); border-left: 1px solid var(--light); }
 .rail-label, .label-strong { font-size: 13px; font-weight: 700; color: var(--grey); }
 .rail-state { display: flex; flex-direction: column; gap: 6px; }
 .rail-head { display: flex; align-items: center; justify-content: space-between; font-size: 12px; font-weight: 700;
              color: var(--muted); }
 .rail-state.current .rail-head { color: var(--slate); }
-.rail-mark { width: 8px; height: 8px; background: var(--red); visibility: hidden; }
-.rail-state.current .rail-mark { visibility: visible; }
 .rail-tile { position: relative; width: 124px; height: 124px; padding: 0; border: 0; background: var(--page-bg, #000); overflow: hidden;
-             outline-offset: 2px; touch-action: none; }
-.rail-state.current .rail-tile { outline: 2px solid var(--slate); }
+             outline-offset: 2px; touch-action: none; transition: width 0.15s, height 0.15s; }
+/* The current state's tile is a third bigger, so it's easier to drag on. */
+.rail-state.current .rail-tile { width: 165px; height: 165px; outline: 2px solid var(--slate); }
 .rail-tile canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
 .rail-tile.empty { background: var(--white); border: 1px dashed var(--muted); }
 .rail-tile.movable { cursor: move; }
@@ -310,11 +314,13 @@ body.busy .lockable { opacity: .4; pointer-events: none; }
            color: var(--grey); }
 .remove-alt { align-self: flex-start; }
 .layer-box { position: absolute; outline: 1px dashed var(--red); pointer-events: none; }
+.resize-handle { position: absolute; width: 10px; height: 10px; transform: translate(-100%, -100%);
+                 background: var(--white); border: 2px solid var(--red); box-sizing: border-box; cursor: nwse-resize; }
 
 /* Editor header and Copy state */
 .ed-head { display: flex; align-items: flex-start; gap: 12px; padding: 16px 20px; border-bottom: 1px solid var(--light); }
 .ed-title { flex: 1; min-width: 0; }
-.ed-title .overline { font-size: 12px; letter-spacing: 0; text-transform: none; }
+.ed-title .overline { font-size: 12px; }
 .state-chip { flex: none; margin-left: 8px; padding: 2px 6px; background: var(--slate); color: var(--white);
               font-size: 10px; font-weight: 700; letter-spacing: .06em; }
 .ed-actions { flex: none; display: flex; flex-direction: column; align-items: flex-end; gap: 8px; }
@@ -434,8 +440,8 @@ label.btn-outline { cursor: pointer; }
 .drawer-bar { flex: none; display: flex; align-items: center; gap: 12px; height: 36px; padding-right: 12px;
               background: #252526; border-bottom: 1px solid #3c3c3c; font-size: 12px; }
 .drawer-tab { display: flex; align-items: center; gap: 6px; height: 100%; padding: 0 14px; border: 0;
-              border-top: 2px solid var(--red); background: #1e1e1e; color: #ffffff; font-size: 11px;
-              font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
+              border-top: 2px solid var(--red); background: #1e1e1e; color: #ffffff; font-size: 12px;
+              font-weight: 700; }
 .drawer.collapsed .drawer-tab { border-top-color: transparent; background: transparent; color: #cccccc; }
 .drawer-tabs { display: flex; height: 100%; }
 .drawer-tab:not(.current) { border-top-color: transparent; background: transparent; color: #cccccc; }
@@ -448,7 +454,7 @@ label.btn-outline { cursor: pointer; }
 .drawer-warn { display: flex; align-items: center; gap: 8px; min-width: 0; color: #e5c07b; white-space: nowrap;
                overflow: hidden; text-overflow: ellipsis; }
 .drawer-btn { flex: none; height: 24px; padding: 0 10px; border: 1px solid #3c3c3c; background: #2d2d2d; color: #cccccc;
-              font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }
+              font-size: 12px; font-weight: 700; }
 .drawer-btn:hover { background: #37373d; color: #ffffff; }.drawer-body { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) clamp(240px, 34%, 440px); }
 .drawer.collapsed .drawer-body, .drawer.collapsed .drawer-btn, .drawer.collapsed .drawer-warn { display: none; }
 .drawer.collapsed .debug-body, .drawer.collapsed .debug-status { display: none; }
@@ -458,9 +464,8 @@ label.btn-outline { cursor: pointer; }
 .dbg-error .src { color: #f48771; }
 .drawer-pane { min-height: 0; display: flex; flex-direction: column; }
 .notes-pane { background: #252526; border-left: 1px solid #3c3c3c; }
-.pane-title { flex: none; padding: 8px 14px 6px; color: #bbbbbb; font-size: 11px; font-weight: 700;
-              letter-spacing: .08em; text-transform: uppercase; }
-.pane-sub { margin-left: 8px; color: #858585; font-weight: 400; letter-spacing: 0; text-transform: none; }
+.pane-title { flex: none; padding: 8px 14px 6px; color: #bbbbbb; font-size: 12px; font-weight: 700; }
+.pane-sub { margin-left: 8px; color: #858585; font-weight: 400; }
 .hc-code { flex: 1; min-height: 0; overflow: auto; padding-bottom: 12px; font: 12.5px/1.6 var(--mono); }
 .code-row { display: flex; align-items: flex-start; padding-right: 8px; }
 .code-row:hover { background: #2a2d2e; }
@@ -530,7 +535,7 @@ label.btn-outline { cursor: pointer; }
 .modal-content .field { height: 38px; padding: 0 12px; font-size: 15px; }
 .modal-actions { display: flex; justify-content: flex-end; gap: 10px; padding: 0 24px 24px; }
 .modal-actions .secondary { height: 40px; padding: 0 18px; border: 1px solid var(--slate); background: var(--white);
-                            font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }
+                            font-size: 12px; font-weight: 700; }
 .modal-actions .primary { height: 40px; gap: 16px; }
 .summary-row { display: flex; justify-content: space-between; gap: 12px; padding: 8px 0; border-bottom: 1px solid var(--light);
                font-size: 14px; }

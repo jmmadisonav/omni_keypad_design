@@ -2,15 +2,16 @@
 
 OMNI Keypad Designer is where you design button images for an OMNI keypad and
 deploy them to it. It's a Windows desktop app with its own installer. Each
-button gets an OFF and an ON image, and optionally an ALT image. You design
+button gets an Off and an On image, and optionally an ALT image. You design
 each of these states on its own. The images are 188x188 pixels on the 8BV and
 150x150 on the 6B and 6BV; the designer renders them at the project's size, so
 you lay out buttons the same way on every model.
 
 Each state is built from four parts, drawn from back to front:
 
-- **Background:** a base shape from `docs/Keypad Graphics.zip` (Squared,
-  Bubble, or Circle 45) in any of its colours, or a colour of your own.
+- **Background:** a flat **Fill** colour, or a base shape from
+  `docs/Keypad Graphics.zip` (Squared, Bubble, or Circle 45), in any of the
+  Keypad Graphics colours or a colour of your own.
 - **Image:** a PNG or SVG of your own, such as a logo. It fills the button and
   covers the background.
 - **Icon:** any of more than 1,800 Lucide icons.
@@ -74,15 +75,16 @@ you can move anything you saved in the meantime across.
    new project named after the keypad, for example `172-17-0-55 2026-10-06`.
 1. Click a button on the keypad view. Until you do, the keypad has the whole
    window. The **States** rail next to the keypad
-   shows its OFF, ON, and ALT images. Click a state to edit it. The keypad
+   shows its Off, On, and ALT images. Click a state to edit it. The keypad
    shows that state on every button, and the **Button** tab shows that
    state's parts only. A button that wasn't made in the designer opens with
    its existing artwork in the Image part.
 1. Turn parts on with their switches, and click a part to change it. Each
-   state keeps its own settings, so ON can have a different icon, colour, or
-   text from OFF. A part that differs from OFF is marked **≠ OFF**. To move
+   state keeps its own settings, so On can have a different icon, colour, or
+   text from Off. A part that differs from Off is marked **≠ Off**. To move
    the open part, drag it on the selected state in the rail, or change **X**
-   and **Y**.
+   and **Y**. To resize it, drag the handle on its outline's bottom-right
+   corner, or change **Size**. It grows and shrinks around its **X** and **Y**.
 
    To start from finished artwork, open the **Library** tab and pick a
    ready-made button. To rename the button, double-click its name at the top
@@ -93,17 +95,19 @@ you can move anything you saved in the meantime across.
    half for bright. You choose this for each state. Nothing changes it for you.
    To use your own colour instead, click **+** after the colour swatches, and
    pick **Dim** or **Bright**. The designer recolours the set's grey artwork,
-   so the shape keeps its shading.
+   so the shape keeps its shading. **Fill**, the first choice, has the same
+   swatches and **+**, and paints the colour flat across the whole button.
 
-   New parts start the same in every state: a dim Blue background, and white
-   icons and text.
+   New parts start the same in every state: a dim Blue Fill background, and
+   white icons and text.
 1. To make another state match this one, click **Copy state** and choose a
    state. To copy this state, or every state, to another button, choose
    **Copy the {state} state to another button…** or **Copy all states to
    another button…**, and then click the button. You can switch pages first.
    The other button keeps its name and page link.
-1. Repeat for other buttons and pages. A red square marks each changed button,
-   and one next to the project name means there are unsaved changes.
+1. Repeat for other buttons and pages. A pencil badge on a button's top-left
+   corner marks each changed button, and a red square next to the project name
+   means there are unsaved changes.
 1. Click **File > Save**, or press Ctrl+S. You don't need a keypad for any of these steps.
 1. To put the project on a keypad, enter its IP address and click **Deploy**.
    The designer saves first if needed. The keypad restarts with the project
@@ -119,15 +123,15 @@ each slot.
 
 ### The ALT state
 
-Each button has a third state, ALT, next to OFF and ON. Your code sets it
+Each button has a third state, ALT, next to Off and On. Your code sets it
 over HControl with `"value":"Alt"` on the button's `state` path. Most designs
 don't use it, so a button has no ALT state until you add one.
 
 To give a button an ALT state, do the following:
 
 1. Select the button, and click **+ Add ALT** in the States rail.
-1. Click **Start from OFF**, **Start from ON**, or **Start blank**.
-1. Change ALT's parts. They're separate from OFF and ON.
+1. Click **Start from Off**, **Start from On**, or **Start blank**.
+1. Change ALT's parts. They're separate from Off and On.
 
 A button gets an ALT image on the keypad only once it has an ALT state, even
 a blank one. To take a button's ALT image off the keypad, click **Remove ALT**
@@ -197,6 +201,11 @@ from or deployed to, the designer asks before it replaces it.
 
 ### Locate or reset a keypad
 
+When the keypad at the IP address in the header answers, a green dot lights
+and a photo of its model shows next to the address. The photo uses the open
+project's finish when the project is for that keypad, and black otherwise:
+the keypad doesn't report its finish.
+
 To see which keypad has the IP address in the header, click **Locate**. The
 keypad's LED ring cycles for about 8 minutes, the same as Locate in AVX. To
 stop it sooner, click **Stop locating**. The button changes back by itself
@@ -206,7 +215,7 @@ To reset a keypad to its default settings, click **Keypad > Reset Keypad**.
 The keypad keeps its firmware version.
 The designer asks first, and backs up the keypad's design unless you clear
 **Back up the keypad's design first**. The keypad loses its design and
-restarts. If it had a fixed IP address, it might come back with another one;
+restarts, and then its buttons show the keypad's default design. If it had a fixed IP address, it might come back with another one;
 to find it, click **Scan**. To put the design back, deploy a project or
 restore the backup.
 
@@ -274,8 +283,9 @@ Under the keypad view, two controls set how the keypad looks:
 - **Wall | Tabletop** sets the housing. The tabletop T6B and T6BV turn the
   screen sideways, so their buttons are 3 across. Choose it in **New Project**, or
   change it any time.
-- **Black | White** sets the finish, such as OMNI-KP-T8BV-BL or -WH. It only
-  changes the preview.
+- **Black | White** sets the finish, such as OMNI-KP-8BV-BL or -WH. It only
+  changes the preview. Tabletop keypads only come in black, so a tabletop
+  project is always black.
 
 The housing and finish are saved with the project straight away.
 

@@ -4,7 +4,7 @@
 import { getJson, sendJson, assetUrl } from "./api.js";
 import {
   gridFor, buttonKey, recipeFromImages, isBlank, fileStem, buttonNameError, nameFromImage, imageSizeFor,
-  statesOf, knobOnly, keypadAddress,
+  statesOf, stateName, knobOnly, keypadAddress,
 } from "./model.js";
 import { renderRecipe, toBase64, loadIcons } from "./render.js";
 import { clearRecipe, copyStateFrom, copyAllStates } from "./recipe.js";
@@ -132,6 +132,12 @@ function designImage(pageId, button, key) {
 function openRecipe(pageId, button) {
   const key = keyOf(pageId, button);
   if (state.edits.has(key)) return state.edits.get(key);
+  return lastSavedRecipe(pageId, button);
+}
+
+// The button as last saved: its saved recipe, or the keypad's own artwork.
+function lastSavedRecipe(pageId, button) {
+  const key = keyOf(pageId, button);
   if (state.recipes.has(key)) return structuredClone(state.recipes.get(key));
   const file = ["offImage", "onImage", "altImage"].map((k) => imageNames(pageId, button, k)[0]).find(Boolean);
   return recipeFromImages(designImage(pageId, button, "offImage"), designImage(pageId, button, "onImage"),
@@ -333,6 +339,7 @@ function renderKeypad() {
       const mark = document.createElement("span");
       mark.className = "changed";
       mark.title = "Unsaved changes";
+      mark.innerHTML = icon("pencil", 9);
       cell.append(mark);
     }
     const target = destinationOf(state.layout, pageId, button);
@@ -379,7 +386,7 @@ function setView(view) {
 // Housing (wall or tabletop) and finish (black or white) change how the keypad
 // view draws the project. They're saved straight away and never deployed.
 const LOOK_STATUS = {
-  housing: { wall: "Showing a wall keypad.", tabletop: "Showing a tabletop keypad." },
+  housing: { wall: "Showing a wall keypad.", tabletop: "Showing a tabletop keypad. Tabletop keypads only come in black." },
   finish: { black: "Showing the black finish.", white: "Showing the white finish. The finish only changes the preview." },
 };
 
@@ -387,14 +394,18 @@ async function setLook(key, value) {
   if (!state.project || state.project[key] === value) return;
   try {
     const project = await sendJson("POST", `${projectUrl(state.project.name)}/settings`, { [key]: value });
-    state.project[key] = project[key];
+    state.project.housing = project.housing;
+    state.project.finish = project.finish;        // A tabletop is always black.
   } catch (error) {
     return setStatus(`Couldn't change the ${key}: ${error.message}`, true);
   }
   renderLook();
   renderKeypad();
+  renderKeypadPhoto();
   setStatus(LOOK_STATUS[key][value]);
 }
+
+const BLACK_ONLY = "Tabletop keypads only come in black";
 
 function renderLook() {
   for (const key of ["housing", "finish"]) {
@@ -402,6 +413,9 @@ function renderLook() {
       button.classList.toggle("current", button.dataset[key] === state.project?.[key]);
     }
   }
+  const white = $("finish").querySelector('[data-finish="white"]');
+  white.disabled = state.project?.housing === "tabletop";
+  white.title = white.disabled ? BLACK_ONLY : "";
 }
 
 // The separator colour is part of the design: it's saved with the project and deployed.
@@ -710,9 +724,38 @@ function onEdit(recipe, label) {
   setEdit(sel.pageId, sel.button, recipe);
 }
 
+// Whether two recipes give a button the same name and artwork. Simple or
+// Layers is only how you edit it, so it doesn't count.
+const sameDesign = (a, b) =>
+  JSON.stringify([a.name || "", a.states]) === JSON.stringify([b.name || "", b.states]);
+
 function clearButton() {
   const sel = state.selected;
+  const key = keyOf(sel.pageId, sel.button);
   const recipe = clearRecipe(editor.getRecipe());
+  const saved = lastSavedRecipe(sel.pageId, sel.button);
+  // Clearing a button back to how it was saved, such as a blank button you
+  // added to, drops its changes, so it isn't marked changed.
+  if (sameDesign(recipe, saved)) {
+    if (!state.edits.has(key)) {
+      setStatus(`Button ${sel.button} is already blank.`);
+      return;
+    }
+    record(`clearing button ${sel.button}`);
+    state.edits.delete(key);
+    state.previews.delete(key);
+    editor.setRecipe(saved, { keep: true });
+    updateHeader();
+    renderKeypad();
+    renderSelectionHead();
+    setStatus(`Cleared button ${sel.button}. It's blank, as it was when you last saved.`);
+    return;
+  }
+  // A blank button has nothing to clear, so it isn't marked changed.
+  if (isKeyBlank(sel.pageId, sel.button)) {
+    setStatus(`Button ${sel.button} is already blank.`);
+    return;
+  }
   record(`clearing button ${sel.button}`);
   editor.setRecipe(recipe, { keep: true });
   setEdit(sel.pageId, sel.button, recipe);
@@ -740,7 +783,7 @@ function renderPick() {
   $("pick-banner").hidden = !pick;
   if (pick) {
     $("pick-text").textContent = pick.scope === "all" ? "Click a button to copy all states to it."
-      : `Click a button to copy the ${pick.view.toUpperCase()} state to it.`;
+      : `Click a button to copy the ${stateName(pick.view)} state to it.`;
   }
   renderKeypad();
 }
@@ -760,7 +803,7 @@ async function pickButton(pageId, button) {
   await setEdit(pageId, button, next);
   const [fromName, toName] = [nameOrNumber(from.pageId, from.button), nameOrNumber(pageId, button)];
   setStatus(scope === "all" ? `Copied all states of ${fromName} to ${toName}.`
-    : `Copied ${view.toUpperCase()} from ${fromName} to ${toName}.`);
+    : `Copied ${stateName(view)} from ${fromName} to ${toName}.`);
 }
 
 // -- HControl drawer -------------------------------------------------------------------
@@ -1173,7 +1216,7 @@ function renderPageSettings() {
   const omni = (project?.bindings ?? []).filter((b) => b.kind === "omni").length;
   $("binding-banner").hidden = !omni || state.unbind;
   $("binding-text").textContent = `${omni} control${omni === 1 ? " is" : "s are"} bound to OMNI devices, ` +
-    "so they aren't available over HControl. See the PAGE tab.";
+    "so they aren't available over HControl. See the Page tab.";
   if (!project) return;
   const page = state.layout.pages.find((p) => p.id === state.pageId);
   $("page-title").textContent = page?.name ?? "Page";
@@ -1257,6 +1300,69 @@ function commitStep() {
 
 const separatorChanged = () => state.separator.value !== state.separator.saved;
 
+// The photo next to the IP address: the keypad that answers, in the open
+// project's finish when the project is for that keypad, and black otherwise.
+// Tabletop keypads are only black. A model with no photo shows none.
+function keypadPhoto() {
+  const id = state.keypadModel;
+  if (!state.connected || !id) return null;
+  const tabletop = Object.values(state.models).some((m) => (m.aliases || []).includes(id));
+  const project = state.project;
+  const forThis = project && (project.model === id || (model()?.aliases || []).includes(id));
+  const finish = !tabletop && forThis && project.finish === "white" ? "white" : "black";
+  return { src: `/keypad-images/${id}-${finish}.webp`, title: `${id}, ${finish}` };
+}
+
+const photos = new Map();      // src -> Promise<data URL of the trimmed photo, or null>
+
+// The photos have wide margins, so each is cropped to the keypad: the pixels
+// that are neither see-through nor near white.
+function trimmedPhoto(src) {
+  if (!photos.has(src)) {
+    photos.set(src, new Promise((resolve) => {
+      const img = new Image();
+      img.onerror = () => resolve(null);
+      img.onload = () => {
+        const scale = Math.min(1, 400 / Math.max(img.naturalWidth, img.naturalHeight));
+        const [w, h] = [Math.round(img.naturalWidth * scale), Math.round(img.naturalHeight * scale)];
+        const canvas = document.createElement("canvas");
+        [canvas.width, canvas.height] = [w, h];
+        const ctx = canvas.getContext("2d");
+        ctx.drawImage(img, 0, 0, w, h);
+        const d = ctx.getImageData(0, 0, w, h).data;
+        let [left, top, right, bottom] = [w, h, -1, -1];
+        for (let y = 0; y < h; y++) {
+          for (let x = 0; x < w; x++) {
+            const i = (y * w + x) * 4;
+            if (d[i + 3] < 24 || (d[i] > 240 && d[i + 1] > 240 && d[i + 2] > 240)) continue;
+            left = Math.min(left, x); right = Math.max(right, x);
+            top = Math.min(top, y); bottom = Math.max(bottom, y);
+          }
+        }
+        if (right < 0) return resolve(src);       // Nothing to crop to: use it as it is.
+        const out = document.createElement("canvas");
+        [out.width, out.height] = [right - left + 1, bottom - top + 1];
+        out.getContext("2d").drawImage(canvas, left, top, out.width, out.height, 0, 0, out.width, out.height);
+        resolve(out.toDataURL("image/png"));
+      };
+      img.src = src;
+    }));
+  }
+  return photos.get(src);
+}
+
+let shownPhoto = null;
+async function renderKeypadPhoto() {
+  const photo = keypadPhoto();
+  const el = $("keypad-photo");
+  shownPhoto = photo?.src ?? null;
+  if (!photo) { el.hidden = true; return; }
+  const data = await trimmedPhoto(photo.src);
+  if (shownPhoto !== photo.src) return;           // Another keypad or finish since.
+  el.hidden = !data;
+  if (data) { el.src = data; el.title = photo.title; }
+}
+
 function updateHeader() {
   const open = Boolean(state.project);
   const unsaved = pendingChanges() > 0;
@@ -1293,6 +1399,7 @@ function updateHeader() {
     : !state.connected ? notConnected() : "";
   document.body.classList.toggle("busy", Boolean(state.busy));
   $("conn").classList.toggle("on", state.connected);
+  renderKeypadPhoto();
   $("find-list").hidden = state.keypads.length < 2;
   $("find-list").innerHTML = icon("chevron-down", 14);
   sendMenuState();
@@ -1421,23 +1528,34 @@ async function newProject() {
   looks.className = "look-picks";
   // A model with no tabletop housing, such as the OMNI-KP-V, offers only the finish.
   const wallOnly = () => state.models[chosen].tabletop === null;
+  const tabletop = () => view.housing === "tabletop" && !wallOnly();
+  if (tabletop()) view.finish = "black";
   const renderLooks = () => {
     const picks = [["housing", "Housing", HOUSINGS], ["finish", "Finish", FINISHES]];
     looks.innerHTML = picks.filter(([key]) => key !== "housing" || !wallOnly()).map(([key, label, options]) => `
       <div class="stack"><span class="label">${label}</span><div class="seg" role="group" aria-label="${label}">${
-        options.map(([value, text]) => `<button type="button" data-${key}="${value}"
-          class="${view[key] === value ? "current" : ""}">${text}</button>`).join("")}</div></div>`).join("");
+        options.map(([value, text]) => {
+          const blackOnly = key === "finish" && value === "white" && tabletop();
+          return `<button type="button" data-${key}="${value}" class="${view[key] === value ? "current" : ""}"${
+            blackOnly ? ` disabled title="${BLACK_ONLY}"` : ""}>${text}</button>`;
+        }).join("")}</div></div>`).join("");
   };
   looks.addEventListener("click", (event) => {
     const pick = event.target.closest("[data-housing], [data-finish]");
     if (!pick) return;
     if (pick.dataset.housing) view.housing = pick.dataset.housing;
     else view.finish = pick.dataset.finish;
+    if (tabletop()) view.finish = "black";
     renderLooks();
   });
   models.addEventListener("click", (event) => {
     const option = event.target.closest("[data-model]");
-    if (option) { chosen = option.dataset.model; renderModels(); renderLooks(); }
+    if (option) {
+      chosen = option.dataset.model;
+      if (tabletop()) view.finish = "black";
+      renderModels();
+      renderLooks();
+    }
   });
   renderModels();
   renderLooks();
@@ -1677,7 +1795,8 @@ function notConnected() {
 }
 
 // Light the green dot once the keypad at the typed address answers, half a
-// second after you stop typing. Only the newest check counts.
+// second after you stop typing, and note its model for the header's photo.
+// Only the newest check counts.
 let checkTimer = null;
 let checkCount = 0;
 function checkKeypad() {
@@ -1686,13 +1805,15 @@ function checkKeypad() {
   if (!address) return;
   checkTimer = setTimeout(async () => {
     const check = ++checkCount;
+    let model;
     try {
-      await sendJson("POST", "/api/keypad/locating", { host: address });
+      ({ model } = await sendJson("POST", "/api/keypad/status", { host: address }));
     } catch {
       return;                                      // No answer: the dot stays off.
     }
-    if (check !== checkCount || host() !== address || state.connected) return;
+    if (check !== checkCount || host() !== address) return;
     state.connected = true;
+    state.keypadModel = model;
     updateHeader();
   }, 500);
 }
@@ -1712,7 +1833,7 @@ async function loadFromKeypad() {
   try {
     const project = await sendJson("POST", "/api/projects/from-keypad", { host: address });
     state.connected = true;
-    state.keypadModel = project.model;
+    state.keypadModel ||= project.model;          // Keep the id it reported, such as a tabletop's.
     showProject(project);
     setStatus(`Imported ${address} into new project "${project.name}". A copy is saved in Keypad > Backups.`);
   } catch (error) {
@@ -1897,7 +2018,7 @@ async function runDeploy(address, force) {
     const res = await sendJson("POST", `${projectUrl(name)}/deploy`, { host: address, force });
     remember("designer.host", address);
     state.connected = true;
-    state.keypadModel = state.project.model;
+    state.keypadModel ||= state.project.model;    // Keep the id it reported, such as a tabletop's.
     state.project.baseFingerprint = res.fingerprint;
     state.project.lastDeployed = res.deployed;
     renderLastDeployed();
@@ -1963,7 +2084,7 @@ async function openBackups(select = "") {
       row.type = "button";
       const text = el("span", "option-text");
       const date = el("span", "backup-date", formatDate(b.saved));
-      date.append(el("span", `tag ${b.kind}`, KIND_TAGS[b.kind].toUpperCase()));
+      date.append(el("span", `tag ${b.kind}`, KIND_TAGS[b.kind]));
       text.append(date, el("span", "backup-file", `${b.name} · ${b.model || "unknown model"}`));
       row.append(el("span", "radio"), text, el("span", "backup-size", formatSize(b.size)));
       row.addEventListener("click", () => { selected = b.name; render(); });
@@ -2078,7 +2199,7 @@ async function resetKeypad() {
     showModal({
       title: "Reset keypad",
       body: `This resets the keypad at ${address} to its default settings, and keeps its firmware. It loses its design and ` +
-            "restarts. If it had a fixed IP address, it might come back with another one: to find it, click Scan.",
+            "restarts, and then its buttons show the keypad's default design. If it had a fixed IP address, it might come back with another one: to find it, click Scan.",
       content: [keep],
       secondary: { text: "Cancel", onClick: () => done(null) },
       primary: { text: "Reset keypad", onClick: () => done({ backUp: box.checked }) },
@@ -2093,7 +2214,8 @@ async function resetKeypad() {
     const { backup } = await sendJson("POST", "/api/keypad/reset", { host: address, backUp: reset.backUp });
     state.connected = false;
     const saved = backup ? ` Its design is saved as ${backup}: to put it back, click Keypad > Backups.` : "";
-    showModal({ title: "Reset keypad", content: [result(true, `The keypad at ${address} is resetting.${saved}`)],
+    showModal({ title: "Reset keypad", content: [result(true, `The keypad at ${address} is resetting. When it restarts, its buttons show the ` +
+                `keypad's default design, not yours.${saved}`)],
                 secondary: { text: "Close", onClick: closeModal } });
     setStatus(`Reset ${address} to its default settings.${saved}`);
   } catch (error) {

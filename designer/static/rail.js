@@ -1,10 +1,11 @@
 // The States rail between the keypad and the sidebar: one tile per state.
 // Clicking a tile picks the state you edit, which is also the state the
-// keypad shows. Dragging on the active tile moves the selected part or layer:
-// onDrag gets the distance from where the drag started, in 188 units, and
-// first is true on its first move.
+// keypad shows, and makes its tile bigger. Dragging on the active tile moves
+// the selected part or layer, and dragging the handle on its box's corner
+// resizes it: onDrag gets the distance from where the drag started, in 188
+// units, first, which is true on its first move, and resize.
 
-import { SIZE, STATES } from "./model.js";
+import { SIZE, STATES, stateName } from "./model.js";
 import { paintInto, clearPainted } from "./render.js";
 
 const pct = (value) => `${(value / SIZE) * 100}%`;
@@ -17,10 +18,11 @@ export function createRail({ root, catalog, onPick, onRemoveAlt, onDrag }) {
     <span class="rail-label">States</span>
     ${STATES.map((s) => `
       <div class="rail-state" data-rail="${s}">
-        <div class="rail-head"><span>${s.toUpperCase()}</span><span class="rail-mark" aria-hidden="true"></span></div>
-        <button type="button" class="rail-tile" data-pick="${s}" aria-label="Edit the ${s.toUpperCase()} state">
+        <div class="rail-head"><span>${stateName(s)}</span></div>
+        <button type="button" class="rail-tile" data-pick="${s}" aria-label="Edit the ${stateName(s)} state">
           <canvas width="${SIZE}" height="${SIZE}"></canvas>
           <span class="layer-box" hidden></span>
+          <span class="resize-handle" title="Drag to resize" hidden></span>
           ${s === "alt" ? `<span class="add-alt">+ Add ALT</span>` : ""}
         </button>
         ${s === "alt" ? `<button type="button" class="link-quiet remove-alt" data-remove-alt
@@ -44,14 +46,21 @@ export function createRail({ root, catalog, onPick, onRemoveAlt, onDrag }) {
     root.querySelector("[data-remove-alt]").hidden = !recipe?.states.alt;
   }
 
-  // The selected part or layer's box on the active tile, in 188 units.
+  // The selected part or layer's box on the active tile, in 188 units. The
+  // resize handle sits inside the box's bottom-right corner, or inside the
+  // tile's edge when the box runs past it.
   function setBox(box) {
     for (const s of STATES) {
       const el = tile(s).querySelector(".layer-box");
+      const handle = tile(s).querySelector(".resize-handle");
       const show = Boolean(box) && s === state;
       el.hidden = !show;
+      handle.hidden = !show;
       tile(s).classList.toggle("movable", show);
-      if (show) Object.assign(el.style, { left: pct(box[0]), top: pct(box[1]), width: pct(box[2]), height: pct(box[3]) });
+      if (!show) continue;
+      Object.assign(el.style, { left: pct(box[0]), top: pct(box[1]), width: pct(box[2]), height: pct(box[3]) });
+      const inside = (value) => pct(Math.max(0, Math.min(SIZE, value)));
+      Object.assign(handle.style, { left: inside(box[0] + box[2]), top: inside(box[1] + box[3]) });
     }
   }
 
@@ -61,7 +70,8 @@ export function createRail({ root, catalog, onPick, onRemoveAlt, onDrag }) {
     const t = event.target.closest(".rail-tile");
     if (!t || t.dataset.pick !== state || !t.classList.contains("movable")) return;
     t.setPointerCapture(event.pointerId);
-    drag = { x: event.clientX, y: event.clientY, scale: SIZE / t.getBoundingClientRect().width, moved: false };
+    drag = { x: event.clientX, y: event.clientY, scale: SIZE / t.getBoundingClientRect().width, moved: false,
+             resize: Boolean(event.target.closest(".resize-handle")) };
   });
   root.addEventListener("pointermove", (event) => {
     if (!drag) return;
@@ -70,7 +80,7 @@ export function createRail({ root, catalog, onPick, onRemoveAlt, onDrag }) {
     if (!drag.moved && Math.hypot(dx, dy) < 2) return;
     const first = !drag.moved;
     drag.moved = true;
-    onDrag({ dx, dy, first });
+    onDrag({ dx, dy, first, resize: drag.resize });
   });
   // The click that ends a drag isn't a pick. Only a click straight after the
   // drag is ignored, so a drag that ends without one never eats a later click.

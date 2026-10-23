@@ -44,7 +44,7 @@ code, kbd { font-family: var(--mono); font-size: 14px; background: var(--code-bg
 kbd { border: 1px solid var(--line); border-bottom-width: 2px; }
 table { width: 100%; border-collapse: collapse; margin: 12px 0 20px; font-size: 15px; }
 th, td { text-align: left; vertical-align: top; padding: 8px 10px; border-bottom: 1px solid var(--line); }
-th { font-size: 12px; letter-spacing: .06em; text-transform: uppercase; color: var(--grey); }
+th { font-size: 13px; color: var(--grey); }
 .note { border-left: 3px solid var(--red); background: var(--code-bg); padding: 10px 14px; margin: 16px 0; }
 .note p { margin: 0; }
 @media (max-width: 860px) {
@@ -83,7 +83,7 @@ th { font-size: 12px; letter-spacing: .06em; text-transform: uppercase; color: v
 <h1>User guide<span>.</span></h1>
 <p class="lead">Design button images for an OMNI keypad, and deploy them to it.</p>
 
-<p>Each button has an OFF and an ON image, and optionally an ALT image. You
+<p>Each button has an Off and an On image, and optionally an ALT image. You
 design each of these states on its own. The designer draws the images at the
 size your keypad needs, so you lay out buttons the same way on every model.
 The designer runs on your computer and doesn't need internet access.</p>
@@ -104,7 +104,7 @@ your most recent project.</p>
     <b>Deploy</b> buttons.</li>
   <li><b>The keypad view</b> shows the page you're working on, with the page
     tabs above it and the keypad model just above the keypad.</li>
-  <li><b>The States rail</b> shows the OFF, ON, and ALT images of the selected
+  <li><b>The States rail</b> shows the Off, On, and ALT images of the selected
     button.</li>
   <li><b>The sidebar</b> has the <b>Keypad</b>, <b>Page</b>, <b>Button</b>, and
     <b>Library</b> tabs.</li>
@@ -130,8 +130,8 @@ your most recent project.</p>
     its IP address in the header, or click <b>Scan</b>, and then click
     <b>Import</b>. That saves the design as a new project named after the
     keypad, for example <code>172-17-0-55 2026-10-06</code>.</li>
-  <li>Click a button on the keypad view. The <b>States</b> rail shows its OFF,
-    ON, and ALT images.</li>
+  <li>Click a button on the keypad view. The <b>States</b> rail shows its Off,
+    On, and ALT images.</li>
   <li>Click a state in the rail to edit it. The keypad shows that state on
     every button, and the <b>Button</b> tab shows that state's parts.</li>
   <li>Turn parts on with their switches, and click a part to change it.</li>
@@ -139,8 +139,9 @@ your most recent project.</p>
 
 <p>Each state is built from four parts, drawn from back to front:</p>
 <ul>
-  <li><b>Background:</b> a base shape (Squared, Bubble, or Circle 45) in a
-    Keypad Graphics colour, or a colour of your own.</li>
+  <li><b>Background:</b> a flat <b>Fill</b> colour, or a base shape (Squared,
+    Bubble, or Circle 45), in a Keypad Graphics colour or a colour of your
+    own.</li>
   <li><b>Image:</b> a PNG or SVG of your own, such as a logo. It fills the
     button and covers the background.</li>
   <li><b>Icon:</b> any of more than 1,800 icons.</li>
@@ -148,12 +149,14 @@ your most recent project.</p>
     Oswald.</li>
 </ul>
 
-<p>Each state keeps its own settings, so ON can have a different icon, colour,
-or text from OFF. A part that differs from OFF is marked <b>≠ OFF</b>. New parts
-start the same in every state: a dim blue background, and white icons and
-text.</p>
+<p>Each state keeps its own settings, so On can have a different icon, colour,
+or text from Off. A part that differs from Off is marked <b>≠ Off</b>. New parts
+start the same in every state: a dim blue Fill background, and white icons
+and text.</p>
 
 <p>To move the open part, drag it on the selected state in the rail, or change
+<b>X</b> and <b>Y</b>. To resize it, drag the handle on its outline's
+bottom-right corner, or change <b>Size</b>. It grows and shrinks around its
 <b>X</b> and <b>Y</b>.</p>
 
 <h3>Choose a background colour</h3>
@@ -163,6 +166,8 @@ choose this for each state.</p>
 <p>To use your own colour, click <b>+</b> after the swatches, and pick
 <b>Dim</b> or <b>Bright</b>. The designer recolours the shape's grey artwork,
 so it keeps its shading.</p>
+<p><b>Fill</b>, the first choice, has the same swatches and <b>+</b>, and paints
+the colour flat across the whole button, with no shading.</p>
 
 <h3>Copy a state</h3>
 <p>To make another state of this button match the one you're editing, click
@@ -184,8 +189,9 @@ position. To show another page while you drag, drag over that page's tab.</p>
 
 <h2 id="deploy">Save and deploy</h2>
 
-<p>A red square marks each button you've changed since you last saved. A red
-square next to the project name means the project has unsaved changes.</p>
+<p>A pencil badge on a button's top-left corner marks each button you've changed
+since you last saved. A red square next to the project name means the project
+has unsaved changes.</p>
 
 <ul>
   <li>To save, click <b>File &gt; Save</b>, or press <kbd>Ctrl+S</kbd>. You
@@ -220,9 +226,9 @@ one.</p>
 <p>To give a button an ALT state, do the following:</p>
 <ol>
   <li>Select the button, and click <b>+ Add ALT</b> in the States rail.</li>
-  <li>Click <b>Start from OFF</b>, <b>Start from ON</b>, or <b>Start
+  <li>Click <b>Start from Off</b>, <b>Start from On</b>, or <b>Start
     blank</b>.</li>
-  <li>Change ALT's parts. They're separate from OFF and ON.</li>
+  <li>Change ALT's parts. They're separate from Off and On.</li>
 </ol>
 
 <p>To take a button's ALT image off the keypad, click <b>Remove ALT</b> under
@@ -298,7 +304,8 @@ buttons.</p>
 
 <h3>Housing and finish</h3>
 <p>Under the keypad view, <b>Wall | Tabletop</b> sets the housing, and
-<b>Black | White</b> sets the finish. The finish only changes the preview. Both
+<b>Black | White</b> sets the finish. The finish only changes the preview.
+Tabletop keypads only come in black, so a tabletop project is always black. Both
 are saved with the project straight away.</p>
 
 <h2 id="models">Keypad models</h2>
@@ -375,6 +382,10 @@ backup.</p>
 
 <h2 id="locate">Locate or reset a keypad</h2>
 
+<p>When the keypad at the IP address in the header answers, a green dot lights
+and a photo of its model shows next to the address. The photo uses the open
+project's finish when the project is for that keypad, and black otherwise: the
+keypad doesn't report its finish.</p>
 <p>To see which keypad has the IP address in the header, click <b>Locate</b>.
 The keypad's LED ring cycles for about 8 minutes. To stop it sooner, click
 <b>Stop locating</b>. The button changes back by itself when the keypad
@@ -389,7 +400,8 @@ keeps its firmware version.</p>
     design first</b> selected.</li>
   <li>Click <b>Reset keypad</b>.</li>
 </ol>
-<p>The keypad loses its design and restarts. If it had a fixed IP address, it
+<p>The keypad loses its design and restarts, and then its buttons show the
+keypad's default design. If it had a fixed IP address, it
 might come back with another one; to find it, click <b>Scan</b>. To put the
 design back, deploy a project or restore the backup.</p>
 

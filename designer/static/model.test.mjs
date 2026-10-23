@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
-  SIZE, CENTRE, buttonKey, shapeFiles, recipeFromImages, searchIcons, fitWithin, gridFor, knobOnly,
+  SIZE, CENTRE, stateName, buttonKey, shapeFiles, shapeColours, FILL, recipeFromImages, searchIcons, fitWithin, gridFor, knobOnly,
   keypadAddress,
 } from "./model.js";
 
@@ -14,6 +14,10 @@ const catalog = {
   buttons: {},
 };
 
+test("stateName keeps ALT in capitals", () => {
+  assert.deepEqual(["off", "on", "alt"].map(stateName), ["Off", "On", "ALT"]);
+});
+
 test("buttonKey joins page and button", () => {
   assert.equal(buttonKey(1, 3), "1-3");
 });
@@ -23,6 +27,13 @@ test("shapeFiles finds files or returns null", () => {
     { off: "Bubble/A_OFF.png", on: "Bubble/A_ON.png" });
   assert.equal(shapeFiles(catalog, "Bubble", "Pink"), null);
   assert.equal(shapeFiles(catalog, "Nope", "Aqua"), null);
+});
+
+test("Fill offers the Squared colours", () => {
+  assert.deepEqual(shapeColours(catalog, FILL), catalog.shapes.Squared);
+  assert.equal(shapeFiles(catalog, FILL, "Black").off, "Squared/K.png");
+  assert.deepEqual(shapeColours({ shapes: { Bubble: catalog.shapes.Bubble } }, FILL), catalog.shapes.Bubble);
+  assert.deepEqual(shapeColours(catalog, "Nope"), {});
 });
 
 test("recipeFromImages gives each state one full-size image layer with its own image", () => {

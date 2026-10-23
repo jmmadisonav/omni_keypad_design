@@ -1,6 +1,6 @@
 // Draws a version 2 recipe onto a 188x188 canvas for the OFF, ON or ALT state.
 
-import { SIZE, shapeFiles, tintPixels, tintSource, statesOf } from "./model.js";
+import { SIZE, CENTRE, FILL, shapeFiles, tintPixels, tintSource, statesOf } from "./model.js";
 import { assetUrl } from "./api.js";
 
 const images = new Map();       // src -> Promise<HTMLImageElement>
@@ -58,6 +58,21 @@ function tintedShape(src, colour) {
   return tinted.get(key);
 }
 
+const centres = new Map();      // src -> Promise<CSS colour>
+
+// The colour at the centre of shape artwork, which a Fill paints flat.
+function centreColour(src) {
+  if (!centres.has(src)) {
+    centres.set(src, loadImage(src).then((img) => {
+      const ctx = blankCanvas().getContext("2d");
+      ctx.drawImage(img, 0, 0, SIZE, SIZE);
+      const [r, g, b] = ctx.getImageData(CENTRE, CENTRE, 1, 1).data;
+      return `rgb(${r}, ${g}, ${b})`;
+    }));
+  }
+  return centres.get(src);
+}
+
 function iconSource(name, size, colour, stroke) {
   const inner = iconMarkup(name);
   if (inner === null) return null;
@@ -71,6 +86,15 @@ function iconSource(name, size, colour, stroke) {
 async function drawLayer(ctx, layer, catalog) {
   switch (layer.type) {
     case "shape": {
+      if (layer.set === FILL) {
+        const files = shapeFiles(catalog, FILL, layer.colour);
+        const colour = /^#[0-9a-f]{6}$/i.test(layer.tint || "") ? layer.tint
+          : files && await centreColour(assetUrl(files[layer.art]));
+        if (!colour) return;
+        ctx.fillStyle = colour;
+        ctx.fillRect(0, 0, SIZE, SIZE);
+        return;
+      }
       const grey = tintSource(catalog, layer.set);
       if (grey && /^#[0-9a-f]{6}$/i.test(layer.tint || "")) {
         ctx.drawImage(await tintedShape(assetUrl(grey[layer.art]), layer.tint), 0, 0, SIZE, SIZE);

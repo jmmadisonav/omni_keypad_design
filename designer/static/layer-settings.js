@@ -2,8 +2,9 @@
 // edited. Simple shows them inside an open part; Layers shows them under the
 // layer list.
 
-import { SIZE, MAX_IMPORT, FONTS, searchIcons, fitWithin, clampPosition, tintSource } from "./model.js";
+import { SIZE, MAX_IMPORT, FONTS, FILL, stateName, shapeColours, shapeFiles, searchIcons, fitWithin, clampPosition, tintSource } from "./model.js";
 import { assetUrl } from "./api.js";
+import { SIZE_LIMITS } from "./recipe.js";
 
 const ICON_LIMIT = 64;
 // Common AV icons, shown before you search.
@@ -13,7 +14,8 @@ const POPULAR = ["house", "laptop", "monitor", "tv", "projector", "presentation"
   "chevron-right", "chevron-up", "chevron-down", "settings", "video", "camera", "phone",
   "speaker", "music", "radio", "blinds", "thermometer", "network", "grip", "ban", "activity",
   "audio-lines", "square-play", "star", "users"];
-const SIZES = { icon: [12, SIZE, "px"], text: [8, 80, "px"], image: [10, 200, "%"] };
+const SIZES = { icon: [...SIZE_LIMITS.icon, "px"], text: [...SIZE_LIMITS.text, "px"],
+  image: [...SIZE_LIMITS.image.map((size) => Math.round((size / SIZE) * 100)), "%"] };
 const DEFAULT_TINT = { off: "#9e1328", on: "#e31837" };    // MGE red, darker for the dim picture.
 const ALIGN_ICONS = { left: "text-align-start", center: "text-align-center", right: "text-align-end" };
 
@@ -95,7 +97,7 @@ export function createLayerSettings({ form, catalog, iconTags, onChange, onStatu
   // A colour's swatch: its dim picture on the left and its bright one on the
   // right, each its own choice. A colour with one picture is one choice.
   function swatch(set, colour) {
-    const files = catalog.shapes[set]?.[colour];
+    const files = shapeFiles(catalog, set, colour);
     if (!files) return "";
     const pictures = files.off === files.on ? [["off", ""]] : [["off", ", dim"], ["on", ", bright"]];
     return `<div class="swatch split">${pictures.map(([art, word]) => {
@@ -109,18 +111,20 @@ export function createLayerSettings({ form, catalog, iconTags, onChange, onStatu
   const pictureName = () => (layer.art === "on" ? "bright" : "dim");
 
   function shapeFields() {
-    const sets = Object.keys(catalog.shapes);
+    const sets = [FILL, ...Object.keys(catalog.shapes)];
+    const fill = layer.set === FILL;
     const custom = Boolean(layer.tint);
-    const canTint = Boolean(tintSource(catalog, layer.set));
+    const canTint = fill || Boolean(tintSource(catalog, layer.set));
     const customSwatch = canTint ? `<button type="button" class="swatch custom${custom ? " current" : ""}" data-custom
         title="Custom colour" aria-label="Custom colour"${custom ? ` style="background: ${layer.tint}"` : ""}>${custom ? "" : icon("plus", 14)}</button>` : "";
+    const shade = custom && fill ? "" : `, ${pictureName()}`;
     return `<div class="stack">${label("Shape")}${segmented("set", sets.map((s) => [s, s]), layer.set)}</div>
-      <div class="stack">${label(`Colour · ${custom ? "Custom" : escapeHtml(layer.colour)}, ${pictureName()}`)}
-        <div class="swatch-grid">${Object.keys(catalog.shapes[layer.set] || {}).map((c) =>
+      <div class="stack">${label(`Colour · ${custom ? "Custom" : escapeHtml(layer.colour)}${shade}`)}
+        <div class="swatch-grid">${Object.keys(shapeColours(catalog, layer.set)).map((c) =>
           swatch(layer.set, c)).join("")}${customSwatch}</div>
-        <span class="help">Each swatch has a dim picture on the left and a bright one on the right.${canTint && !custom ? " To pick your own colour, click +." : ""}</span></div>
+        <span class="help">Each swatch has a dim picture on the left and a bright one on the right.${fill ? " Fill paints its colour flat, with no shading." : ""}${canTint && !custom ? " To pick your own colour, click +." : ""}</span></div>
       ${custom ? `<div class="stack">${label("Custom colour")}${colourField(layer.tint, "tint")}
-        ${segmented("art", [["off", "Dim"], ["on", "Bright"]], layer.art)}</div>` : ""}`;
+        ${fill ? "" : segmented("art", [["off", "Dim"], ["on", "Bright"]], layer.art)}</div>` : ""}`;
   }
 
   function imageFields() {
@@ -131,7 +135,7 @@ export function createLayerSettings({ form, catalog, iconTags, onChange, onStatu
         <div class="image-text"><span class="sub">${name}</span></div>
         <label class="btn-outline small">Choose file<input type="file" accept="image/png,image/svg+xml" hidden></label>
       </div>
-      ${view === "simple" ? `<p class="help">A photo or logo for the ${state.toUpperCase()} state. It fills the button and covers the background.</p>` : ""}
+      ${view === "simple" ? `<p class="help">A photo or logo for the ${stateName(state)} state. It fills the button and covers the background.</p>` : ""}
       ${sizeField(layer)}`;
   }
 
@@ -197,8 +201,17 @@ export function createLayerSettings({ form, catalog, iconTags, onChange, onStatu
     if (fy) fy.value = y;
   }
 
+  // Shows a size set elsewhere, such as by the rail's corner handle.
+  function syncSize(size) {
+    const slider = form.querySelector('[name="size"]');
+    if (!slider) return;
+    const value = layer.type === "image" ? Math.round((size / SIZE) * 100) : size;
+    slider.value = value;
+    form.querySelector("[data-size-label]").textContent = `${value} ${layer.type === "image" ? "%" : "px"}`;
+  }
+
   async function importImage(file) {
-    const STATE = state.toUpperCase();
+    const STATE = stateName(state);
     if (!file || !["image/png", "image/svg+xml"].includes(file.type)) {
       onStatus(`${file ? file.name : "That file"} isn't a PNG or SVG. Choose a PNG or SVG file.`, true);
       return;
@@ -274,10 +287,11 @@ export function createLayerSettings({ form, catalog, iconTags, onChange, onStatu
     } else if (button.hasAttribute("data-custom")) {
       if (!layer.tint) change({ tint: DEFAULT_TINT[layer.art] }, true);
     } else if (button.dataset.seg === "set") {
-      const colours = Object.keys(catalog.shapes[button.dataset.value] || {});
+      const set = button.dataset.value;
+      const colours = Object.keys(shapeColours(catalog, set));
       const colour = colours.includes(layer.colour) ? layer.colour : colours.includes("Blue") ? "Blue" : colours[0];
-      const tint = layer.tint && tintSource(catalog, button.dataset.value) ? layer.tint : undefined;
-      change({ set: button.dataset.value, colour, tint }, true);
+      const tint = layer.tint && (set === FILL || tintSource(catalog, set)) ? layer.tint : undefined;
+      change({ set, colour, tint }, true);
     } else if (button.dataset.seg === "art") {
       change({ art: button.dataset.value }, true);
     } else if (button.dataset.seg === "weight") {
@@ -287,5 +301,5 @@ export function createLayerSettings({ form, catalog, iconTags, onChange, onStatu
     }
   });
 
-  return { render, syncPosition };
+  return { render, syncPosition, syncSize };
 }

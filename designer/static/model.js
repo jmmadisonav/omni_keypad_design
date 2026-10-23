@@ -44,6 +44,9 @@ export function imageSizeFor(model, buttonCount) {
 export const FONTS = ["Titillium Web", "Inter", "Roboto", "Oswald"];
 export const STATES = ["off", "on", "alt"];
 
+// A state's name on screen: Off, On, or ALT. File names and HControl use OFF and ON.
+export const stateName = (state) => (state === "alt" ? "ALT" : state[0].toUpperCase() + state.slice(1));
+
 // The images a button has: OFF and ON, plus ALT when it has an ALT state.
 export function statesOf(recipe) {
   return STATES.filter((state) => recipe?.states?.[state]);
@@ -53,8 +56,20 @@ export function buttonKey(page, button) {
   return `${page}-${button}`;
 }
 
+// Fill paints the whole button one flat colour instead of drawing artwork.
+// It offers the Squared set's colours, each the colour at the centre of its
+// artwork, and a custom colour (layer.tint) used as it is.
+export const FILL = "Fill";
+const FILL_PALETTE = "Squared";
+
+// A shape set's colours, { colour: { off, on } }, or {} for an unknown set.
+export function shapeColours(catalog, set) {
+  if (set === FILL) return catalog.shapes[FILL_PALETTE] ?? Object.values(catalog.shapes)[0] ?? {};
+  return catalog.shapes[set] ?? {};
+}
+
 export function shapeFiles(catalog, set, colour) {
-  return catalog.shapes[set]?.[colour] ?? null;
+  return shapeColours(catalog, set)[colour] ?? null;
 }
 
 // A button made of finished artwork: each state with an image gets one
